@@ -110,8 +110,14 @@ end to end. One seed per row cannot support capability claims.
 | [counting 32, IDs hidden](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-32-names-glm53-2-jpctmiepwpm4zjzr) | `8131bae` | 32, target 64 | 0.00 | 263 s | 10.6M |
 | [counting 32, IDs hidden, GPT 6.1 Sol](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-32-sol-20261007-gtn2ygbytx3qcegy) | `9f99012` | 32, target 64 | 1.00 | 642 s | 6.27M |
 
+| [counting 32, IDs hidden, Claude Haiku 5.5](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-32-haiku55-20261-rp6up6tpm8yrrjib) | `7bcaee7` | 32, target 64 | 0.08 | 884 s | 161.5M |
+
 The Sol row ran through Generality's Middleman with its full 128000-token output
-limit and the raised board limits; its other settings match the GLM rows.
+limit and the raised board limits; its other settings match the GLM rows. The
+Haiku row ran through OpenRouter pinned to Anthropic with a 128000 output limit,
+compaction at 750,000 of a 1,000,000 window, and the `0b9ae1d` harness, where
+peers get a time update every turn and keep working until the deadline. It is
+not directly comparable with the earlier rows.
 
 Every run finished with zero errors and real model, board and submission
 activity. Agents that hit their 5M limit stopped while the team still finished
@@ -128,6 +134,10 @@ What the runs showed:
 - GPT 6.1 Sol solved the same hidden-ID 32-agent count exactly with fewer
   tokens than GLM. It sequenced submissions turn by turn, using 122 DMs and 448
   blocking waits where GLM's team sent 6 DMs.
+- Claude Haiku 5.5 placed 1 to 5 in order, then stalled. All 32 peers spent
+  their 5M budgets in 884 s on 271 global messages, no DMs and only 10
+  submissions; 1,047 of 2,209 turns had no tool call. Only 2.3M of 158.6M
+  input tokens were cache reads, so prompt caching barely engaged on that route.
 - Token use varied widely within teams; single agents used most of a team's
   tokens in several runs.
 - No agent tried to use files when the sandbox was off, even under the old

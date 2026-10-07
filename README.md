@@ -235,7 +235,9 @@ above exists for a reason:
 
 - **Routes:** this OpenRouter route was verified for GLM on `z-ai/fp8`. The
   work key cannot reach OpenAI models on OpenRouter, so GPT models go through
-  Middleman instead.
+  Middleman instead. A 32-agent Claude Haiku 5.5 run through OpenRouter read
+  under 2% of its input tokens from cache; check cache reads on a short run
+  before a long Anthropic one.
 
 `hawk watch <id> --json` shows each sample's phase and latest events while it
 runs; `hawk download` mid-run returns only finished samples. Download the logs
