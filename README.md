@@ -192,7 +192,7 @@ models:
     args:
       base_url: https://openrouter.ai/api/v1
       provider: {only: [z-ai/fp8], allow_fallbacks: false}
-      config: {reasoning_effort: xhigh, max_connections: 32}
+      config: {reasoning_effort: xhigh, max_tokens: 131072, max_connections: 32}
 runner:
   cpu: '4'
   memory: 16Gi
@@ -219,8 +219,11 @@ above exists for a reason:
   must use `sandbox_type: k8s`.
 - **Budgets:** set limits per agent and leave the eval-set `token_limit` unset.
   A sample-level cap would stop the team before it is scored.
-- **Output cap:** leave `max_tokens` unset. A peer stops at its first turn
-  without a tool call, so a cap that truncates a turn silently ends that agent.
+- **Output cap:** set `max_tokens` to the route's full output limit (131072
+  for GLM 5.3 Flash on `z-ai/fp8`, 128000 for GPT 6.1 Sol) and budget with
+  per-agent tokens and the team time limit instead. A peer stops at its first
+  turn without a tool call, so a smaller cap that truncates a turn ends that
+  agent.
 - **Concurrency:** Inspect shares one connection pool per model across the
   process, so set `max_connections` to at least the total agents across every
   task in the eval-set. 2 CPU / 8 GiB ran teams of up to eight; 4 CPU / 16 GiB

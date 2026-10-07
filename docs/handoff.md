@@ -160,7 +160,9 @@ Z.AI attribution and the HLE grader were never verified on Hawk.
 
 The 16,000-token output cap in these runs came from Multi-Agent-Bench's
 colouring config. A peer stops at its first turn without a tool call, so a turn
-truncated by the cap ends that agent; later runs leave the cap unset.
+truncated by the cap ends that agent. 4 of the 3,139 GLM responses hit it: three
+in the 32-agent run with IDs visible, each ending its agent, and one in the
+8-agent spelling smoke. Later runs set the route's full output limit.
 
 A 32-agent GPT 6.1 Sol counting run was prepared. Middleman through the Hawk
 token served `gpt-6.1-sol` with a working tool call. The OpenRouter work key

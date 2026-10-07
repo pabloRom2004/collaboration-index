@@ -109,8 +109,10 @@ to speculative abstractions or compatibility shims.
 
 The native compaction setting is 0.75. Verify a new model's effective context,
 provider route and harness consumption before launch. Do not silently select a
-model, reasoning effort or grader. Graders use an explicit `grader` model role;
-there is no fallback to subject self-grading.
+model, reasoning effort or grader. Set `max_tokens` to the full output limit of
+the exact model and route, never a smaller per-turn cap; bound spending with
+per-agent token budgets and the team time limit. Graders use an explicit
+`grader` model role; there is no fallback to subject self-grading.
 
 ## Trusted state and concurrency contracts
 
