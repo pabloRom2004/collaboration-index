@@ -88,7 +88,7 @@ Ruff, mypy and the wheel build. Its first real-model runs are below.
 ## Hawk smoke runs and changes (2026-10-07)
 
 Three Claude sessions worked here in parallel, kept apart by a coordinator
-session. Every run used GLM 5.3 Flash through OpenRouter pinned to `z-ai/fp8`
+session. Unless marked, every run used GLM 5.3 Flash through OpenRouter pinned to `z-ai/fp8`
 with no fallbacks, the OpenRouter work key, `xhigh` reasoning, a 16,000-token
 output cap per turn, 5M tokens per agent, a 60-minute team limit, seed 0, the
 sandbox off and one attempt per row. These smokes show the Hawk path working
@@ -108,6 +108,10 @@ end to end. One seed per row cannot support capability claims.
 | same | `7797eb0` | 8 | 0.95 | 841 s | 25.2M |
 | [counting 32, IDs visible](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-32-glm53-flash-2-g75vuoqtxtejdprc) | `23333f2` | 32, target 64 | 0.03 | 810 s | 3.83M |
 | [counting 32, IDs hidden](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-32-names-glm53-2-jpctmiepwpm4zjzr) | `8131bae` | 32, target 64 | 0.00 | 263 s | 10.6M |
+| [counting 32, IDs hidden, GPT 6.1 Sol](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-32-sol-20261007-gtn2ygbytx3qcegy) | `9f99012` | 32, target 64 | 1.00 | 642 s | 6.27M |
+
+The Sol row ran through Generality's Middleman with its full 128000-token output
+limit and the raised board limits; its other settings match the GLM rows.
 
 Every run finished with zero errors and real model, board and submission
 activity. Agents that hit their 5M limit stopped while the team still finished
@@ -121,6 +125,9 @@ What the runs showed:
   once, so the list was shuffled. With IDs and team size hidden, agents could
   not divide the range, many claimed the same popular blocks, and 28 numbers
   never arrived. They found their two-submission budget by hitting it.
+- GPT 6.1 Sol solved the same hidden-ID 32-agent count exactly with fewer
+  tokens than GLM. It sequenced submissions turn by turn, using 122 DMs and 448
+  blocking waits where GLM's team sent 6 DMs.
 - Token use varied widely within teams; single agents used most of a team's
   tokens in several runs.
 - No agent tried to use files when the sandbox was off, even under the old
