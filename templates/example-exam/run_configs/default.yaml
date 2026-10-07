@@ -1,0 +1,30 @@
+task:
+  task: task.py@toy_exam
+  args:
+    title: Example exam
+    agents: 2
+    condition: collaborative
+    seed: 0
+    token_limit_per_agent: null
+    team_time_limit: null
+    agent: react
+    agent_args: {}
+    artifact_dir: run-artifacts
+    sandbox_enabled: true
+    compaction_threshold: 0.75
+    records_file: questions.json
+    answer_characters: 64000
+    answer_judge: exact
+    max_grader_attempts: 3
+model: null
+model_roles: {}
+generate_config:
+  temperature: null
+  max_tokens: null
+  seed: null
+  max_connections: null
+eval_config:
+  epochs: 1
+  limit: null
+  message_limit: null
+  time_limit: null

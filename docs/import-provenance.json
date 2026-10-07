@@ -1,0 +1,56 @@
+{
+  "board": [
+    {
+      "source": "/Users/pabloromero/Documents/Generality-Labs/Benchmark-Audits/exploitbench-eval/src/exploitbench/message_board/database.py",
+      "source_sha256": "7a6dd4f2677ec51a42185916f268e292ea76fea6ae933023cc5407e9570544b2",
+      "destination": "src/collaboration_index/board/database.py"
+    },
+    {
+      "source": "/Users/pabloromero/Documents/Generality-Labs/Benchmark-Audits/exploitbench-eval/src/exploitbench/message_board/server.py",
+      "source_sha256": "e8cb42124ac8033268569b64198944476a2f582576fbe46be403f33c4bab035d",
+      "destination": "src/collaboration_index/board/server.py"
+    },
+    {
+      "source": "/Users/pabloromero/Documents/Generality-Labs/Benchmark-Audits/exploitbench-eval/src/exploitbench/message_board/client.py",
+      "source_sha256": "7d182be687bb737e295689f862cf3144e58061aad117fdb6ed74bf1997b15d58",
+      "destination": "src/collaboration_index/board/client.py"
+    },
+    {
+      "source": "/Users/pabloromero/Documents/Generality-Labs/Benchmark-Audits/exploitbench-eval/src/exploitbench/message_board/service.py",
+      "source_sha256": "fd7d7d7bff4bbb14129dfaa954d96200f1ac539dd972fc69e8de6bbb850cc8fb",
+      "destination": "src/collaboration_index/board/service.py"
+    },
+    {
+      "source": "/Users/pabloromero/Documents/Generality-Labs/Benchmark-Audits/exploitbench-eval/src/exploitbench/assets/forum/default.yaml",
+      "source_sha256": "3454445319e20a305c05ca174e1a963723c94a7269b2e893b86b47dd0014af10",
+      "destination": "src/collaboration_index/assets/forum/default.yaml"
+    },
+    {
+      "source": "/Users/pabloromero/Documents/Generality-Labs/Benchmark-Audits/exploitbench-eval/src/exploitbench/assets/forum/replay.html",
+      "source_sha256": "b8d3534a5bf482989a1b5d6a9d29197f777e7b0d7f2444f74684da4c27ad1236",
+      "destination": "src/collaboration_index/assets/forum/replay.html"
+    }
+  ],
+  "multi_agent_bench_commit": "a3d55c0679eb08c0b47a9976b5a2bc059d6f9659",
+  "board_source_is_working_tree": true,
+  "hle": {
+    "official_adapter": "https://github.com/UKGovernmentBEIS/inspect_evals/tree/dbd3dd25e81d5f5fc4d19860b496a34176da6c61/src/inspect_evals/hle",
+    "dataset_revision": "5a81a4c7271a2a2a312b9a690f0c2fde837e4c29",
+    "verified_revision": "0bc83643672d4f68a5f89998617a639d85e7318b",
+    "annotation_filter": "Gold subset",
+    "images_included": false,
+    "original_cais_answers": true,
+    "local_real_data_loaded": true,
+    "gold_text_questions": 575
+  },
+  "spelling_pool": {
+    "source": "/Users/pabloromero/Documents/Coding Projects/Multi-Agent-Bench",
+    "destination": "src/collaboration_index/assets/spelling_sentences.txt",
+    "sha256": "3588ff3326bdff1133db609a1d52a024cf51af87fe383eaed496e9a5280b20ce"
+  },
+  "guardrail_tests": {
+    "source": "tests/exploitbench/test_message_board_guardrails.py",
+    "excluded_test": "test_setup_roster_retries_busy_with_stable_id",
+    "reason": "Original benchmark-specific context setup is not imported"
+  }
+}

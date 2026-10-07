@@ -1,0 +1,38 @@
+task:
+  task: collaboration_index/hle_collaboration
+  args:
+    title: HLE collaboration
+    agents: 2
+    condition: collaborative
+    seed: 0
+    token_limit_per_agent: null
+    team_time_limit: null
+    agent: react
+    agent_args: {}
+    artifact_dir: run-artifacts
+    sandbox_enabled: true
+    compaction_threshold: 0.75
+    records_file: null
+    dataset_revision: 5a81a4c7271a2a2a312b9a690f0c2fde837e4c29
+    verified_revision: 0bc83643672d4f68a5f89998617a639d85e7318b
+    gold_only: true
+    question_limit: null
+    answer_characters: 64000
+    answer_judge: hle_json_judge
+    max_grader_attempts: 3
+
+model: null
+
+model_roles: {}
+
+generate_config:
+  temperature: null
+  max_tokens: null
+  seed: null
+  max_connections: null
+
+eval_config:
+  epochs: 1
+  limit: null
+  message_limit: null
+  time_limit: null

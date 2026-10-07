@@ -1,0 +1,8 @@
+[project]
+name = "example-collaboration-exam"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["collaboration-index==0.1.0"]
+
+[tool.uv.sources]
+collaboration-index = { path = "../..", editable = true }

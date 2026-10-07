@@ -1,0 +1,7 @@
+conditions:
+- collaborative
+- oracle_allocation
+dataset_size: 1
+name: counting
+sample_unit: team_attempt
+version: 1-A
