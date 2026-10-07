@@ -59,6 +59,8 @@ def test_counting_team(agents: int, tmp_path: Path) -> None:
     ]
     replay = replay_data(Path(log.location), artifact / "board.jsonl")
     assert replay["team"]["quality"] == 1 and len(replay["agents"]) == agents
+    assert replay["events"]
+    assert replay_data(Path(log.location), None)["events"] == replay["events"]
     assert all(not p["grades"] for p in replay["agents"])
 
 

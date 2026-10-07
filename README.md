@@ -235,16 +235,18 @@ real evaluation logs. Config snapshots, board databases/journals, receipts and
 HTML belong under `run-artifacts/`. The team setup creates a unique
 `team-<uuid>` directory inside the selected artifact directory.
 
-To render a retained run, set `CI_EVAL_FILE` to its `.eval` path and
-`CI_BOARD_JOURNAL` to the matching team's `board.jsonl`:
+To render a retained run, set `CI_EVAL_FILE` to its `.eval` path:
 
 ```bash
 uv run collaboration-replay \
   --eval "${CI_EVAL_FILE:?Set the retained evaluation path}" \
-  --journal "${CI_BOARD_JOURNAL:?Set its matching board journal}" \
   --html run-artifacts/replays/team.html
 uv run collaboration-view --artifacts run-artifacts/replays --port 14368
 ```
+
+The sample store keeps the exported board journal, so a remote run whose
+artifact directory was discarded can still be replayed. Older logs lack it; pass
+their `board.jsonl` with `--journal`.
 
 Create the output directory first if necessary. For repeated epochs, add
 `--epoch <number>` and, when needed, `--sample <sample-id>` to select exactly one
@@ -323,7 +325,13 @@ Every peer verifies the same hostname and run file before inference begins.
 These are bounded prototype settings, not measured minimum resources for
 arbitrary future workloads. Real grading, provider concurrency, cold/warm caches
 and peak CPU/RAM/disk use need measurement before scaling unfamiliar tasks.
-Hawk and alternative sandbox runtimes have not been validated for this project.
+
+Hawk's Compose conversion rejects several of these keys. `sandbox_type=k8s`
+selects [Helm values](src/collaboration_index/assets/sandbox/values.yaml) for the
+`inspect_k8s_sandbox` chart with the same image, user, limits and 16 MiB tmpfs
+mounts. `networkIsolated` denies all egress through Cilium. Hawk's `standard`
+isolation accepts the file and adds its runtime class, labels and node selector.
+Its `strict` level refuses the literal volume definitions.
 
 ### Message board and credentials
 
@@ -375,7 +383,8 @@ real smoke tests, and retain partial work and infrastructure errors.
 | `agent` | `react` | Native ReAct, or a compatible dotted Python factory. |
 | `agent_args` | `{}` | Factory options; trusted tools/lifecycle/model/compaction cannot be replaced here. |
 | `artifact_dir` | `run-artifacts` | Parent of fresh `team-<uuid>` attempt directories. |
-| `sandbox_enabled` | `true` | Shared Docker by default; false is a development control. |
+| `sandbox_enabled` | `true` | Shared sandbox by default; false is a development control. |
+| `sandbox_type` | `docker` | `docker` uses Compose; `k8s` uses the packaged Helm values for Hawk. |
 | `compaction_threshold` | `0.75` | Fraction passed to native `CompactionAuto`. |
 
 An alternate agent factory must accept the injected native tools, `submit`,

@@ -33,9 +33,10 @@ class BoardCall(BaseModel):
 
 
 class BoardHistory(StoreModel):
-    """Keep participant tool results in the sample's checkpointed store."""
+    """Keep participant tool results and the exported board journal in the sample's store."""
 
     calls: list[BoardCall] = Field(default_factory=list)
+    journal: list[dict[str, Any]] | None = None
 
 
 class BoardConnectionError(RuntimeError):

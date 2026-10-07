@@ -53,7 +53,7 @@ motivated the shared-state design but is not imported here.
 | `colouring/dataset.py` | Seeded planted graphs mapped onto fixed peer IDs. |
 | `board/` | Database, authenticated HTTP API, client/tools and process lifecycle. |
 | `replay.py`, `viewer.py` | Trusted-state export and local HTML serving. |
-| `assets/` | Common visualiser, Docker definition, sentence pool and starter. |
+| `assets/` | Common visualiser, Docker and Kubernetes sandboxes, sentence pool and starter. |
 | `smoke.py` | Authored fixture model exercising the full shared infrastructure. |
 | `scaffold.py` | Copies the packaged starter and binds its local core dependency. |
 | `templates/example-exam/` | Installed, independently runnable numbered-answer starter. |
@@ -136,11 +136,12 @@ counts. Some structural fields remain in store/score metadata rather than
 headline aggregates. A completed peer status is not a claim of task correctness.
 
 `collaboration-replay` combines a selected sample/epoch's typed state with its
-matching board journal. Colouring replays carry `topology: graph` with nodes and
-edges; the frontend lays the network out by stress majorization over hop
-distances, colours each dot from the trusted `set_colour` order, and styles each
-edge as proper, clashing or not yet coloured. It validates run and actor identities, omits private
-model histories, and emits one collective result with peer execution statistics.
+board journal, read from `BoardHistory` or an explicit `board.jsonl`. It
+validates run and actor identities, omits private model histories, and emits
+one collective result with peer execution statistics. Colouring replays carry
+`topology: graph` with nodes and edges; the frontend lays the network out by
+stress majorization over hop distances, colours each dot from the trusted
+`set_colour` order, and styles each edge as proper, clashing or not yet coloured.
 HLE grade information is post-hoc. Failed grading becomes JSON null rather than
 invalid JSON NaN. Exported message bodies and submissions remain data; only the
 private histories and answer-key metadata are excluded by this adapter.

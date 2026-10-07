@@ -10,6 +10,7 @@ task:
     agent_args: {}
     artifact_dir: run-artifacts
     sandbox_enabled: false
+    sandbox_type: docker
     compaction_threshold: 0.75
     colours: 3
     topology: random

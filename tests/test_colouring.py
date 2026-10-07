@@ -63,6 +63,8 @@ def test_colouring_team(agents: int, condition: str, tmp_path: Path) -> None:
     assert metrics["direct_messages"] == metrics["message_count"] == expected
     artifact = Path(sample.store["TeamHistory:artifact_dir"])
     replay = replay_data(Path(log.location), artifact / "board.jsonl")
+    # a remote runner's artifact directory is gone, so the stored journal must suffice
+    assert replay_data(Path(log.location), None) == replay
     assert replay["topology"] == "graph"
     assert replay["graph"]["edges"] == edges
     assert len(replay["flags"]) == len(edges)

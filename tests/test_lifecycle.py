@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from inspect_ai import eval as inspect_eval
 from inspect_ai.model import ModelOutput, ModelUsage, get_model
 from inspect_ai.util import Store
@@ -16,6 +17,7 @@ from collaboration_index.game import TeamGame
 from collaboration_index.hle import hle_collaboration
 from collaboration_index.scaffold import create_project
 from collaboration_index.smoke import fixture_model
+from collaboration_index.spelling import spelling
 from collaboration_index.state import TeamHistory
 from collaboration_index.task import defaults
 
@@ -167,6 +169,24 @@ def test_starter_uses_common_core_and_public_defaults(tmp_path: Path) -> None:
         assert config["task"]["args"]["sandbox_enabled"] is (name != "colouring")
         assert config["task"]["args"]["token_limit_per_agent"] is None
         assert config["task"]["args"]["compaction_threshold"] == 0.75
+
+
+def test_sandbox_type_selects_packaged_definition() -> None:
+    """Keep Docker as the default and resolve k8s to the packaged Helm values file."""
+    for name in ("hle", "counting", "spelling", "colouring"):
+        assert defaults(name)["task"]["args"]["sandbox_type"] == "docker"
+    docker = counting(token_limit_per_agent=1).sandbox
+    k8s = spelling(token_limit_per_agent=1, sandbox_type="k8s").sandbox
+    assert docker.type == "docker" and Path(docker.config).name == "compose.yaml"
+    assert k8s.type == "k8s" and Path(k8s.config).name == "values.yaml"
+    compose = yaml.safe_load(Path(docker.config).read_text())
+    values = yaml.safe_load(Path(k8s.config).read_text())
+    assert (
+        values["services"]["default"]["image"]
+        == compose["services"]["default"]["image"]
+    )
+    with pytest.raises(ValueError, match="sandbox_type"):
+        counting(token_limit_per_agent=1, sandbox_type="podman")
 
 
 @pytest.mark.docker

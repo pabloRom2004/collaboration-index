@@ -10,6 +10,7 @@ task:
     agent_args: {}
     artifact_dir: run-artifacts
     sandbox_enabled: true
+    sandbox_type: docker
     compaction_threshold: 0.75
     sentences_file: null
     candidate_count: null

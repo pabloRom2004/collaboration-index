@@ -13,7 +13,7 @@ from collaboration_index.game import clashing_edges, similarity
 
 def replay_data(
     log_path: Path,
-    journal_path: Path,
+    journal_path: Path | None,
     sample_id: str | None = None,
     epoch: int | None = None,
 ) -> dict[str, Any]:
@@ -34,9 +34,13 @@ def replay_data(
     run_id = store["TeamHistory:run_id"]
     peers = store["TeamHistory:peers"]
     actors = [p["id"] for p in peers]
-    events = [
-        json.loads(line) for line in journal_path.read_text().splitlines() if line
-    ]
+    events = (
+        [json.loads(line) for line in journal_path.read_text().splitlines() if line]
+        if journal_path is not None
+        else store.get("BoardHistory:journal")
+    )
+    if events is None:
+        raise ValueError("The log has no stored board journal; pass its board.jsonl")
     if any(e["run"] != run_id or e["actor"] not in actors for e in events):
         raise ValueError("Journal identity differs from the selected team attempt")
     result = store.get("TeamHistory:result", {})
@@ -166,7 +170,7 @@ def replay_data(
 
 def render(
     log_path: Path,
-    journal_path: Path,
+    journal_path: Path | None,
     output: Path,
     sample_id: str | None = None,
     epoch: int | None = None,
@@ -185,7 +189,7 @@ def main() -> None:
     """Render a selected collective log and board journal without reading model transcripts."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--eval", required=True, type=Path)
-    parser.add_argument("--journal", required=True, type=Path)
+    parser.add_argument("--journal", type=Path, help="Defaults to the log's journal")
     parser.add_argument("--html", required=True, type=Path)
     parser.add_argument("--sample")
     parser.add_argument("--epoch", type=int)
