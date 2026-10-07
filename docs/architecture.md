@@ -151,8 +151,12 @@ invalid JSON NaN. Exported message bodies and submissions remain data; only the
 private histories and answer-key metadata are excluded by this adapter.
 
 `collaboration-view` serves ordinary top-level HTML in a chosen directory on
-loopback. It does not serve arbitrary paths, symlink targets, credentials or
-native logs. The portable HTML can also be opened directly after a run ends.
+loopback. It does not serve arbitrary paths, symlink targets or credentials.
+Native logs are served only when `--logs` names a folder, and then only its
+top-level `.eval` files, as downloads; those logs can hold reference answers.
+Each replay header links to its source: the exact sample in the Hawk viewer
+when the log records an eval-set, and the local file under `/logs/`. The
+portable HTML can also be opened directly after a run ends.
 
 ## Extending the suite
 

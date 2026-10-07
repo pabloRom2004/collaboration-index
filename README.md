@@ -241,8 +241,12 @@ To render a retained run, set `CI_EVAL_FILE` to its `.eval` path:
 uv run collaboration-replay \
   --eval "${CI_EVAL_FILE:?Set the retained evaluation path}" \
   --html run-artifacts/replays/team.html
-uv run collaboration-view --artifacts run-artifacts/replays --port 14368
+uv run collaboration-view --artifacts run-artifacts/replays --logs logs --port 14368
 ```
+
+The replay header links to the source `.eval`: for a Hawk run, the sample in
+the Hawk viewer (`--hawk-viewer` sets that viewer's URL); with `--logs`, also
+the local file as a download. Without `--logs`, the viewer serves no logs.
 
 The sample store keeps the exported board journal, so a remote run whose
 artifact directory was discarded can still be replayed. Older logs lack it; pass

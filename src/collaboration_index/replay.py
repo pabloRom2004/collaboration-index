@@ -5,6 +5,7 @@ import json
 import math
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from inspect_ai.log import read_eval_log
 
@@ -34,6 +35,7 @@ def replay_data(
     journal_path: Path | None,
     sample_id: str | None = None,
     epoch: int | None = None,
+    hawk_viewer: str | None = None,
 ) -> dict[str, Any]:
     """Validate one team sample and combine its structural measurements with the board journal."""
     log = read_eval_log(str(log_path), resolve_attachments=False)
@@ -135,6 +137,14 @@ def replay_data(
     )
     return {
         "fixture_verification": log.eval.model.startswith("mockllm/"),
+        # Hawk runs carry their eval-set; the viewer deep link opens this exact sample
+        "source": {
+            "eval_file": log_path.name,
+            "hawk_url": f"{hawk_viewer.rstrip('/')}/eval-set/{log.eval.eval_set_id}"
+            f"#/samples/{log_path.name}/sample/{quote(str(sample.id), safe='')}/{sample.epoch}/"
+            if hawk_viewer and log.eval.eval_set_id
+            else None,
+        },
         "events": events,
         "topology": "graph" if kind == "colouring" else "shared_sandbox",
         "graph": {
@@ -193,11 +203,12 @@ def render(
     output: Path,
     sample_id: str | None = None,
     epoch: int | None = None,
+    hawk_viewer: str | None = None,
 ) -> None:
     """Write a portable replay using the common frontend and safely embedded journal data."""
     template = (Path(__file__).parent / "assets/forum/replay.html").read_text()
     data = json.dumps(
-        replay_data(log_path, journal_path, sample_id, epoch),
+        replay_data(log_path, journal_path, sample_id, epoch, hawk_viewer),
         ensure_ascii=False,
         allow_nan=False,
     ).replace("<", "\\u003c")
@@ -212,8 +223,15 @@ def main() -> None:
     parser.add_argument("--html", required=True, type=Path)
     parser.add_argument("--sample")
     parser.add_argument("--epoch", type=int)
+    parser.add_argument(
+        "--hawk-viewer",
+        default="https://viewer.hawk.hawk.generalitylabs.ai",
+        help="Viewer for logs that record a Hawk eval-set; pass an empty string to omit the link",
+    )
     args = parser.parse_args()
-    render(args.eval, args.journal, args.html, args.sample, args.epoch)
+    render(
+        args.eval, args.journal, args.html, args.sample, args.epoch, args.hawk_viewer
+    )
 
 
 if __name__ == "__main__":

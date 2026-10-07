@@ -10,8 +10,8 @@ from fastapi.responses import FileResponse, HTMLResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 
-def create_viewer(directory: Path) -> FastAPI:
-    """Expose only pre-rendered HTML files, never logs, credentials or artifact directories."""
+def create_viewer(directory: Path, logs: Path | None = None) -> FastAPI:
+    """Expose pre-rendered HTML files and, only when asked, top-level .eval downloads from one folder."""
     directory = directory.resolve()
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
@@ -36,6 +36,23 @@ def create_viewer(directory: Path) -> FastAPI:
             headers=headers,
         )
 
+    @app.get("/logs/{filename}")
+    def native_log(filename: str) -> FileResponse:
+        """Serve one ordinary top-level .eval file from the opted-in logs folder as a download."""
+        # native logs can hold reference answers, so this route exists only with --logs
+        path = (logs.resolve() / filename) if logs else None
+        if (
+            path is None
+            or path.suffix != ".eval"
+            or path.is_symlink()
+            or path.parent != logs.resolve()  # type: ignore[union-attr]
+            or not path.is_file()
+        ):
+            raise HTTPException(404, "Log not found")
+        return FileResponse(
+            path, media_type="application/zip", filename=path.name, headers=headers
+        )
+
     @app.get("/{filename}")
     def replay(filename: str) -> FileResponse:
         """Allow only ordinary top-level HTML replay files inside the selected directory."""
@@ -57,9 +74,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--port", type=int, default=14368)
+    parser.add_argument(
+        "--logs",
+        type=Path,
+        help="Also serve top-level .eval files from this folder for replay source links",
+    )
     args = parser.parse_args()
     uvicorn.run(
-        create_viewer(args.artifacts),
+        create_viewer(args.artifacts, args.logs),
         host="127.0.0.1",
         port=args.port,
         access_log=False,
