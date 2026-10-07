@@ -203,12 +203,12 @@ def team_agents(
                     )
                 elif history.condition == "collaborative":
                     tools.append(message_board(options))
-                    prompt = (
+                    # agents see neither their evaluator ID nor the team size
+                    extra = (
                         COLLABORATE
                         if state.metadata["sandbox_enabled"]
                         else COLLABORATE_NO_SANDBOX
-                    )
-                    extra = prompt.prompt.format(agents=len(actors), actor=record.id)
+                    ).prompt
                 else:
                     if history.benchmark in ("counting", "spelling"):
                         tools.append(oracle_progress(game))
@@ -225,7 +225,9 @@ def team_agents(
                     message.model_copy(deep=True) for message in state.messages
                 ] + [
                     ChatMessageUser(
-                        content=extra, metadata={"team_run": history.run_id}
+                        content=extra,
+                        # message metadata stays controller-side; it is never sent to the model
+                        metadata={"team_run": history.run_id, "team_actor": record.id},
                     )
                 ]
                 runner = factory(

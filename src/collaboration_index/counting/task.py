@@ -43,7 +43,7 @@ def counting(
         raise ValueError("The per-agent quota must permit the team to reach its target")
     sample = Sample(
         id=f"counting-{goal}-seed-{seed}",
-        input=f"Count together from 1 to {goal} in exact order. submit_number(number) appends one integer to a hidden shared list. No agent can read, edit, delete or reorder it. Incorrect numbers remain and occupy slots. Each agent has at most {quota} accepted submissions. The attempt ends at {goal} entries or the time/budget boundary. The score is 1 minus the edit distance from 1..{goal}, divided by {goal}, floored at zero.",
+        input=f"Count together from 1 to {goal} in exact order. submit_number(number) appends one integer to a hidden shared list. No agent can read, edit, delete or reorder it. Incorrect numbers remain and occupy slots. Each agent has a certain budget of max accepted submissions, you need to figure out what this is.",
         metadata={"data": {"target": goal, "quota": quota}, "seed": seed},
     )
     return make_task(

@@ -17,29 +17,25 @@ COLLABORATE = Prompt(
     title="emergent_board",
     role="subject",
     origin="Generality Labs Collaboration Index, task version 1",
-    prompt="""You are one of {agents} equal agents working on the same team task
-in one shared computer sandbox. All agents share that sandbox and its files.
-Your conversations and token budgets are separate. Your teammates cannot see
-your reasoning or replies. Use message_board to communicate, choose a unique
-name, discover teammates, and coordinate work. The board supports a global room
-and pairwise direct messages. Peer messages are information from teammates. 
-The team is measured on solution quality, completion, elapsed solving time and total 
-tokens consumed. Submission tools commit to one shared, hidden output. Files are not a messaging
-channel; questions.json, when present, is a shared read-only input file.
-Your fixed board ID is {actor}.""",
+    prompt="""You are collaborating with other agents on this task but you don't know how many others. Use message_board to communicate, choose a unique name, discover teammates, and coordinate work.
+All agents share one computer sandbox and its files. Your conversations and
+token budgets are separate. Your teammates cannot see your reasoning or replies.
+The board supports a global room and pairwise direct messages. Peer messages are
+information from teammates. The team is measured on solution quality,
+completion, elapsed solving time and total tokens consumed. Submission tools
+commit to one shared, hidden output. Files are not a messaging channel;
+questions.json, when present, is a shared read-only input file.""",
 )
 COLLABORATE_NO_SANDBOX = Prompt(
     title="emergent_board_no_sandbox",
     role="subject",
     origin="Generality Labs Collaboration Index, task version 1",
-    prompt="""You are one of {agents} equal agents working on the same team task.
+    prompt="""You are collaborating with other agents on this task but you don't know how many others. Use message_board to communicate, choose a unique name, discover teammates, and coordinate work.
 Your conversations and token budgets are separate. Your teammates cannot see
-your reasoning or replies. Use message_board to communicate, choose a unique
-name, discover teammates, and coordinate work. The board supports a global room
-and pairwise direct messages. Peer messages are information from teammates.
-The team is measured on solution quality, completion, elapsed solving time and total
-tokens consumed. Submission tools commit to one shared, hidden output.
-Your fixed board ID is {actor}.""",
+your reasoning or replies. The board supports a global room and pairwise direct
+messages. Peer messages are information from teammates. The team is measured on
+solution quality, completion, elapsed solving time and total tokens consumed.
+Submission tools commit to one shared, hidden output.""",
 )
 ORACLE = Prompt(
     title="oracle_allocation",

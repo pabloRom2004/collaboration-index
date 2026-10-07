@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import json
-import re
 from pathlib import Path
 from typing import Any
 
@@ -72,11 +71,13 @@ def fixture_model(task: Task) -> Any:
             signals[0].set()
             runs[run_id] = (asyncio.Barrier(count), signals)
         barrier, confirmed = runs[run_id]
-        source = "\n".join(m.text for m in messages if m.role == "user")
-        match = re.search(r"(?:fixed board ID is|fixed ID is) (agent_(\d+))", source)
-        if match is None:
-            raise AssertionError("No evaluator identity in fixture input")
-        index = int(match[2])
+        # agents never see their evaluator ID, so the fixture reads controller metadata
+        actor = next(
+            m.metadata["team_actor"]
+            for m in messages
+            if (m.metadata or {}).get("team_actor")
+        )
+        index = int(actor.removeprefix("agent_"))
         completed = [m for m in messages if isinstance(m, ChatMessageTool)]
         errors = [m.error for m in completed if m.error]
         if errors:
@@ -110,10 +111,14 @@ def fixture_model(task: Task) -> Any:
             elif step == 1:
                 arguments = {"action": "send", "message": "Fixture peer ready."}
             elif step == 2:
+                if count > 1:
+                    # wait until every peer has registered the name this DM addresses
+                    async with asyncio.timeout(20):
+                        await barrier.wait()
                 arguments = (
                     {
                         "action": "send",
-                        "recipient": f"agent_{(index + 1) % count}",
+                        "recipient": f"Peer {(index + 1) % count}",
                         "message": "Fixture coordination.",
                     }
                     if count > 1

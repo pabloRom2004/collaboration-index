@@ -104,7 +104,7 @@ class TeamGame:
                 quota = self.data["quota"]
                 if sum(s.actor == actor for s in history.submissions) >= quota:
                     history.rejected_submissions += 1
-                    raise ToolError("Your submission quota is exhausted")
+                    raise ToolError("Your submission budget is exhausted")
             elif kind == "spelling":
                 if not isinstance(value, str):
                     raise ToolError("Supply one character")

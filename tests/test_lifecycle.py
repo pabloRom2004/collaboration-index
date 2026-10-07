@@ -102,8 +102,8 @@ def test_prompt_omits_sandbox_when_disabled(tmp_path: Path) -> None:
         display="none",
     )
     assert log.status == "success", log.error
-    assert seen and all("board ID" in text for text in seen)
-    assert not any("sandbox" in text for text in seen)
+    assert seen and all("you don't know how many others" in text for text in seen)
+    assert not any("sandbox" in text or "board ID" in text for text in seen)
 
 
 def test_missing_answers_are_loss_not_judge_failure(tmp_path: Path) -> None:

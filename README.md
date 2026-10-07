@@ -429,7 +429,10 @@ reads question ranges without exposing references.
 order. The output is hidden, irreversible and never sorted. Wrong integers still
 occupy slots and consume quota. The team ends at `target` accepted entries or
 the solving boundary. Global success therefore depends on sequencing, not
-merely getting every peer to submit its intended numbers eventually.
+merely getting every peer to submit its intended numbers eventually. Peers are
+told they have a budget of accepted submissions but not its size, and never
+learn the team size or their evaluator IDs; the board shows only the names
+they register.
 
 ### Spelling
 

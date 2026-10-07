@@ -120,6 +120,10 @@ board itself stays generic. `read_messages` polls unread counts and reads every
 neighbour DM from per-neighbour cursors held in the tool closure; a failed poll
 falls through to that authoritative read.
 Chosen names supplement fixed IDs; they do not replace evaluator identity.
+Board-task peers never see those IDs or the team size: `message_board` maps
+chosen names to IDs on the controller, addresses DMs by name, lists only
+registered teammates, and strips IDs, run IDs and roster counts from every
+reply. The journal and replay keep the IDs for analysis.
 
 ## Scoring and replay boundaries
 
