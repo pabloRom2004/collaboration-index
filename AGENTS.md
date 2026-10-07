@@ -21,9 +21,11 @@ The implemented topology is one shared computer: N native Inspect subagents,
 one sandbox, one team sample and one `.eval` per task invocation. Peers have
 separate model histories and per-peer budgets. The agents are symmetric; do not
 impose a leader, fixed roles or a designated benchmark operator in the
-collaborative condition. Agents know they share the computer and files, and
-communicate through the common board. Private spelling hands are an intentional
-task asymmetry, not operator-assigned roles.
+collaborative condition. With the sandbox on, agents know they share the computer
+and files; with it off, they get a prompt variant that mentions neither. Peers
+communicate through the common board and see only the names they register,
+never their evaluator IDs or the team size. Private spelling hands are an
+intentional task asymmetry, not operator-assigned roles.
 
 Independent computers are a desired future topology ablation. They are not
 implemented here yet. Keep model, provider, task selection, seed, budget,
@@ -54,20 +56,30 @@ are different conditions.
   Authenticated loading yielded 575 questions on 2026-10-07. No real records are
   committed. A question limit changes batch work, not the Inspect sample count.
 - Counting defaults to target 2N (two numbers per agent) and ceil(target/N) per-peer quota.
-- Spelling preserves reusable private character hands; historical candidate
-  count scales with N. Set a constant `candidate_count` for fixed-work studies.
+- Spelling preserves reusable private character hands and shows 2N candidate
+  sentences by default. Set a constant `candidate_count` for fixed-work studies.
 - One separate loopback board service per attempt; one common replay frontend.
   The board client is used by native Inspect tools; this is not an MCP server.
 - Local mock orchestration, Docker, board, scoring and replay are verified.
-  Real-provider runs, Hawk deployment, resource scaling and checkpoint resume
-  are not established by those mocks. See the dated handoff for exact evidence.
+  Counting, spelling and colouring have run on Hawk with a real model and the
+  sandbox off; the k8s sandbox has booted on Hawk but no sandboxed task has
+  finished there. Resource scaling and checkpoint resume are not established.
+  See the dated handoff for exact evidence.
+- Known bug: after an Inspect sample interrupt (for example `hawk stop`), the
+  peers are cancelled but the board never shuts down and no score or `.eval` is
+  written. The unshielded cleanup awaits in `board/runtime.py` `local_board` are
+  the unconfirmed suspect. Let runs end on their budgets or deadline until fixed.
 
 No paid run, remote publication or deployment is authorized merely because a
 configuration or command exists. Work requested in this repository does not
 inherit approvals for older ExploitBench jobs or its main-branch repair exception.
 Carry forward actual approvals within the current task, and keep remaining
 external actions within their stated scope. Use `codex/` branches; do not merge
-or push a default branch without authorization.
+or push a default branch without authorization. The remote is the public
+<https://github.com/pabloRom2004/collaboration-index>; Hawk installs pinned
+commits from it. Commits use the work address `pablo.romero@generality.org`,
+set in this repository's Git config; keep the personal address out of commit
+author and committer fields.
 
 ## Framework and configuration conventions
 
@@ -159,8 +171,9 @@ These are launch requirements, not instructions to spend money now.
 
 For future Hawk work, load its canonical skills and access guidance first. Never
 use macOS Keychain: reuse/probe a protected memory-only session, and use only the
-designated Generality work Chrome profile for necessary login. This prototype
-has no Hawk deployment receipt. Long evaluations should not depend on a
+designated Generality work Chrome profile for necessary login. Follow the
+"Running on Hawk" section of README.md for the eval-set shape and its known
+constraints. Long evaluations should not depend on a
 travelling laptop controller; choose an authorized supported remote controller.
 
 The Docker image is digest-pinned, unprivileged, network-disabled and has bounded
@@ -187,7 +200,9 @@ Default pytest excludes Docker tests. For changed tools/mechanics/scoring, add
 meaningful edge-case and mock end-to-end tests, then verify the changed surface
 through real Docker when relevant. Do not write tests that merely mirror an
 implementation or turn documentation work into paid runs. Inspect package assets
-when changing configs, the visualiser or starter. Update both
+when changing configs, the visualiser or starter. After editing the replay
+frontend, parse-check its script, for example with Node's `new Function`, before
+rendering. Update both
 `src/collaboration_index/assets/starter/` and `templates/example-exam/` when
 changing shared starter content; the former is what the generator distributes.
 

@@ -23,9 +23,10 @@ We have not chosen index weights or launched that study.
 
 The baseline prototype was committed locally as
 `e60c258581d27ba3ab6aad2334678e473159cad1` on `codex/initial-suite`.
-There is no configured publication/remote in that baseline. Documentation may
-have subsequent commits; inspect Git rather than treating this baseline hash as
-the permanently current HEAD.
+That baseline had no remote. On 2026-10-07 the repository was published at
+<https://github.com/pabloRom2004/collaboration-index> (public, commit metadata
+rewritten to the work address before the first push). Inspect Git rather than
+treating any hash here as the current HEAD.
 
 Implemented components include YAML-owned task interfaces, native concurrent
 ReAct peers, a real single Docker container with per-peer identity verification,
@@ -50,7 +51,7 @@ its privileged information and limitations. Do not conflate those axes.
 | Static checks | Ruff lint/format and mypy passed. |
 | Packaging | Wheel contained configs, sandbox, pool, frontend and starter assets; isolated install checked. |
 | HLE access and selection | Authorized fine-grained read access; pinned 575 gold/text records loaded; one real task constructed. |
-| Real-model study | None performed; no measured capability, provider concurrency or ECI result. |
+| Real-model study | Single-seed Hawk smokes only (next sections); no capability estimate or ECI result. |
 
 Mock outputs and token usage are synthetic; fixture code uses evaluator knowledge
 to exercise submissions. Dataset preflight established access/schema/selection,
@@ -82,7 +83,90 @@ neighbour-only board DMs in place of automatic inbox delivery. Authored mocks
 completed at 1, 2, 8 and 32 peers and in the oracle control, with every DM
 delivered to its neighbour. The eight-peer Docker smoke completed all four tasks.
 At that point 67 local tests and the Docker integration test passed, along with
-Ruff, mypy and the wheel build. No real model has played it.
+Ruff, mypy and the wheel build. Its first real-model runs are below.
+
+## Hawk smoke runs and changes (2026-10-07)
+
+Three Claude sessions worked here in parallel, kept apart by a coordinator
+session. Every run used GLM 5.3 Flash through OpenRouter pinned to `z-ai/fp8`
+with no fallbacks, the OpenRouter work key, `xhigh` reasoning, a 16,000-token
+output cap per turn, 5M tokens per agent, a 60-minute team limit, seed 0, the
+sandbox off and one attempt per row. These smokes show the Hawk path working
+end to end. One seed per row cannot support capability claims.
+
+| Eval-set | Commit | Team | Result | Solving time | Tokens |
+| --- | --- | --- | --- | --- | --- |
+| [colouring smoke](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/colouring-glm53-flash-smo-hibrw1x1ed8qwwq7) | `c399d7d` | 4 (5 edges) | solved | 26 s | 18K |
+| same | `c399d7d` | 8 (12 edges) | solved | 232 s | 663K |
+| [counting smoke](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-glm53-flash-smok-r2bp770ch2hvw72k) | `c399d7d` | 4, target 64 | 1.00 | 287 s | 2.29M |
+| same | `c399d7d` | 8, target 64 | 0.33 | 386 s | 1.94M |
+| [counting no-sandbox prompt](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-glm53-flash-nosa-dj7gn0ir37jai6p0) | `7797eb0` | 4, target 64 | 0.50 | 343 s | 3.41M |
+| same | `7797eb0` | 8, target 64 | 0.75 | 681 s | 22.3M |
+| [spelling smoke](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/spelling-glm53-flash-smok-pm18a4e22s79jhx3) | `c399d7d` | 4 | 0.98 | 1160 s | 18.1M |
+| same | `c399d7d` | 8 | 1.00 | 1258 s | 30.1M |
+| [spelling no-sandbox prompt](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/spelling-glm53-flash-nosa-pesplllj3qnjizuj) | `7797eb0` | 4 | 0.96 | 633 s | 12.6M |
+| same | `7797eb0` | 8 | 0.95 | 841 s | 25.2M |
+| [counting 32, IDs visible](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-32-glm53-flash-2-g75vuoqtxtejdprc) | `23333f2` | 32, target 64 | 0.03 | 810 s | 3.83M |
+| [counting 32, IDs hidden](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-32-names-glm53-2-jpctmiepwpm4zjzr) | `8131bae` | 32, target 64 | 0.00 | 263 s | 10.6M |
+
+Every run finished with zero errors and real model, board and submission
+activity. Agents that hit their 5M limit stopped while the team still finished
+and was scored. Logs are in `logs/`; replays render with `collaboration-replay`.
+
+What the runs showed:
+
+- Every counting failure had one mechanism: two agents claimed the same block,
+  the list filled at its target length, and the remaining range never arrived.
+  At 32 agents with IDs visible, the agents split the work but all submitted at
+  once, so the list was shuffled. With IDs and team size hidden, agents could
+  not divide the range, many claimed the same popular blocks, and 28 numbers
+  never arrived. They found their two-submission budget by hitting it.
+- Token use varied widely within teams; single agents used most of a team's
+  tokens in several runs.
+- No agent tried to use files when the sandbox was off, even under the old
+  prompt that still described a shared computer.
+- The board never reported "Board busy" at 32 agents under the original limits
+  (32 concurrent requests, 8 concurrent waits).
+
+Changes made that day, in order on `codex/initial-suite`:
+
+1. Colouring task and neighbour-only DMs (`a93415c`), merged with the Hawk
+   sandbox branch that added `sandbox_type: k8s` and stored the board journal
+   in the `.eval` (`c399d7d`).
+2. The collaborative prompt lost "No leader, roles or work assignments have
+   been imposed", and sandbox-off runs got a variant without the shared
+   computer (`7797eb0`, `23333f2`).
+3. Replay views: counting and spelling target and progress grids, letters and
+   numbers flying into a shared grid on the map, private spelling hands
+   (`78b655b`, `b573ad7`, `102d03a`, `7a99fc3`), and links from each replay to
+   its source `.eval` in Hawk and locally (`1409e67`).
+4. Counting defaults to target 2N and spelling to 2N candidates, with no cap
+   (`d25dcb6`).
+5. Peers no longer see evaluator IDs, the team size or their submission quota.
+   The board shows only registered names and addresses DMs by name, and the
+   counting input uses the user's wording (`8131bae`).
+6. Board capacity raised to 128 concurrent requests and 64 concurrent waits
+   (`5f301cf`).
+
+HLE on Hawk was attempted and then dropped by the user. The first preflight
+failed at install because of Hawk's seven-day package cooldown. The second
+(`058a5b1`, `k8s` sandbox, GLM through Middleman) installed, loaded gated HLE
+data, booted the sandbox pod and started the board. Then each agent's first
+non-streaming answer request stalled past Inspect's 900-second
+`attempt_timeout` and restarted from scratch. A streamed call with the same
+settings finished in 29 seconds, so the stall was in the response, not the
+generation. Stopping that run exposed the interrupt hang recorded in AGENTS.md.
+Z.AI attribution and the HLE grader were never verified on Hawk.
+
+The 16,000-token output cap in these runs came from Multi-Agent-Bench's
+colouring config. A peer stops at its first turn without a tool call, so a turn
+truncated by the cap ends that agent; later runs leave the cap unset.
+
+A 32-agent GPT 6.1 Sol counting run was prepared. Middleman through the Hawk
+token served `gpt-6.1-sol` with a working tool call. The OpenRouter work key
+could not: pinned to OpenAI it returned 404, because the workspace guardrails
+exclude that provider and require zero data retention, and unpinned it routed
+to Azure, which rejected the board tool's optional parameters.
 
 ## Credential and source context
 
@@ -120,8 +204,9 @@ team size. The existing native/mock path does not prove these provider settings.
 
 Measure CPU/RAM/disk and real grading on small reliable workloads before broad
 scaling. The Docker allocation is a prototype bound, not a resource study. Hawk
-deployment has not been validated, and long jobs should not depend on a travelling
-laptop. Do not change sandbox protections merely to get a launch through.
+deployment is validated only for sandbox-off tasks, and long jobs should not
+depend on a travelling laptop. Do not change sandbox protections merely to get
+a launch through.
 
 Checkpoint continuation is intentionally unsupported. Implementing it requires
 restoring all private histories, native limits, board and irreversible game

@@ -162,6 +162,84 @@ Inspect's [task and run-config documentation](https://inspect.aisi.org.uk/tasks.
 describes its native CLI and model-role interface. Project-specific behavior is
 defined by the source and YAML in this repository.
 
+### Running on Hawk
+
+Hawk installs the task from Git, so push the commit first and pin its full SHA.
+The repository is public at <https://github.com/pabloRom2004/collaboration-index>
+because Hawk's GitHub access usually cannot read private personal repositories.
+An eval-set for a 32-agent counting team:
+
+```yaml
+name: counting-32-example            # unique per submission
+packages:
+- inspect-ai @ https://files.pythonhosted.org/packages/1d/99/e11f713fb0c7b3b43c108b15664dddafec9edbf7c5c2b28aa1a949293c51/inspect_ai-0.3.277-py3-none-any.whl#sha256=4a8a3174db942db4756253acb07ceff8d931dc27dedef817839785157004eada
+- openai==3.8.0
+tasks:
+- package: collaboration-index @ git+https://github.com/pabloRom2004/collaboration-index.git@<full commit SHA>
+  name: collaboration_index
+  items:
+  - name: counting
+    args:
+      agents: 32
+      token_limit_per_agent: 5000000
+      team_time_limit: 3600
+      artifact_dir: /tmp/collaboration-index
+      sandbox_enabled: false
+models:
+- package: inspect-ai
+  items:
+  - name: openrouter/z-ai/glm-5.3-flash
+    args:
+      base_url: https://openrouter.ai/api/v1
+      provider: {only: [z-ai/fp8], allow_fallbacks: false}
+      config: {reasoning_effort: xhigh, max_connections: 32}
+runner:
+  cpu: '4'
+  memory: 16Gi
+  secrets:
+  - name: OPENROUTER_API_KEY
+  environment:
+    OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
+    HAWK_RUNNER_REFRESH_TOKEN: ''
+epochs: 1
+retry_attempts: 0
+```
+
+Submit with `hawk eval-set run <file> --secret OPENROUTER_API_KEY`, with the work
+key exported in that process only; never write a key into the YAML. Each line
+above exists for a reason:
+
+- **Inspect wheel:** Hawk's runner resolves packages with a seven-day
+  `exclude-newer` cooldown, which rejects a recent `inspect-ai==0.3.277` pin.
+  The hash-pinned wheel URL installs the locked version; `openai==3.8.0` keeps
+  the provider SDK pair this project verified.
+- **Sandbox:** Hawk converts Compose files to Kubernetes and rejects the Docker
+  hardening keys. Counting, spelling and colouring expose no file or shell tool,
+  so run them with `sandbox_enabled: false`. A task that needs the container
+  must use `sandbox_type: k8s`.
+- **Budgets:** set limits per agent and leave the eval-set `token_limit` unset.
+  A sample-level cap would stop the team before it is scored.
+- **Output cap:** leave `max_tokens` unset. A peer stops at its first turn
+  without a tool call, so a cap that truncates a turn silently ends that agent.
+- **Concurrency:** Inspect shares one connection pool per model across the
+  process, so set `max_connections` to at least the total agents across every
+  task in the eval-set. 2 CPU / 8 GiB ran teams of up to eight; 4 CPU / 16 GiB
+  ran 32. Neither is a measured minimum.
+- **Model names:** Hawk checks model item names literally against Middleman. A
+  Middleman OpenAI model is `package: openai` with the bare model name.
+- **Stopping:** do not `hawk stop` a running team. After an Inspect sample
+  interrupt the harness cancels the peers but never shuts the board down,
+  scores or writes the `.eval`. Let runs end on their budgets or deadline.
+
+- **Routes:** this OpenRouter route was verified for GLM on `z-ai/fp8`. The
+  work key cannot reach OpenAI models on OpenRouter, so GPT models go through
+  Middleman instead.
+
+`hawk watch <id> --json` shows each sample's phase and latest events while it
+runs; `hawk download` mid-run returns only finished samples. Download the logs
+into `logs/` and render them with `collaboration-replay`. The board journal is
+stored in the `.eval`, so a Hawk run replays without its artifact directory.
+
 ### Configurations
 
 Each task owns a complete maintained configuration:
@@ -243,6 +321,15 @@ uv run collaboration-replay \
   --html run-artifacts/replays/team.html
 uv run collaboration-view --artifacts run-artifacts/replays --logs logs --port 14368
 ```
+
+Each replay has a message view and a Target & progress tab. Colouring draws the
+network, with clashing edges marked and each node opening its DMs. Counting
+shows square "should be" and "right now" grids with duplicates, gaps and the
+latest submission, and the map animates each number into a shared grid under
+the computer. Spelling shows the closest candidate against the line built so
+far, which characters any teammate holds, and each private hand. Its
+slot-by-slot colours penalise an early insertion for every later character;
+the similarity figure is the fair measure.
 
 The replay header links to the source `.eval`: for a Hawk run, the sample in
 the Hawk viewer (`--hawk-viewer` sets that viewer's URL); with `--logs`, also
@@ -340,7 +427,9 @@ Its `strict` level refuses the literal volume definitions.
 ### Message board and credentials
 
 Each attempt starts its own loopback HTTP service and SQLite database. Participant
-IDs are fixed by the evaluator; agents may choose unique display names. Bearer
+IDs are fixed by the evaluator for scoring and replay, but board-task peers never
+see them: the `message_board` tool translates every reply to the unique names
+agents register, and DMs are addressed by those names. Bearer
 credentials are scoped to run and participant. Only credential hashes are
 written to private files, and the board process does not inherit model/cloud
 secrets. The service supports global messages, pairwise DMs, ordered events,
