@@ -21,7 +21,7 @@ main{height:100dvh;min-height:500px}.workspace{height:100%;position:relative;iso
 .view-tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin:-6px 0 16px;flex-shrink:0}.view-tab{border:0;border-bottom:2px solid transparent;border-radius:0;padding:0 2px 9px;margin-bottom:-1px;background:none;font-size:12px;color:var(--muted)}.view-tab:hover{background:none;color:var(--green)}.view-tab[aria-selected=true]{color:var(--green);border-bottom-color:var(--green)}
 #target-view{height:100%;overflow:auto;padding-right:8px}.target-stats{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 18px}.stat{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:5px 8px;color:#5d6a61}.stat strong{color:#2f4a38;font-weight:600}.target-section{margin-bottom:20px}.target-section h3{font-size:12px;margin-bottom:9px;color:#46604b}
 .cell{position:relative;height:30px;border-radius:5px;display:grid;place-items:center;font-size:11px;font-variant-numeric:tabular-nums;border:1px solid #e3e8e4;color:#a3aca5;background:#fff}.cell.placed{background:#e3f1e6;border-color:#bcd9c3;color:#3f7a50;font-weight:600}.cell.present{background:#fbf3df;border-color:#ecd9a6;color:#8a6d22}.cell.missing{border-style:dashed}.cell .dup{position:absolute;top:-6px;right:-5px;background:#d0645a;color:#fff;border-radius:7px;font-size:9px;padding:0 4px;line-height:14px}
-.grid-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}.grid-pair h4{font-size:11px;font-weight:600;color:#5d6a61;margin:0 0 7px}.square-grid{display:grid;grid-template-columns:repeat(var(--side),minmax(0,1fr));gap:3px}.square-grid .cell{height:auto;aspect-ratio:1;font-size:10.5px}.cell.wrong{background:#fbe9e7;border-color:#efc4be;color:#b04a40;font-weight:600}.cell.dupe{background:#fbf0d9;border-color:#e6c983;color:#8a6d22;font-weight:600}.cell.vacant{border-style:dashed;background:#fafbfa}.cell.latest{outline:2px solid #2f6b4a;outline-offset:1px;z-index:1}.cell .who{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);background:#2f6b4a;color:#fff;border-radius:6px;font-size:8.5px;line-height:12px;padding:0 4px;white-space:nowrap;font-weight:400;z-index:2}
+.grid-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}.grid-pair h4{font-size:11px;font-weight:600;color:#5d6a61;margin:0 0 7px}.square-grid{display:grid;grid-template-columns:repeat(var(--side),minmax(0,1fr));gap:3px}.square-grid .cell{height:auto;aspect-ratio:1;font-size:10.5px}.cell.wrong{background:#fbe9e7;border-color:#efc4be;color:#b04a40;font-weight:600}.cell.dupe{background:#fbf0d9;border-color:#e6c983;color:#8a6d22;font-weight:600}.cell.held{color:#46604b;border-color:#d5ddd6}.cell.unheld{background:#fbe9e7;border-style:dashed;color:#b04a40}.hand-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}.hand-name{font-size:11px;width:104px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#46604b}.cell.vacant{border-style:dashed;background:#fafbfa}.cell.latest{outline:2px solid #2f6b4a;outline-offset:1px;z-index:1}.cell .who{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);background:#2f6b4a;color:#fff;border-radius:6px;font-size:8.5px;line-height:12px;padding:0 4px;white-space:nowrap;font-weight:400;z-index:2}
 .sequence,.mono-row{display:flex;flex-wrap:wrap;gap:3px}.mono-row{margin-bottom:7px}.mono-row .label{font-size:10px;color:var(--muted);width:44px;flex-shrink:0;align-self:center}.chip{font:11px ui-monospace,Menlo,monospace;min-width:22px;padding:4px 5px;text-align:center;border-radius:4px;background:#eef5ef;color:#3f7a50}.chip.bad{background:#fbe9e7;color:#b04a40}.chip.pending{background:#f3f5f3;color:#a3aca5}
 .sentences{list-style:none;margin:0;padding:0}.sentences li{font-size:12px;line-height:1.5;padding:8px 0;border-bottom:1px solid #f0f3f0;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}.sentences .text{flex:1;min-width:60%;color:#4a534d}.tag{font-size:9.5px;border-radius:9px;padding:2px 7px;white-space:nowrap;background:#f0f3f0;color:#77847a}.tag.ok{background:#e3f1e6;color:#3f7a50}.tag.no{background:#fbe9e7;color:#b04a40}.tag.best{background:#e5ecf7;color:#3e5f8f}.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:10px;color:var(--muted);margin-top:9px}.legend span{display:inline-flex;align-items:center;gap:5px}.legend .cell,.legend .chip{display:inline-block;width:14px;height:12px;min-width:0;padding:0}
 .refresh-controls{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:-8px 0 16px;color:#727e75;font-size:11px}.refresh-controls[hidden]{display:none}.refresh-controls label{display:inline-flex;align-items:center;gap:4px}.refresh-controls input[type=number]{width:48px;padding:4px;border:1px solid var(--line);border-radius:5px;color:inherit;background:#fff}.refresh-controls button{border:1px solid var(--line);border-radius:5px;padding:5px 8px;background:#fff;color:inherit;font-size:11px}.refresh-controls button:disabled{opacity:.5}.refresh-note{width:100%;font-size:10px;color:#8e998f}
@@ -110,12 +110,20 @@ let numberSlots=[];
 const SLOT_STYLE={placed:['#e3f1e6','#9cc8a8','#3f7a50'],wrong:['#fbe9e7','#e7b0a8','#b04a40'],dupe:['#fbf0d9','#e6c983','#8a6d22']};
 // A slot is correct when it holds its own number; otherwise it repeats an earlier entry or is simply wrong.
 function slotState(entries,i){const value=entries[i].value;return value===i+1?'placed':entries.slice(0,i).some(entry=>entry.value===value)?'dupe':'wrong';}
-function buildNumberBoard(top){
-  const spec=dataset.target;if(spec?.kind!=='counting'||dataset.topology!=='shared_sandbox')return;
-  const side=Math.ceil(Math.sqrt(spec.target)),cell=Math.min(64,Math.floor(440/side)),size=side*cell,left=world.w/2-size/2;
+// Spelling is judged against the closest candidate; before anything is typed, show the dealt sentence.
+function spellingTarget(spec,entries){
+  const text=entries.map(entry=>String(entry.value)).join(''),returned=text.endsWith('\n'),line=returned?text.slice(0,-1):text;
+  let closest=spec.dealt_sentence,best=0;
+  if(line.length){best=-1;for(const sentence of spec.sentences){const score=similarity(line,sentence);if(score>best){best=score;closest=sentence;}}}
+  return {line,returned,best,closest,target:closest+'\n'};
+}
+function buildSharedBoard(top){
+  const spec=dataset.target;if(!['counting','spelling'].includes(spec?.kind)||dataset.topology!=='shared_sandbox')return;
+  const counting=spec.kind==='counting',slots=counting?spec.target:Math.max(spec.dealt_sentence.length+1,(dataset.submissions||[]).length);
+  const side=Math.ceil(Math.sqrt(slots)),cell=Math.min(64,Math.floor((counting?440:520)/side)),size=side*cell,left=world.w/2-size/2;
   world.h=Math.max(world.h,top+size+90);
-  $('target-board').append(svg('text',{x:world.w/2,y:top-28,'text-anchor':'middle',fill:'#46604b','font-size':23,'font-weight':600},'Shared hidden list · 1 to '+spec.target));
-  for(let i=0;i<spec.target;i++){
+  $('target-board').append(svg('text',{x:world.w/2,y:top-28,'text-anchor':'middle',fill:'#46604b','font-size':23,'font-weight':600},counting?'Shared hidden list · 1 to '+spec.target:'Shared hidden line'));
+  for(let i=0;i<slots;i++){
     const x=left+(i%side)*cell,y=top+Math.floor(i/side)*cell,group=svg('g',{class:'slot','data-slot':i+1});
     const rect=svg('rect',{x:x+3,y:y+3,width:cell-6,height:cell-6,rx:7,fill:'#fafbfa',stroke:'#d9dfda','stroke-width':1.5,'stroke-dasharray':'5 4'});
     const label=svg('text',{x:x+cell/2,y:y+cell/2+Math.round(cell*.13),'text-anchor':'middle','font-size':Math.round(cell*.36),'font-weight':600}),title=svg('title',{},'slot '+(i+1)+': empty');
@@ -123,22 +131,27 @@ function buildNumberBoard(top){
   }
 }
 // Rebuilt from replay time on every frame, so seeking backwards simply empties later slots.
-function renderNumberBoard(time){
+function renderSharedBoard(time){
   const layer=$('number-layer');layer.replaceChildren();if(!numberSlots.length)return;
-  const entries=(dataset.submissions||[]).filter(entry=>ms(entry.time)<=time);
+  const spec=dataset.target,entries=(dataset.submissions||[]).filter(entry=>ms(entry.time)<=time),goal=spec.kind==='spelling'?spellingTarget(spec,entries).target:null;
+  const label=value=>goal===null?String(value):glyph(String(value));
+  const view=i=>{
+    const value=entries[i].value;if(goal===null){const state=slotState(entries,i);return {state,note:state==='placed'?', correct':state==='dupe'?', a duplicate; '+(i+1)+' expected':', '+(i+1)+' expected'};}
+    const want=goal[i];return {state:value===want?'placed':'wrong',note:value===want?', correct':want===undefined?', past the end of the target':', expected "'+glyph(want)+'"'};
+  };
   numberSlots.forEach((slot,i)=>{
-    const entry=entries[i],landed=Boolean(entry)&&(time>=end||time>=ms(entry.time)+flightDuration(entry)),state=landed?slotState(entries,i):'',key=state+':'+(landed?entry.value:'');
+    const entry=entries[i],landed=Boolean(entry)&&(time>=end||time>=ms(entry.time)+flightDuration(entry)),shown=landed?view(i):{state:'',note:''},key=shown.state+':'+(landed?label(entry.value):'');
     if(key===slot.state)return;slot.state=key;
     if(!landed){slot.rect.setAttribute('fill','#fafbfa');slot.rect.setAttribute('stroke','#d9dfda');slot.rect.setAttribute('stroke-dasharray','5 4');slot.label.textContent='';slot.title.textContent='slot '+(i+1)+': empty';return;}
-    const [fill,stroke,text]=SLOT_STYLE[state];slot.rect.setAttribute('fill',fill);slot.rect.setAttribute('stroke',stroke);slot.rect.removeAttribute('stroke-dasharray');slot.label.setAttribute('fill',text);slot.label.textContent=String(entry.value);
-    slot.title.textContent='slot '+(i+1)+': '+entry.value+(state==='placed'?', correct':state==='dupe'?', a duplicate; '+(i+1)+' expected':', '+(i+1)+' expected')+' · '+name(entry.actor);
+    const [fill,stroke,text]=SLOT_STYLE[shown.state];slot.rect.setAttribute('fill',fill);slot.rect.setAttribute('stroke',stroke);slot.rect.removeAttribute('stroke-dasharray');slot.label.setAttribute('fill',text);slot.label.textContent=label(entry.value);
+    slot.title.textContent='slot '+(i+1)+': '+(goal===null?label(entry.value):'"'+label(entry.value)+'"')+shown.note+' · '+name(entry.actor);
   });
   if(time>=end)return;
   entries.forEach((entry,i)=>{
     const progress=(time-ms(entry.time))/flightDuration(entry),source=positions[entry.actor];if(progress<0||progress>=1||!numberSlots[i]||!source)return;
     const b=numberSlots[i].center,mid={x:(source.x+b.x)/2+(source.x<b.x?-70:70),y:source.y+(b.y-source.y)*.3},{x,y}=routePoint({a:source,b,mid},1-Math.pow(1-progress,2));
     const token=svg('g',{class:'number-flight','data-slot':i+1,transform:'translate('+x+' '+y+')'});
-    token.append(svg('circle',{r:22,fill:'#fff',stroke:color(entry.actor),'stroke-width':3,filter:'url(#mail-shadow)'}),svg('text',{y:7,'text-anchor':'middle','font-size':19,'font-weight':600,fill:'#2f4a38'},String(entry.value)));
+    token.append(svg('circle',{r:22,fill:'#fff',stroke:color(entry.actor),'stroke-width':3,filter:'url(#mail-shadow)'}),svg('text',{y:7,'text-anchor':'middle','font-size':19,'font-weight':600,fill:'#2f4a38'},label(entry.value)));
     layer.append(token);
   });
 }
@@ -172,16 +185,32 @@ function renderCounting(box,spec,entries){
   box.append(head,stats,section('Target and submitted slots',pair,legend(['cell placed','in place'],['cell present','submitted in another slot'],['cell missing','not submitted'],['cell wrong','wrong number'],['cell dupe','duplicate'],['cell vacant','empty slot'],['cell latest','latest submission'])));
 }
 function renderSpelling(box,spec,entries){
-  const text=entries.map(entry=>String(entry.value)).join(''),returned=text.endsWith('\n'),line=returned?text.slice(0,-1):text;
-  let closest=spec.sentences[0],best=-1;for(const sentence of spec.sentences){const score=similarity(line,sentence);if(score>best){best=score;closest=sentence;}}
-  const letters=new Set(spec.team_characters),feasible=new Set(spec.feasible);
+  const {line,returned,best,closest,target}=spellingTarget(spec,entries),built=entries.map(entry=>String(entry.value)),letters=new Set(spec.team_characters),feasible=new Set(spec.feasible);
+  const holders={};for(const [actor,hand]of Object.entries(spec.hands||{}))for(const char of hand)(holders[char]??=[]).push(actor);
   const head=node('header',undefined,'panel-head');head.append(node('h2','Spell one of '+spec.sentences.length+' sentences'),node('span',returned?'line ended with return':'line still open','count'));
   const stats=node('div',undefined,'target-stats');stats.append(stat('characters on the line',line.length),stat('similarity to the closest sentence',Math.round(100*best)+'%'),stat('sentences the team can spell',feasible.size+' / '+spec.sentences.length));
-  const built=node('div',undefined,'mono-row'),target=node('div',undefined,'mono-row');built.append(node('span','Built','label'));target.append(node('span','Closest','label'));
-  [...line].forEach((char,i)=>{const chip=node('span',glyph(char),'chip'+(char===closest[i]?'':' bad'));chip.title=name(entries[i].actor)+' · '+clock(ms(entries[i].time));built.append(chip);});
-  if(returned)built.append(node('span','⏎','chip'));if(!line.length&&!returned)built.append(node('span','Nothing submitted yet.','count'));
-  [...closest].forEach((char,i)=>target.append(node('span',glyph(char),'chip'+(i>=line.length?' pending':line[i]===char?'':' bad'))));
-  const team=node('div',undefined,'sequence');for(const char of spec.team_characters)team.append(node('span',glyph(char),'chip'));
+  // Both grids are n×n over the target plus its return, filled row by row like the counting view.
+  const slots=Math.max(target.length,built.length),side=Math.ceil(Math.sqrt(slots)),should=node('div',undefined,'square-grid'),now=node('div',undefined,'square-grid');
+  should.style.setProperty('--side',side);now.style.setProperty('--side',side);
+  [...target].forEach((char,i)=>{
+    const owners=holders[char]||[],cell=node('div',glyph(char),'cell '+(built[i]===char?'placed':owners.length?'held':'unheld'));
+    cell.title='slot '+(i+1)+': '+glyph(char)+' · '+(owners.length?'held by '+owners.map(name).join(', '):'held by nobody');should.append(cell);
+  });
+  for(let i=0;i<slots;i++){
+    const char=built[i];
+    if(char===undefined){const vacant=node('div','','cell vacant');vacant.title='slot '+(i+1)+': nothing yet';now.append(vacant);continue;}
+    const correct=char===target[i],latest=i===built.length-1,cell=node('div',glyph(char),'cell '+(correct?'placed':'wrong')+(latest?' latest':''));
+    cell.title='slot '+(i+1)+': "'+glyph(char)+'"'+(correct?', correct':target[i]===undefined?', past the end of the target':', expected "'+glyph(target[i])+'"')+' · '+name(entries[i].actor)+' · '+clock(ms(entries[i].time));
+    if(latest)cell.append(node('span',name(entries[i].actor).replace(/^agent_/,'#'),'who'));now.append(cell);
+  }
+  const pair=node('div',undefined,'grid-pair'),left=node('div'),right=node('div');
+  left.append(node('h4','Should be'),should);right.append(node('h4','Right now'),now);pair.append(left,right);
+  const hands=node('div');
+  for(const [actor,hand]of Object.entries(spec.hands||{}).sort(([a],[b])=>ids.indexOf(a)-ids.indexOf(b))){
+    const row=node('div',undefined,'hand-row'),chips=node('div',undefined,'sequence');row.append(node('span',name(actor),'hand-name'));
+    for(const char of hand){const chip=node('span',glyph(char),'chip'+(target.includes(char)?'':' pending'));chip.title=(target.includes(char)?'used':'not used')+' by the current target';chips.append(chip);}
+    row.append(chips);hands.append(row);
+  }
   const list=node('ul',undefined,'sentences');
   for(const sentence of spec.sentences){
     const item=node('li'),absent=[...new Set(sentence)].filter(char=>!letters.has(char));item.append(node('span',sentence,'text'));
@@ -189,7 +218,7 @@ function renderSpelling(box,spec,entries){
     if(line.length&&sentence===closest)item.append(node('span','closest','tag best'));if(sentence===spec.dealt_sentence)item.append(node('span','dealt','tag'));
     list.append(item);
   }
-  box.append(head,stats,section('Built so far against the closest sentence',built,target,legend(['chip','matches by position'],['chip bad','differs'],['chip pending','still to come'])),section('Team letters (reusable)',team),section('Candidate sentences',list));
+  box.append(head,stats,section(line.length?'Closest candidate sentence':'Dealt sentence (the hands come from it)',pair,legend(['cell placed','built correctly'],['cell held','held by a teammate'],['cell unheld','held by nobody'],['cell wrong','wrong character'],['cell vacant','empty slot'],['cell latest','latest submission'])),section('Private hands (reusable)',hands),section('Candidate sentences',list));
 }
 // Each node's latest colour at a replay time, from the trusted set_colour order.
 function coloursAt(time){const colours={};for(const entry of dataset.submissions||[])if(ms(entry.time)<=time)colours[entry.actor]=entry.value;return colours;}
@@ -317,7 +346,7 @@ function buildScene(){
     const bottom=565+height;
     frame.append(svg('path',{d:'M '+(world.w/2-25)+' '+bottom+' l -12 45 h 74 l -12 -45',fill:'#f0f4ef',stroke:'#9daaa1','stroke-width':2}),svg('rect',{x:world.w/2-70,y:bottom+45,width:140,height:8,rx:4,fill:'#9daaa1'}));
     frame.append(svg('text',{id:'collective-score',x:world.w/2,y:bottom-24,'text-anchor':'middle',fill:'#46604b','font-size':22},'Collective result pending'));
-    $('computer-nodes').append(frame);buildNumberBoard(bottom+160);
+    $('computer-nodes').append(frame);buildSharedBoard(bottom+160);
   }
   ids.forEach((id,index)=>{
     const row=Math.floor(index/columns),column=index%columns,inRow=Math.min(columns,ids.length-row*columns);
@@ -332,6 +361,8 @@ function buildScene(){
       motion.append(svg('circle',{r:42,fill:'#fff',stroke:color(id),'stroke-width':2}),svg('text',{x:0,y:8,'text-anchor':'middle',fill:color(id),'font-size':23,'font-weight':600},String(index+1)));
       const nameLabel=svg('text',{x:0,y:66,'text-anchor':'middle',fill:'#46604b','font-size':18},id),score=svg('text',{x:0,y:93,'text-anchor':'middle',fill:'#829087','font-size':14},'Equal peer'),fill=svg('rect',{width:0,height:0});
       motion.append(nameLabel,score,fill);group.append(motion,effects);
+      const hand=dataset.target?.kind==='spelling'?dataset.target.hands?.[id]:null;
+      if(hand){const letters=svg('text',{x:0,y:119,'text-anchor':'middle',fill:'#6f7d73','font-size':14,'font-family':'ui-monospace,Menlo,monospace'},hand.map(glyph).join(' '));letters.append(svg('title',{},'Private reusable hand'));motion.append(letters);}
       group.onclick=()=>{if(!dragged)selectAgent(id);};group.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selectAgent(id);}};
       $('computer-nodes').append(group);computerNodes[id]={group,motion,effects,nameLabel,fill,score};return;
     }
@@ -532,7 +563,7 @@ function render(force=false){
     }
     lastContentKey=key;
   }
-  renderConnections(sent,currentTime);renderFlights(currentTime);renderNodeMotion(currentTime,snapshot);renderNumberBoard(currentTime);
+  renderConnections(sent,currentTime);renderFlights(currentTime);renderNodeMotion(currentTime,snapshot);renderSharedBoard(currentTime);
 }
 function routeFor(event){
   const source=positions[event.actor];if(!source)return null;

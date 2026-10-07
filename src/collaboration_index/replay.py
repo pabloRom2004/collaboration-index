@@ -24,6 +24,7 @@ def target_view(kind: str, data: dict[str, Any]) -> dict[str, Any] | None:
             "dealt_sentence": data["dealt_sentence"],
             "team_characters": sorted(letters),
             "feasible": [s for s in data["sentences"] if set(s) <= letters],
+            "hands": {actor: sorted(hand) for actor, hand in data["hands"].items()},
         }
     return None
 

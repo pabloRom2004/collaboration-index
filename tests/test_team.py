@@ -96,6 +96,7 @@ def test_spelling_team(condition: str, tmp_path: Path) -> None:
     assert data["dealt_sentence"] in target["feasible"]
     assert set(target["team_characters"]) >= set(data["dealt_sentence"]) | {"\n"}
     assert set(target["feasible"]) <= set(target["sentences"])
+    assert target["hands"] == {a: sorted(h) for a, h in data["hands"].items()}
     if condition == "oracle_allocation":
         assert sample.scores["team_score"].value["message_count"] == 0
 
