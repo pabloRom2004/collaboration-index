@@ -322,9 +322,10 @@ function buildScene(){
   if(graphMode()){buildGraphScene();return;}
   // Team replays draw every agent as its own computer, so nothing shows whether peers shared a container.
   const team=dataset.topology==='shared_sandbox';
-  const columns=Math.max(1,Math.ceil(Math.sqrt(ids.length))),rows=Math.ceil(ids.length/columns);
+  // Mid-sized teams ring the board; large teams wrap into landscape rows so computers stay legible.
+  const circular=ids.length>4&&ids.length<=12;
+  const columns=Math.max(1,Math.ceil(Math.sqrt(ids.length>12?2*ids.length:ids.length))),rows=Math.ceil(ids.length/columns);
   world={w:Math.max(1000,columns*340+160),h:Math.max(1000,rows*340+600)};
-  const circular=ids.length>4;
   // Keep enough space between neighbouring computers as the circle grows.
   const radius=circular?Math.max(440,400/(2*Math.sin(Math.PI/ids.length))):0;
   if(circular)world={w:radius*2+360,h:radius*2+700};
