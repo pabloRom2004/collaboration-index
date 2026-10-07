@@ -3,8 +3,9 @@
 import argparse
 import json
 import math
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
 from inspect_ai.log import read_eval_log
@@ -65,6 +66,29 @@ def replay_data(
         raise ValueError("Journal identity differs from the selected team attempt")
     result = store.get("TeamHistory:result", {})
     kind = store["TeamHistory:benchmark"]
+    if kind == "mirrorcode":
+        # MirrorCode's own scorer grades the codebase; the team measurements
+        # follow team_score's definitions from the same trusted records
+        sends = [
+            call
+            for call in store.get("BoardHistory:calls", [])
+            if call.get("completed") and call.get("action") == "send"
+        ]
+        end = (
+            store.get("TeamHistory:objective_completed")
+            or store["TeamHistory:completed"]
+        )
+        result = {
+            "quality": cast(
+                dict[str, Any], (sample.scores or {})["mirrorcode_scorer"].value
+            )["all"],
+            "elapsed_seconds": (
+                datetime.fromisoformat(end)
+                - datetime.fromisoformat(store["TeamHistory:released"])
+            ).total_seconds(),
+            "tokens": sum(p["tokens"] for p in peers),
+            "message_count": len(sends),
+        }
     entries = store.get("TeamHistory:submissions", [])
     data = sample.metadata["data"]
     expected_sentence = data.get("dealt_sentence", "")

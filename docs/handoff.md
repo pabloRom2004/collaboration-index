@@ -202,12 +202,12 @@ Without the scoring lock, two of three such runs crashed the sample.
 Local real-model runs, Claude Haiku 5.5 via OpenRouter pinned to Anthropic,
 reasoning effort xhigh, `rev` in Python:
 
-| Run | Agents | Tokens per agent | Score | Solving time | Tokens |
+| Run | Agents | Tokens per agent | Score | Time to end | Tokens |
 | --- | --- | --- | --- | --- | --- |
 | [upstream single agent](../logs/2026-10-07T20-45-25-00-00_MirrorCode_o8QNwdoEwsyeNVHoCoz5Ka.eval) | 1 | 100,000 | 0.00 | 46 s | 125,653 |
 | [team task, 1-hour deadline](../logs/2026-10-07T21-04-32-00-00_mirrorcode_6eNJRfHEzgHqkaaBNejGhn.eval) | 2 | 100,000 | 0.00 | 87 s | 216,197 |
-| [team task, no deadline](../logs/2026-10-07T21-59-39-00-00_mirrorcode_B7MEwMFfTQH7x66Z9XPq5u.eval) | 4 | 5,000,000 | 1.00 | 296 s | 5,402,174 |
-| [same, on Hawk](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mirrorcode-rev-4x5m-haiku-ew01ird4fak2ew6t) at `bf8f6ab` | 4 | 5,000,000 | 1.00 | 349 s | 2,280,584 |
+| [team task, no deadline](../logs/2026-10-07T21-59-39-00-00_mirrorcode_B7MEwMFfTQH7x66Z9XPq5u.eval) | 4 | 5,000,000 | 1.00 | 279 s | 5,402,174 |
+| [same, on Hawk](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mirrorcode-rev-4x5m-haiku-ew01ird4fak2ew6t) at `bf8f6ab` | 4 | 5,000,000 | 1.00 | 337 s | 2,280,584 |
 
 At 100,000 tokens every agent spent its budget reading the docs and probing
 the reference binary, so `/workdir/src` stayed empty. The four-agent team passed
@@ -221,16 +221,19 @@ speed. Hawk runs the task with the images published to
 [Hawk sweep](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mirrorcode-rev-sweep-250m-i306z3nmwo6xtybn)
 at `bf8f6ab`, same settings, 250,000,000 tokens per agent and no deadline. Every
 team passed all 208 cases and ended by a submit; costs use OpenRouter's
-under-100K-prompt prices, so they are lower bounds. One seed per row:
+under-100K-prompt prices, so they are lower bounds. Time runs from release to
+the submit, as in `team_score`; peers then finish their current turns. One seed
+per row:
 
-| Agents | Score | Solving time | Tokens | Cache reads | Board messages | Cost |
+| Agents | Score | Time to submit | Tokens | Cache reads | Board messages | Cost |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | 1.00 | 362 s | 1,115,777 | 4.5% | 0 | $0.12 |
-| 2 | 1.00 | 413 s | 743,958 | 8.2% | 0 | $0.09 |
-| 4 | 1.00 | 631 s | 6,846,492 | 3.5% | 10 | $0.73 |
-| 8 | 1.00 | 325 s | 8,079,144 | 4.7% | 37 | $0.82 |
+| 2 | 1.00 | 204 s | 743,958 | 8.2% | 0 | $0.09 |
+| 4 | 1.00 | 447 s | 6,846,492 | 3.5% | 10 | $0.73 |
+| 8 | 1.00 | 186 s | 8,079,144 | 4.7% | 37 | $0.82 |
 
-`rev` is too easy to separate team sizes: one agent solves it in six minutes.
+`rev` is too easy to separate team sizes reliably: one agent solves it in six
+minutes, and a single seed cannot separate team effects from run variance.
 
 ## Credential and source context
 
