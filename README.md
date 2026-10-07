@@ -229,6 +229,11 @@ above exists for a reason:
   ran 32. Neither is a measured minimum.
 - **Model names:** Hawk checks model item names literally against Middleman. A
   Middleman OpenAI model is `package: openai` with the bare model name.
+- **MirrorCode:** install `collaboration-index[mirrorcode]` and set the runner
+  environment `MC_IMAGE_NAME: ghcr.io/pablorom2004/mirrorcode`. Hawk fills that
+  into MirrorCode's generated Compose file and drops its `build` and `init` keys.
+  The `Publish MirrorCode images` workflow pushes the public amd64 images for
+  `rev` in Python; add another target or language there before running it.
 - **Stopping:** do not `hawk stop` a running team. After an Inspect sample
   interrupt the harness cancels the peers but never shuts the board down,
   scores or writes the `.eval`. Let runs end on their budgets or deadline.
