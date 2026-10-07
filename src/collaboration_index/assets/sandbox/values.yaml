@@ -1,0 +1,40 @@
+# inspect_k8s_sandbox built-in chart values reproducing compose.yaml's isolation.
+services:
+  default:
+    image: python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f
+    command: ["sleep", "infinity"]
+    workingDir: /workspace
+    networkIsolated: true
+    securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      requests:
+        cpu: "2"
+        memory: 1Gi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+    # Memory-backed emptyDirs are bounded tmpfs mounts with mode 1777, so uid 65534
+    # can write without fsGroup, which this chart cannot set.
+    volumes:
+      - name: workspace
+        emptyDir:
+          medium: Memory
+          sizeLimit: 16Mi
+      - name: tmp
+        emptyDir:
+          medium: Memory
+          sizeLimit: 16Mi
+    volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+      - name: tmp
+        mountPath: /tmp

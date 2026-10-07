@@ -11,6 +11,8 @@ from inspect_ai.model import GenerateConfig
 from collaboration_index.harness import prepare_team, team_agents
 from collaboration_index.scorers import team_score
 
+SANDBOX_FILES = {"docker": "compose.yaml", "k8s": "values.yaml"}
+
 
 def defaults(benchmark: str) -> dict[str, Any]:
     """Load the packaged YAML as the single source of a task's public defaults."""
@@ -31,6 +33,7 @@ def make_task(
     agent_args: dict[str, Any],
     artifact_dir: str,
     sandbox_enabled: bool,
+    sandbox_type: str,
     answer_judge: str,
     max_grader_attempts: int,
     compaction_threshold: float,
@@ -41,6 +44,8 @@ def make_task(
         raise ValueError("Prototype team sizes must be between 1 and 32")
     if condition not in {"collaborative", "oracle_allocation"}:
         raise ValueError("Unknown collaboration condition")
+    if sandbox_type not in SANDBOX_FILES:
+        raise ValueError("sandbox_type must be docker or k8s")
     if token_limit_per_agent is None or token_limit_per_agent < 1:
         raise ValueError(
             "Provide a positive token_limit_per_agent before running this task"
@@ -65,7 +70,10 @@ def make_task(
             compaction_threshold,
         ),
         scorer=team_score(answer_judge, max_grader_attempts),
-        sandbox=("docker", str(Path(__file__).parent / "assets/sandbox/compose.yaml"))
+        sandbox=(
+            sandbox_type,
+            str(Path(__file__).parent / "assets/sandbox" / SANDBOX_FILES[sandbox_type]),
+        )
         if sandbox_enabled
         else None,
         config=GenerateConfig(**config["generate_config"]),

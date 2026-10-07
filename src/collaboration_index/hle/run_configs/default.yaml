@@ -11,6 +11,7 @@ task:
     agent_args: {}
     artifact_dir: run-artifacts
     sandbox_enabled: true
+    sandbox_type: docker
     compaction_threshold: 0.75
     records_file: null
     dataset_revision: 5a81a4c7271a2a2a312b9a690f0c2fde837e4c29

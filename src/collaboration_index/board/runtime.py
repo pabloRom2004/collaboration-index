@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from inspect_ai.util import store_as
 
+from collaboration_index.board.client import BoardHistory
 from collaboration_index.board.database import token_hash
 from collaboration_index.board.service import service_environment
 
@@ -126,6 +128,8 @@ async def local_board(
                             json.dumps(e, ensure_ascii=False) + "\n" for e in events
                         )
                     )
+                    # Remote runners may discard artifact_dir; the log keeps the replay source.
+                    store_as(BoardHistory).journal = events
             finally:
                 if process.returncode is None:
                     process.terminate()
