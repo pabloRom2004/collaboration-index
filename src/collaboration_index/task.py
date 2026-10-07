@@ -50,6 +50,9 @@ def make_task(
         raise ValueError(
             "Provide a positive token_limit_per_agent before running this task"
         )
+    # teams run against a wall-clock deadline that every peer is reminded of
+    if team_time_limit is None or team_time_limit <= 0:
+        raise ValueError("Provide a positive team_time_limit in seconds")
     sample.metadata = dict(
         sample.metadata or {},
         sandbox_enabled=sandbox_enabled,

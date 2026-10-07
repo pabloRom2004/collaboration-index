@@ -475,7 +475,7 @@ real smoke tests, and retain partial work and infrastructure errors.
 | `condition` | `collaborative` | Collaborative board or `oracle_allocation` control. |
 | `seed` | `0` | Stable task draw identifier; spelling uses it for dealing. |
 | `token_limit_per_agent` | `null` | Required positive native token ceiling for each peer. |
-| `team_time_limit` | `null` | Optional positive solving deadline in seconds. |
+| `team_time_limit` | `3600` | Required positive solving deadline in seconds. Before every decision each peer gets a user message with elapsed and remaining time, and peers keep working until the task ends or the deadline passes. |
 | `agent` | `react` | Native ReAct, or a compatible dotted Python factory. |
 | `agent_args` | `{}` | Factory options; trusted tools/lifecycle/model/compaction cannot be replaced here. |
 | `artifact_dir` | `run-artifacts` | Parent of fresh `team-<uuid>` attempt directories. |

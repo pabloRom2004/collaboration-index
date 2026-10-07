@@ -114,6 +114,13 @@ the exact model and route, never a smaller per-turn cap; bound spending with
 per-agent token budgets and the team time limit. Graders use an explicit
 `grader` model role; there is no fallback to subject self-grading.
 
+Every evaluation runs against a wall-clock `team_time_limit` (default 3600 s;
+a task without one is refused). Before each peer's first decision and after
+every turn, the harness sends the Multi-Agent-Bench time update as a user
+message: elapsed seconds, remaining seconds and the deadline in minutes. Peers
+keep working until the task ends or the deadline passes, rather than stopping
+on a turn without a tool call. Keep this in any new task or agent factory.
+
 ## Trusted state and concurrency contracts
 
 `TeamHistory` and `BoardHistory` are namespaced Inspect `StoreModel` records.

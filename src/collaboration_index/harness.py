@@ -4,6 +4,7 @@ import asyncio
 import importlib
 import json
 import math
+import time
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -34,6 +35,7 @@ from collaboration_index.prompts import (
     COLLABORATE_NO_SANDBOX,
     COLOURING,
     ORACLE,
+    TIME_UPDATE,
 )
 from collaboration_index.state import Peer, TeamHistory, now
 
@@ -95,17 +97,19 @@ def prepare_team(
 @solver
 def team_agents(
     token_limit_per_agent: int,
-    team_time_limit: float | None,
+    team_time_limit: float,
     agent: str,
     agent_args: dict[str, Any],
     compaction_threshold: float,
 ) -> Solver:
     """Build fixed-identity tools and run prepared peers with independent token limits."""
-    if token_limit_per_agent < 1 or (
-        team_time_limit is not None
-        and (not math.isfinite(team_time_limit) or team_time_limit <= 0)
+    if (
+        token_limit_per_agent < 1
+        or team_time_limit is None
+        or not math.isfinite(team_time_limit)
+        or team_time_limit <= 0
     ):
-        raise ValueError("Team limits must be finite and positive")
+        raise ValueError("Team token and time limits must be finite and positive")
     forbidden = {"tools", "submit", "on_continue", "model", "compaction"} & set(
         agent_args
     )
@@ -144,6 +148,16 @@ def team_agents(
                     )
             ready: asyncio.Queue[None] = asyncio.Queue()
             release = asyncio.Event()
+            clock = {"released": 0.0}
+
+            def time_update() -> str:
+                """Tell a peer the team's elapsed and remaining solving time before its next decision."""
+                elapsed = time.monotonic() - clock["released"]
+                return TIME_UPDATE.prompt.format(
+                    elapsed=elapsed,
+                    remaining=max(0.0, team_time_limit - elapsed),
+                    minutes=team_time_limit / 60,
+                )
 
             async def peer(record: Peer, options: dict[str, str]) -> None:
                 """Run one private model history with trusted tools and own usage accounting."""
@@ -161,17 +175,17 @@ def team_agents(
                     record.sandbox_hostname = identity.stdout.strip()
                 limit = token_limit(token_limit_per_agent)
 
-                async def on_continue(current: AgentState) -> bool:
-                    """Count this peer's completed turns and stop at the shared task boundary."""
+                async def on_continue(current: AgentState) -> bool | str:
+                    """Count this peer's turn, then stop at the team's end or send the clock."""
                     record.turns += 1
                     output = current.output
                     record.tool_calls += len(output.message.tool_calls or [])
                     if output.usage:
                         record.input_tokens += output.usage.input_tokens
                         record.output_tokens += output.usage.output_tokens
-                    return history.end_reason is None and bool(
-                        output.message.tool_calls
-                    )
+                    # peers work until the task ends or time runs out, not until a
+                    # turn happens to carry no tool call
+                    return history.end_reason is None and time_update()
 
                 tools = [
                     {
@@ -241,6 +255,7 @@ def team_agents(
                 try:
                     await release.wait()
                     record.started, record.status = now(), "running"
+                    messages.append(ChatMessageUser(content=time_update()))
                     _, exceeded = await run(
                         runner, messages, limits=[limit], name=record.id
                     )
@@ -267,13 +282,13 @@ def team_agents(
                     for _ in actors:
                         await ready.get()
                     history.released = now()
+                    clock["released"] = time.monotonic()
                     release.set()
-                    if team_time_limit is not None:
-                        _, pending = await asyncio.wait(tasks, timeout=team_time_limit)
-                        if pending:
-                            history.end_reason = history.end_reason or "deadline"
-                            for pending_task in pending:
-                                pending_task.cancel()
+                    _, pending = await asyncio.wait(tasks, timeout=team_time_limit)
+                    if pending:
+                        history.end_reason = history.end_reason or "deadline"
+                        for pending_task in pending:
+                            pending_task.cancel()
 
             await run_team()
             history.end_reason = history.end_reason or "peers_finished"

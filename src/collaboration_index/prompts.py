@@ -49,6 +49,12 @@ wait until your next assigned position follows it. Answers and correctness are
 not supplied by the evaluator. Your conversations and token budgets are separate.
 Assignment: {assignment}""",
 )
+TIME_UPDATE = Prompt(
+    title="time_update",
+    role="subject",
+    origin="Multi-Agent-Bench TeamGame.reminder, multi_agent_bench/game.py at a3d55c0679eb08c0b47a9976b5a2bc059d6f9659; sent as a user message before every decision. As there, the closing warning is pressure only: partial credit is kept at the deadline",
+    prompt="Time update: {elapsed:.1f} seconds of wall-clock time have elapsed since your team started. You have {remaining:.1f} seconds remaining of the {minutes:g}-minute team deadline. If time runs out before the task is complete, you will all fail.",
+)
 COLOURING = Prompt(
     title="neighbour_dms",
     role="subject",
@@ -66,4 +72,7 @@ waiting. You only know your neighbours' colours from what they tell you. Your
 conversations and token budgets are separate; your neighbours cannot see your
 reasoning or replies.""",
 )
-PROMPTS = {p.title: p for p in (COLLABORATE, COLLABORATE_NO_SANDBOX, ORACLE, COLOURING)}
+PROMPTS = {
+    p.title: p
+    for p in (COLLABORATE, COLLABORATE_NO_SANDBOX, ORACLE, COLOURING, TIME_UPDATE)
+}

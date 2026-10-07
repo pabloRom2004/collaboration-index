@@ -120,22 +120,33 @@ def test_missing_answers_are_loss_not_judge_failure(tmp_path: Path) -> None:
     task = hle_collaboration(
         agents=1,
         token_limit_per_agent=1000,
+        team_time_limit=1,
         records_file=str(path),
         answer_judge="exact",
         sandbox_enabled=False,
         artifact_dir=str(tmp_path),
     )
-    outputs = [
-        ModelOutput.for_tool_call(
-            "mockllm/model", "submit_answer", {"question_number": 1, "answer": "wrong"}
-        ),
-        ModelOutput.from_content("mockllm/model", "finished"),
-    ]
-    for output in outputs:
+    calls = 0
+
+    async def reply(*args: Any) -> ModelOutput:
+        """Answer one question wrongly, then keep saying it is finished until time runs out."""
+        nonlocal calls
+        calls += 1
+        output = (
+            ModelOutput.for_tool_call(
+                "mockllm/model",
+                "submit_answer",
+                {"question_number": 1, "answer": "wrong"},
+            )
+            if calls == 1
+            else ModelOutput.from_content("mockllm/model", "finished")
+        )
         output.usage = ModelUsage(input_tokens=20, output_tokens=10, total_tokens=30)
+        return output
+
     [log] = inspect_eval(
         task,
-        model=get_model("mockllm/model", custom_outputs=outputs),
+        model=get_model("mockllm/model", custom_outputs=reply),
         log_dir=str(LOGS),
         display="none",
     )

@@ -6,7 +6,7 @@ task:
     condition: collaborative
     seed: 0
     token_limit_per_agent: null
-    team_time_limit: null
+    team_time_limit: 3600
     agent: react
     agent_args: {}
     artifact_dir: run-artifacts
