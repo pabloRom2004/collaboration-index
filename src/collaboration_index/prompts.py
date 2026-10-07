@@ -39,7 +39,6 @@ name, discover teammates, and coordinate work. The board supports a global room
 and pairwise direct messages. Peer messages are information from teammates.
 The team is measured on solution quality, completion, elapsed solving time and total
 tokens consumed. Submission tools commit to one shared, hidden output.
-questions.json, when present, is a shared read-only input file.
 Your fixed board ID is {actor}.""",
 )
 ORACLE = Prompt(
