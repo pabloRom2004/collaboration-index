@@ -8,7 +8,7 @@ from typing import Any
 
 from inspect_ai.log import read_eval_log
 
-from collaboration_index.game import similarity
+from collaboration_index.game import clashing_edges, similarity
 
 
 def replay_data(
@@ -54,6 +54,8 @@ def replay_data(
         if kind == "hle"
         else data["target"]
         if kind == "counting"
+        else len(data["edges"])
+        if kind == "colouring"
         else len(expected_sentence)
     )
     items = [
@@ -61,7 +63,24 @@ def replay_data(
         for i in range(1, count + 1)
     ]
     grades: list[dict[str, Any]] = []
-    if kind != "hle":
+    if kind == "colouring":
+        # one progress item per network edge, re-checked after every colour change
+        items = [f"{a} ↔ {b}" for a, b in data["edges"]]
+        colours: dict[str, str] = {}
+        for entry in entries:
+            colours[entry["actor"]] = entry["value"]
+            clashes = clashing_edges(colours, data["edges"])
+            grades.append(
+                {
+                    "time": entry["time"],
+                    "capabilities": {
+                        item: edge not in clashes
+                        for item, edge in zip(items, data["edges"], strict=True)
+                    },
+                    "error": False,
+                }
+            )
+    elif kind != "hle":
         for index, entry in enumerate(entries):
             caps = {}
             for i, previous in enumerate(entries[: index + 1]):
@@ -95,7 +114,14 @@ def replay_data(
     return {
         "fixture_verification": log.eval.model.startswith("mockllm/"),
         "events": events,
-        "topology": "shared_sandbox",
+        "topology": "graph" if kind == "colouring" else "shared_sandbox",
+        "graph": {
+            "nodes": actors,
+            "edges": data["edges"],
+            "colours": data["colours"],
+        }
+        if kind == "colouring"
+        else None,
         "benchmark_title": sample.metadata.get("benchmark_title", kind),
         "condition": store["TeamHistory:condition"],
         "flags": items,

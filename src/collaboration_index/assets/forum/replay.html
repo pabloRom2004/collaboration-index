@@ -16,6 +16,7 @@ main{height:100dvh;min-height:500px}.workspace{height:100%;position:relative;iso
 @media(max-width:1000px){.board-panel{right:16px;top:16px;bottom:121px;width:calc(50% - 24px);padding:18px}.board-toolbar{gap:8px;margin-bottom:18px}.team-summary{gap:8px;font-size:10px}.board-actions{gap:6px}.upload{padding:7px 8px;font-size:10px}.agent-panel{bottom:117px}.panel-toggle{left:16px;bottom:16px}.map-tools{left:68px;bottom:16px}.timeline{right:16px;bottom:16px;width:calc(50% - 24px);padding:14px 12px}.timeline-controls{gap:3px}.timeline-track{margin:0 3px}.timeline-button{width:24px}.play-button{width:28px}.time-label{font-size:10px;min-width:38px}.dm-body{grid-template-columns:110px minmax(0,1fr);gap:12px}.dm-contact{padding:9px 4px;gap:6px}.contact-avatar{height:24px;width:24px}.dm-contacts{padding-right:8px}.flags{gap:4px}.flag{font-size:9px;padding:6px 4px}}
 @media(max-width:650px){main{min-height:700px}.board-panel{left:12px;right:12px;top:auto;bottom:106px;width:auto;height:48%;padding:16px;border-radius:14px}.board-toolbar{margin-bottom:12px}.board-content{overflow:auto}.agent-panel{bottom:102px}.panel-toggle{left:12px;bottom:12px}.map-tools{left:12px;top:auto;bottom:102px}.dm-head{margin-bottom:12px}.agent-tabs{margin-bottom:12px}.flags{grid-template-columns:repeat(2,minmax(0,1fr))}.timeline{right:12px;bottom:12px;width:calc(100% - 80px);height:78px;padding:10px 12px}.source{font-size:10px}.dm-body{min-height:130px}.board-actions{gap:6px}.speed{font-size:10px}.team-summary{font-size:10px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+.graph-node .dot{transition:fill .2s,stroke-width .2s}.graph-node:hover .dot,.graph-node:focus .dot{stroke-width:5}.graph-node.active .dot{stroke:#28372d;stroke-width:5}.recipient{font-size:11px;color:var(--muted)}
 .refresh-controls{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:-8px 0 16px;color:#727e75;font-size:11px}.refresh-controls[hidden]{display:none}.refresh-controls label{display:inline-flex;align-items:center;gap:4px}.refresh-controls input[type=number]{width:48px;padding:4px;border:1px solid var(--line);border-radius:5px;color:inherit;background:#fff}.refresh-controls button{border:1px solid var(--line);border-radius:5px;padding:5px 8px;background:#fff;color:inherit;font-size:11px}.refresh-controls button:disabled{opacity:.5}.refresh-note{width:100%;font-size:10px;color:#8e998f}
 </style>
 </head>
@@ -33,7 +34,7 @@ main{height:100dvh;min-height:500px}.workspace{height:100%;position:relative;iso
       <div class="refresh-controls" id="refresh-controls" hidden><label><input id="live-updates" type="checkbox">Live</label><label>Every <input id="refresh-minutes" type="number" min="0.1" step="0.1" value="1" aria-label="Refresh interval in minutes"> min</label><button id="refresh-now">Refresh now</button><span id="refresh-status" role="status"></span><span class="refresh-note" id="refresh-note"></span></div>
       <div class="board-content">
         <div id="global-view">
-          <header class="panel-head"><h2>Global message board</h2><span class="count" id="global-count"></span></header>
+          <header class="panel-head"><h2 id="global-title">Global message board</h2><span class="count" id="global-count"></span></header>
           <input class="search" id="search" type="search" placeholder="Search global messages" aria-label="Search global messages">
           <div class="journal" id="journal"></div>
         </div>
@@ -78,6 +79,52 @@ const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 let flagGains={};
 const LINK_STOPS=[{count:0,width:1.4,color:'#e0e5e1'},{count:5,width:2.2,color:'#adb6af'},{count:25,width:3.8,color:'#637168'},{count:100,width:6,color:'#32694a'},{count:500,width:9,color:'#244d37'}];
 const agentsById={};
+const PAINT={red:'#d9655b',green:'#5f9e6e',blue:'#5b86c4',yellow:'#e2bd4f',purple:'#9a74b8',orange:'#e08b48',pink:'#e08fb0',brown:'#9a7457'};
+const EDGE_STATE={proper:'#4f8a63',clash:'#d0645a',open:'#d5dbd6'};
+const EDGE_LABEL={proper:'different colours',clash:'same colour',open:'not yet coloured at both ends'};
+const graphMode=()=>dataset.topology==='graph';
+// Each node's latest colour at a replay time, from the trusted set_colour order.
+function coloursAt(time){const colours={};for(const entry of dataset.submissions||[])if(ms(entry.time)<=time)colours[entry.actor]=entry.value;return colours;}
+function edgeState(a,b,colours){return !colours[a]||!colours[b]?'open':colours[a]===colours[b]?'clash':'proper';}
+// Stress majorization over hop distances: neighbours sit one unit apart, deterministically.
+function graphLayout(nodes,edges){
+  const n=nodes.length,index=Object.fromEntries(nodes.map((id,i)=>[id,i])),adjacent=nodes.map(()=>[]);
+  for(const [a,b]of edges){adjacent[index[a]].push(index[b]);adjacent[index[b]].push(index[a]);}
+  const dist=nodes.map((_,source)=>{const d=Array(n).fill(Infinity);d[source]=0;const queue=[source];for(let q=0;q<queue.length;q++)for(const v of adjacent[queue[q]])if(d[v]===Infinity){d[v]=d[queue[q]]+1;queue.push(v);}return d;});
+  const far=Math.max(1,...dist.flat().filter(Number.isFinite))+1;
+  for(const row of dist)row.forEach((value,j)=>{if(!Number.isFinite(value))row[j]=far;});
+  let pos=nodes.map((_,i)=>({x:Math.cos(2*Math.PI*i/n)*n/4,y:Math.sin(2*Math.PI*i/n)*n/4}));
+  for(let iteration=0;iteration<300;iteration++)pos=pos.map((p,i)=>{
+    let x=0,y=0,total=0;
+    for(let j=0;j<n;j++){if(i===j)continue;const d=dist[i][j],w=1/(d*d),dx=p.x-pos[j].x,dy=p.y-pos[j].y,length=Math.hypot(dx,dy)||1e-9;x+=w*(pos[j].x+d*dx/length);y+=w*(pos[j].y+d*dy/length);total+=w;}
+    return total?{x:x/total,y:y/total}:p;
+  });
+  return pos;
+}
+function buildGraphScene(){
+  const edges=dataset.graph.edges,layout=graphLayout(ids,edges),SPACING=240,MARGIN=200,TOP=270;
+  const xs=layout.map(p=>p.x),ys=layout.map(p=>p.y),minX=Math.min(...xs),minY=Math.min(...ys);
+  const width=(Math.max(...xs)-minX)*SPACING,height=(Math.max(...ys)-minY)*SPACING;
+  world={w:Math.max(1000,width+2*MARGIN),h:Math.max(800,height+TOP+MARGIN)};
+  const offset=(world.w-width)/2;
+  ids.forEach((id,i)=>{positions[id]={x:offset+(layout[i].x-minX)*SPACING,y:TOP+(layout[i].y-minY)*SPACING};});
+  $('computer-nodes').setAttribute('data-layout','graph');
+  const title=svg('g',{role:'heading','aria-level':1,'aria-label':ids.length+' agents in one network'});
+  title.append(svg('text',{x:world.w/2,y:76,'text-anchor':'middle',fill:'#829087','font-size':25},ids.length+' '+(ids.length===1?'agent':'agents')+' · one network · '+edges.length+' '+(edges.length===1?'edge':'edges')));
+  title.append(svg('text',{x:world.w/2,y:138,'text-anchor':'middle',fill:'#28372d','font-size':60,'font-weight':600,'letter-spacing':-2},dataset.benchmark_title||'Graph colouring'));
+  if(dataset.fixture_verification)title.append(svg('text',{x:world.w/2,y:173,'text-anchor':'middle',fill:'#829087','font-size':18},'Authored mock · synthetic token usage'));
+  $('scene-title').append(title);
+  for(const [a,b]of edges){const entry=ensureConnection({source:positions[a],destination:positions[b],recipient:b,kind:'dm'},a);entry.edge=true;}
+  for(const id of ids){
+    const {x,y}=positions[id],group=svg('g',{class:'computer graph-node','data-agent-id':id,role:'button',tabindex:0,transform:'translate('+x+' '+y+')','aria-label':id+' network node'});
+    const motion=svg('g'),effects=svg('g',{'aria-hidden':'true'}),dot=svg('circle',{class:'dot',r:40,fill:'#fff',stroke:color(id),'stroke-width':3});
+    const number=svg('text',{x:0,y:9,'text-anchor':'middle',fill:color(id),'font-size':25,'font-weight':600},id.replace(/^agent_/,''));
+    const nameLabel=svg('text',{x:0,y:70,'text-anchor':'middle',fill:'#46604b','font-size':18},id),score=svg('text',{x:0,y:95,'text-anchor':'middle',fill:'#829087','font-size':15},'no colour'),fill=svg('rect',{width:0,height:0});
+    motion.append(dot,number,nameLabel,score,fill);group.append(motion,effects);
+    group.onclick=()=>{if(!dragged)selectAgent(id);};group.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selectAgent(id);}};
+    $('computer-nodes').append(group);computerNodes[id]={group,motion,effects,nameLabel,fill,score,dot,number};
+  }
+}
 const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
 const svg=(tag,attrs={},text)=>{const el=document.createElementNS(NS,tag);for(const [key,value]of Object.entries(attrs))el.setAttribute(key,String(value));if(text!==undefined)el.textContent=text;return el;};
 const ms=value=>value===null||value===undefined?NaN:new Date(value).getTime();
@@ -120,12 +167,15 @@ function setup(){
   selectedAgent='';selectedPeer='';selectedAgentTab='dms';highlighted=null;lastContentKey='';
   $('global-view').hidden=false;$('dm-view').hidden=true;
   $('agent-details').replaceChildren();$('dm-journal').replaceChildren();$('dm-title').textContent='';
+  $('global-title').textContent=graphMode()?'All direct messages':'Global message board';
+  $('search').placeholder=graphMode()?'Search direct messages':'Search global messages';
   $('duration').textContent=elapsed(end-start);
   $('time').value=1000;
   buildScene();fitMap();buildTicks();render(true);
 }
 function buildScene(){
   positions={};computerNodes={};connectionNodes=new Map();$('connection-layer').replaceChildren();$('computer-nodes').replaceChildren();$('global-node').replaceChildren();$('scene-title').replaceChildren();$('mail-layer').replaceChildren();
+  if(graphMode()){buildGraphScene();return;}
   const columns=Math.max(1,Math.ceil(Math.sqrt(ids.length))),rows=Math.ceil(ids.length/columns);
   world={w:Math.max(1000,columns*340+160),h:Math.max(1000,rows*340+600)};
   const shared=dataset.topology==='shared_sandbox';
@@ -241,13 +291,13 @@ function renderContacts(sent){
   const peers=ids.filter(id=>id!==selectedAgent).map(id=>{
     const roomIds=directRooms.filter(room=>(room.members||[]).includes(id)).map(room=>room.id);
     return {id,messages:sent.filter(event=>roomIds.includes(event.room))};
-  }).filter(peer=>peer.messages.length||peer.id===selectedPeer);
+  }).filter(peer=>peer.messages.length||peer.id===selectedPeer||(graphMode()&&dataset.graph.edges.some(edge=>edge.includes(peer.id)&&edge.includes(selectedAgent))));
   if(!selectedPeer&&peers.length)selectedPeer=peers[0].id;
   for(const peer of peers){
     const contact=node('button',undefined,'dm-contact'+(peer.id===selectedPeer?' active':''));
     contact.dataset.peer=peer.id;contact.setAttribute('aria-pressed',String(peer.id===selectedPeer));
     contact.setAttribute('aria-label','DM with '+name(peer.id)+', '+messageCount(peer.messages.length));
-    const avatar=node('span',name(peer.id).slice(0,1).toUpperCase(),'contact-avatar');avatar.style.setProperty('--agent-color',color(peer.id));
+    const avatar=node('span',graphMode()?peer.id.replace(/^agent_/,''):name(peer.id).slice(0,1).toUpperCase(),'contact-avatar');avatar.style.setProperty('--agent-color',color(peer.id));
     const info=node('span',undefined,'contact-info');info.append(node('span',name(peer.id),'contact-name'),node('span',messageCount(peer.messages.length),'contact-count'));
     contact.append(avatar,info);contact.onclick=()=>selectPeer(peer.id);contacts.append(contact);
   }
@@ -272,13 +322,13 @@ function renderDetails(snapshot){
   $('agent-details').hidden=!flagsOpen;$('agent-dms').hidden=flagsOpen;
   for(const tab of ['dms','flags']){const button=$(tab+'-tab');button.setAttribute('aria-selected',String(tab===selectedAgentTab));button.tabIndex=tab===selectedAgentTab?0:-1;}
   $('dm-title').textContent=name(selectedAgent)+(flagsOpen?'’s Flags':'’s DMs');
-  const shared=dataset.topology==='shared_sandbox';
+  const shared=dataset.topology==='shared_sandbox'||graphMode();
   if(shared&&flagsOpen)$('dm-title').textContent='Team progress';
   $('flags-tab').textContent=shared?'Team progress':'Flags';
   const agent=agentsById[selectedAgent];$('dm-model').textContent=modelName(agent?.model)+' · '+selectedAgent;sourceLink(agent);
   const box=$('agent-details');box.replaceChildren();
   const state=shared?capabilitiesAt(dataset.collective,currentTime):snapshot[selectedAgent],progress=node('div',undefined,'detail-progress');
-  progress.append(node('strong',ungradedAt(shared?dataset.collective:agent,currentTime)?'Ungraded':agent?.benchmark?state.earned+' / '+dataset.flags.length+' confirmed positions':'Flags not measured'));
+  progress.append(node('strong',ungradedAt(shared?dataset.collective:agent,currentTime)?'Ungraded':agent?.benchmark?state.earned+' / '+dataset.flags.length+(graphMode()?' edges properly coloured':' confirmed positions'):'Flags not measured'));
   const track=node('div',undefined,'detail-track'),fill=node('div',undefined,'detail-fill');fill.style.width=(state.earned/Math.max(dataset.flags.length,1)*100)+'%';track.append(fill);progress.append(track);box.append(progress);
   const grid=node('div',undefined,'flags');grid.setAttribute('aria-label',shared?'Team progress statuses':'Agent flag statuses');
   for(const flag of dataset.flags){
@@ -293,6 +343,13 @@ function renderDetails(snapshot){
 }
 function renderTeam(snapshot){
   const team=dataset.team,box=$('team-summary');box.replaceChildren();
+  if(graphMode()){
+    const final=currentTime>=finished(dataset.collective),status=final?dataset.collective.result.status:'pending',metrics=team.metrics||{},colours=coloursAt(currentTime),edges=dataset.graph.edges;
+    const proper=edges.filter(([a,b])=>edgeState(a,b,colours)==='proper').length;box.dataset.status=status;
+    box.append(node('span','Team '+(status==='unscored'?'Unavailable':status==='scored'?Number(100*team.quality).toFixed(1)+'% edges proper':proper+' / '+edges.length+' edges proper')),node('span',Object.keys(colours).length+' / '+ids.length+' coloured'));
+    if(final)box.append(node('span',Number(metrics.elapsed_seconds||0).toFixed(2)+'s · '+(metrics.tokens||0)+' tokens'),node('span',(metrics.message_count||0)+' DMs'));
+    return;
+  }
   if(dataset.topology==='shared_sandbox'){
     const collective=dataset.collective,state=capabilitiesAt(collective,currentTime),final=currentTime>=finished(collective),status=final?collective.result.status:'pending';
     box.dataset.status=status;
@@ -318,6 +375,7 @@ function messageRow(event,receipts,dm){
   const row=node('article',undefined,'message'+(highlighted===event.sequence?' highlight':'')+(dm&&event.actor===selectedAgent?' outgoing':''));row.id=(dm?'dm-message-':'message-')+event.sequence;row.dataset.sequence=event.sequence;
   const meta=node('div',undefined,'meta'),sender=node('button',undefined,'sender');sender.style.setProperty('--agent-color',color(event.actor));sender.append(node('span',undefined,'sender-dot'),node('span',name(event.actor)));sender.onclick=()=>{if(dm){const peer=event.actor===selectedAgent?selectedPeer:selectedAgent;selectAgent(event.actor);selectPeer(peer);}else selectAgent(event.actor);};
   const time=node('time',clock(ms(event.time)),'message-time');time.dateTime=event.time;time.title=clock(ms(event.time))+' UTC';meta.append(sender,time);row.append(meta);
+  if(!dm&&rooms[event.room]?.kind==='dm')meta.insertBefore(node('span','→ '+name((rooms[event.room].members||[]).find(id=>id!==event.actor)),'recipient'),time);
   if(dm&&event.actor===selectedAgent)meta.insertBefore(node('span','You','self-label'),time);
   row.append(node('div',event.data.text,'message-body'));
   const footer=node('div',undefined,'message-footer');
@@ -329,7 +387,7 @@ function renderMessages(target,events,receipts,query,dm){
   const journal=$(target),wasBottom=journal.scrollHeight-journal.scrollTop-journal.clientHeight<70,oldScroll=journal.scrollTop;
   journal.replaceChildren();
   for(const event of events)if(!query||event.data.text.toLowerCase().includes(query.toLowerCase()))journal.append(messageRow(event,receipts,dm));
-  if(!journal.children.length)journal.append(node('div',dm?(selectedPeer?'No messages at this point in the replay.':'Select a conversation'):'No global messages at this point in the replay.','empty'));
+  if(!journal.children.length)journal.append(node('div',dm?(selectedPeer?'No messages at this point in the replay.':'Select a conversation'):graphMode()?'No direct messages at this point in the replay. Click a node to see its neighbours.':'No global messages at this point in the replay.','empty'));
   if(wasBottom&&playing)journal.scrollTop=journal.scrollHeight;else journal.scrollTop=oldScroll;
 }
 function render(force=false){
@@ -338,7 +396,7 @@ function render(force=false){
   for(const event of prefix)if(event.kind==='register')names[event.actor]=event.data.name;
   const sent=prefix.filter(event=>event.kind==='message'),receipts={};
   for(const event of prefix)if(event.kind==='read')for(const sequence of event.data.delivered||[])(receipts[sequence]??=new Set()).add(event.actor);
-  const snapshot=Object.fromEntries(ids.map(id=>[id,capabilitiesAt(agentsById[id],currentTime)]));
+  const snapshot=Object.fromEntries(ids.map(id=>[id,capabilitiesAt(agentsById[id],currentTime)])),colours=graphMode()?coloursAt(currentTime):{};
   $('position').textContent=elapsed(currentTime-start);$('position').title=clock(currentTime)+' UTC';
   $('stats').textContent=sent.length+' / '+dataset.events.filter(event=>event.kind==='message').length+' messages';
   $('replay-status').textContent=playing?'Playing':Number($('time').value)>=1000?'Finished':'Paused';renderTeam(snapshot);
@@ -348,13 +406,14 @@ function render(force=false){
     entry.fill.setAttribute('width',String(130*state.earned/Math.max(dataset.flags.length,1)));
     entry.score.textContent=ungradedAt(agent,currentTime)?'Ungraded':agent?.benchmark?state.earned+' / '+dataset.flags.length+' confirmed positions':agent?.communication?'Communication smoke':'Awaiting log';
     if(dataset.topology==='shared_sandbox')entry.score.textContent=currentTime<ms(agent?.started)?'ready':currentTime<finished(agent)?'running':agent?.status||'Equal peer';
+    if(graphMode()){const colour=colours[id];entry.dot.setAttribute('fill',colour?PAINT[colour]||'#b8c0ba':'#fff');entry.number.setAttribute('fill',colour?'#fff':color(id));entry.score.textContent=colour||'no colour';entry.group.setAttribute('aria-label',name(id)+' network node, '+(colour||'no colour'));}
     entry.group.dataset.earned=state.earned;
   }
-  $('map-global-count').textContent=sent.filter(event=>event.room==='global').length+' messages';
-  const key=JSON.stringify([prefix.length,selectedAgent,selectedPeer,selectedAgentTab,$('search').value,$('dm-search').value,highlighted,ids.map(id=>[name(id),snapshot[id].earned,JSON.stringify(snapshot[id].caps),currentTime>=finished(agentsById[id])])]);
+  if($('map-global-count'))$('map-global-count').textContent=sent.filter(event=>event.room==='global').length+' messages';
+  const key=JSON.stringify([prefix.length,JSON.stringify(colours),selectedAgent,selectedPeer,selectedAgentTab,$('search').value,$('dm-search').value,highlighted,ids.map(id=>[name(id),snapshot[id].earned,JSON.stringify(snapshot[id].caps),currentTime>=finished(agentsById[id])])]);
   if(force||key!==lastContentKey){
     const picker=$('agent-picker');picker.replaceChildren(node('option','Choose an agent'));picker.firstChild.value='';for(const id of ids){const option=node('option',name(id));option.value=id;picker.append(option);}picker.value='';
-    const globalMessages=sent.filter(event=>event.room==='global');$('global-count').textContent=globalMessages.length+' messages';renderMessages('journal',globalMessages,receipts,$('search').value,false);
+    const globalMessages=graphMode()?sent:sent.filter(event=>event.room==='global');$('global-count').textContent=globalMessages.length+' messages';renderMessages('journal',globalMessages,receipts,$('search').value,false);
     if(selectedAgent){
       renderDetails(snapshot);
       const directMessages=renderContacts(sent);renderMessages('dm-journal',directMessages,receipts,$('dm-search').value,true);
@@ -365,13 +424,14 @@ function render(force=false){
 }
 function routeFor(event){
   const source=positions[event.actor];if(!source)return null;
-  if(event.room==='global')return {source:{x:source.x,y:source.y-36},destination:{...boardPosition},recipient:'global',kind:'global'};
+  const lift=graphMode()?0:36;
+  if(event.room==='global')return {source:{x:source.x,y:source.y-lift},destination:{...boardPosition},recipient:'global',kind:'global'};
   const room=rooms[event.room];if(room?.kind!=='dm')return null;
   const recipient=(room.members||[]).find(id=>id!==event.actor),target=positions[recipient];
-  return target?{source:{x:source.x,y:source.y-36},destination:{x:target.x,y:target.y-36},recipient,kind:'dm'}:null;
+  return target?{source:{x:source.x,y:source.y-lift},destination:{x:target.x,y:target.y-lift},recipient,kind:'dm'}:null;
 }
 function routeGeometry(route){
-  const a=route.source,b=route.destination,mid={x:(a.x+b.x)/2,y:Math.min(a.y,b.y)-Math.min(135,Math.abs(a.x-b.x)*.2+70)};
+  const a=route.source,b=route.destination,mid=graphMode()?{x:(a.x+b.x)/2,y:(a.y+b.y)/2}:{x:(a.x+b.x)/2,y:Math.min(a.y,b.y)-Math.min(135,Math.abs(a.x-b.x)*.2+70)};
   return {a,b,mid,path:'M '+a.x+' '+a.y+' Q '+mid.x+' '+mid.y+' '+b.x+' '+b.y};
 }
 function connectionKey(route,actor){return route.kind==='global'?'global:'+JSON.stringify(actor):'dm:'+JSON.stringify([actor,route.recipient].sort());}
@@ -407,19 +467,21 @@ function travelProgress(progress){return Math.max(0,Math.min(1,(progress-.22)/.7
 function routePoint({a,b,mid},p){const u=1-p;return {x:u*u*a.x+2*u*p*mid.x+p*p*b.x,y:u*u*a.y+2*u*p*mid.y+p*p*b.y};}
 function renderConnections(sent,time){
   $('connection-trails')?.remove();
-  const counts=new Map(),active=new Set(),flights=[];
+  const counts=new Map(),active=new Set(),flights=[],colours=graphMode()?coloursAt(time):{};
   for(const event of sent){
     const route=routeFor(event);if(!route)continue;
     const key=connectionKey(route,event.actor);ensureConnection(route,event.actor);counts.set(key,(counts.get(key)||0)+1);
     const progress=flightProgress(event,time);if(progress!==null&&progress<1){active.add(key);flights.push({event,route,key,progress});}
   }
   for(const [key,entry]of connectionNodes){
-    const count=counts.get(key)||0;if(entry.kind==='dm'&&!count){entry.path.remove();connectionNodes.delete(key);continue;}
-    const highlighted=active.has(key),state=JSON.stringify([count,highlighted,name(entry.actor),name(entry.recipient)]);if(state===entry.state)continue;
-    const style=connectionStyle(count);entry.path.setAttribute('stroke',style.color);
-    entry.path.setAttribute('stroke-width',String(style.width));
+    const count=counts.get(key)||0;if(entry.kind==='dm'&&!count&&!entry.edge){entry.path.remove();connectionNodes.delete(key);continue;}
+    const status=entry.edge?edgeState(entry.actor,entry.recipient,colours):'';
+    const highlighted=active.has(key),state=JSON.stringify([count,highlighted,name(entry.actor),name(entry.recipient),status]);if(state===entry.state)continue;
+    const style=connectionStyle(count);entry.path.setAttribute('stroke',entry.edge?EDGE_STATE[status]:style.color);
+    entry.path.setAttribute('stroke-width',String(entry.edge?Math.max(4,style.width):style.width));
+    if(entry.edge){entry.path.dataset.state=status;if(status==='clash')entry.path.setAttribute('stroke-dasharray','12 9');else entry.path.removeAttribute('stroke-dasharray');}
     entry.path.classList.toggle('active',highlighted);entry.path.dataset.count=count;entry.path.dataset.active=String(highlighted);
-    entry.title.textContent=name(entry.actor)+' ↔ '+(entry.kind==='global'?'Global message board':name(entry.recipient))+': '+messageCount(count);
+    entry.title.textContent=name(entry.actor)+' ↔ '+(entry.kind==='global'?'Global message board':name(entry.recipient))+': '+messageCount(count)+(entry.edge?' · '+EDGE_LABEL[status]:'');
     entry.state=state;
   }
   const trails=svg('g',{id:'connection-trails','aria-hidden':'true','pointer-events':'none'});
@@ -489,7 +551,7 @@ function renderNodeMotion(time,snapshot){
     entry.fill.setAttribute('width',String(130*displayed/Math.max(dataset.flags.length,1)));
   }
   for(const [id,pose]of Object.entries(poses)){
-    const target=id==='global'?$('global-motion'):computerNodes[id].motion;
+    const target=id==='global'?$('global-motion'):computerNodes[id].motion;if(!target)continue;
     target.setAttribute('transform','translate('+(MOTION_STRENGTH*Math.max(-30,Math.min(30,pose.x)))+' '+(MOTION_STRENGTH*Math.max(-40,Math.min(40,pose.y)))+') rotate('+(MOTION_STRENGTH*Math.max(-7,Math.min(7,pose.angle)))+') scale('+(1+(pose.scale-1)*MOTION_STRENGTH)+')');
   }
 }

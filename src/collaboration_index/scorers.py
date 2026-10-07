@@ -10,7 +10,7 @@ from inspect_ai.util import json_schema
 from pydantic import BaseModel, ValidationError
 
 from collaboration_index.board.client import BoardHistory
-from collaboration_index.game import similarity
+from collaboration_index.game import clashing_edges, final_colours, similarity
 from collaboration_index.state import Judgment, TeamHistory
 
 METRICS = {
@@ -139,6 +139,14 @@ def team_score(answer_judge: str, max_grader_attempts: int) -> Scorer:
             quality = similarity(line, closest)
             coverage = min(1.0, len(line) / len(closest))
             completed = returned and line in data["sentences"]
+        elif history.benchmark == "colouring":
+            colours = final_colours(history.submissions)
+            edges = data["edges"]
+            proper = len(edges) - len(clashing_edges(colours, edges))
+            coverage = len(colours) / len(history.peers)
+            # a network without edges is solved once every node holds a colour
+            quality = proper / len(edges) if edges else float(coverage == 1)
+            completed = coverage == 1 and proper == len(edges)
         else:
             raise RuntimeError("No scorer for the initialized benchmark")
         board = state.store_as(BoardHistory)

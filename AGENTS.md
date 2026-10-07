@@ -41,7 +41,12 @@ are different conditions.
 
 - Python 3.12; locked Inspect AI 0.3.277; package name `collaboration-index`;
   registered task namespace `collaboration_index`.
-- Task IDs: `hle_collaboration`, `counting`, `spelling` under that namespace.
+- Task IDs: `hle_collaboration`, `counting`, `spelling`, `colouring` under that
+  namespace.
+- Colouring peers are nodes of a hidden planted graph. They communicate only by
+  board DMs to their graph neighbours through `send_message`/`read_messages`;
+  the neighbour check lives in the trusted tool closure, and there is no global
+  room. Its sandbox is off by default because it exposes no file or shell tool.
 - Team sizes 1–32; default two; one peer is useful as a baseline.
 - Maintained default epoch count is one; repeated epochs are separate attempts
   with mean reduction, not best-of-N or a union.
@@ -186,7 +191,7 @@ when changing configs, the visualiser or starter. Update both
 `src/collaboration_index/assets/starter/` and `templates/example-exam/` when
 changing shared starter content; the former is what the generator distributes.
 
-Use `uv run collaboration-smoke --agents 8` to verify all three authored tasks.
+Use `uv run collaboration-smoke --agents 8` to verify all four authored tasks.
 Its scripted oracle knowledge and synthetic tokens cannot support research
 claims. Verify real provider activity, task grading, collaboration and durable
 results separately before expanding a real experiment.

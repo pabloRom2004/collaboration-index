@@ -11,6 +11,7 @@ from inspect_ai import Task
 from inspect_ai import eval as inspect_eval
 from inspect_ai.model import ChatMessageTool, ModelOutput, ModelUsage, get_model
 
+from collaboration_index.colouring import colouring
 from collaboration_index.counting import counting
 from collaboration_index.hle import hle_collaboration
 from collaboration_index.replay import render
@@ -42,7 +43,7 @@ def fixture_model(task: Task) -> Any:
             ]
             for i in range(count)
         }
-    else:
+    elif kind == "spelling":
         text = data["dealt_sentence"] + "\n"
         owners = [
             next(i for i in range(count) if char in data["hands"][f"agent_{i}"])
@@ -82,7 +83,27 @@ def fixture_model(task: Task) -> Any:
             raise AssertionError(str(errors))
         step = len(completed)
         function, arguments = "", {}
-        if collaborative and step < 4:
+        if kind == "colouring":
+            actor = f"agent_{index}"
+            contacts, colour = data["neighbours"][actor], data["planted"][actor]
+            sends = len(contacts) if collaborative else 0
+            if step < sends:
+                function = "send_message"
+                arguments = {"neighbour": contacts[step], "text": f"Fixture {colour}."}
+            elif step == sends:
+                async with asyncio.timeout(20):
+                    await barrier.wait()
+                function, arguments = (
+                    ("read_messages", {"wait_seconds": 0})
+                    if collaborative
+                    else ("set_colour", {"colour": colour})
+                )
+            elif collaborative and step == sends + 1:
+                delivered = json.loads(completed[-1].text)["messages"]
+                if sorted(m["from"] for m in delivered) != sorted(contacts):
+                    raise AssertionError("Neighbour DMs were not delivered")
+                function, arguments = "set_colour", {"colour": colour}
+        elif collaborative and step < 4:
             function = "message_board"
             if step == 0:
                 arguments = {"action": "register", "name": f"Peer {index}"}
@@ -144,7 +165,7 @@ def fixture_model(task: Task) -> Any:
 
 
 def main() -> None:
-    """Run three authored mock fixtures and retain portable replays while deleting owned mock logs."""
+    """Run four authored mock fixtures and retain portable replays while deleting owned mock logs."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agents", type=int, default=2)
     parser.add_argument("--no-sandbox", action="store_true")
@@ -176,6 +197,7 @@ def main() -> None:
         hle_collaboration(records_file=str(records), answer_judge="exact", **common),
         counting(**common),
         spelling(**common),
+        colouring(**common),
     ]
     reports = []
     for task in tasks:

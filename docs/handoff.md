@@ -74,6 +74,16 @@ It is a local process, not hosted infrastructure; restart it with the documented
 proof of a running eval. No evaluation-owned containers remained after the
 baseline checks.
 
+## Colouring addition (2026-10-07)
+
+`collaboration_index/colouring` ports Multi-Agent-Bench's `colouring_local`
+from `james/leader` commit `e633b04cd109b6616a0273a3dd27724711814a5c`, with
+neighbour-only board DMs in place of automatic inbox delivery. Authored mocks
+completed at 1, 2, 8 and 32 peers and in the oracle control, with every DM
+delivered to its neighbour. The eight-peer Docker smoke completed all four tasks.
+At that point 67 local tests and the Docker integration test passed, along with
+Ruff, mypy and the wheel build. No real model has played it.
+
 ## Credential and source context
 
 The user approved creating and privately saving the fine-grained
@@ -126,9 +136,9 @@ variants of the same coordination mechanic. For the index, decide normalization,
 quality thresholds, benchmark weights and uncertainty using seeded team-level
 evidence, not the number of peer trajectories.
 
-Task seed randomizes spelling draws, but currently labels counting attempts and
-HLE metadata without changing their work. Do not assume a seed sweep gives
-independent problem draws for all three tasks. Record model-generation settings
+Task seed randomizes spelling and colouring draws, but currently labels counting
+attempts and HLE metadata without changing their work. Do not assume a seed
+sweep gives independent problem draws for every task. Record model-generation settings
 and use repeated team attempts appropriate to the intended uncertainty estimate.
 
 ## Starting the next coding session

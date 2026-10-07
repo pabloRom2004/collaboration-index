@@ -13,17 +13,23 @@ from inspect_ai.model import ChatMessageUser, CompactionAuto, ModelOutput, get_m
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from inspect_ai.util import sandbox, token_limit
 
-from collaboration_index.board.client import BoardClient, message_board
+from collaboration_index.board.client import (
+    BoardClient,
+    message_board,
+    read_messages,
+    send_message,
+)
 from collaboration_index.board.runtime import local_board
 from collaboration_index.game import (
     TeamGame,
     oracle_progress,
     read_file,
+    set_colour,
     submit_answer,
     submit_letter,
     submit_number,
 )
-from collaboration_index.prompts import COLLABORATE, ORACLE
+from collaboration_index.prompts import COLLABORATE, COLOURING, ORACLE
 from collaboration_index.state import Peer, TeamHistory, now
 
 
@@ -167,6 +173,7 @@ def team_agents(
                         "hle": submit_answer,
                         "counting": submit_number,
                         "spelling": submit_letter,
+                        "colouring": set_colour,
                     }[history.benchmark](game, record.id)
                 ]
                 if history.benchmark == "hle":
@@ -176,13 +183,26 @@ def team_agents(
                             state.metadata["sandbox_enabled"],
                         )
                     )
-                if history.condition == "collaborative":
+                if history.condition == "collaborative" and (
+                    history.benchmark == "colouring"
+                ):
+                    contacts = data["neighbours"][record.id]
+                    tools += [
+                        send_message(options, contacts),
+                        read_messages(
+                            options, contacts, lambda: history.end_reason is not None
+                        ),
+                    ]
+                    extra = COLOURING.prompt.format(
+                        actor=record.id, neighbours=", ".join(contacts) or "none"
+                    )
+                elif history.condition == "collaborative":
                     tools.append(message_board(options))
                     extra = COLLABORATE.prompt.format(
                         agents=len(actors), actor=record.id
                     )
                 else:
-                    if history.benchmark != "hle":
+                    if history.benchmark in ("counting", "spelling"):
                         tools.append(oracle_progress(game))
                     extra = ORACLE.prompt.format(
                         agents=len(actors),

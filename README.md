@@ -1,10 +1,11 @@
 # Collaboration Index
 
 Collaboration Index is an Inspect AI research prototype for measuring how well
-multiple copies of a model coordinate. It currently contains three tasks:
+multiple copies of a model coordinate. It currently contains four tasks:
 [Humanity's Last Exam](https://huggingface.co/datasets/cais/hle) answered as a
-team, ordered counting, and spelling using private character hands. Counting
-and spelling adapt tasks from the local Multi-Agent-Bench project. Communication
+team, ordered counting, spelling using private character hands, and graph
+colouring where each agent is a network node that can only DM its neighbours.
+Counting, spelling and colouring adapt tasks from Multi-Agent-Bench. Communication
 and replay reuse the authenticated message board developed in ExploitBench.
 
 The initial question is whether a team can divide work, share information and
@@ -57,9 +58,11 @@ uv run collaboration-smoke --agents 8
 uv run collaboration-view --artifacts run-artifacts/mock-suite --port 14368
 ```
 
-Open <http://127.0.0.1:14368/>. The three links show the HLE fixture, counting and
-spelling replays. Each displays one collective computer, peer identities,
-collective progress, global messages, DMs and token counts.
+Open <http://127.0.0.1:14368/>. The four links show the HLE fixture, counting,
+spelling and colouring replays. Each displays peer identities, collective
+progress, messages and token counts. The first three draw one collective
+computer with a global board; colouring draws the network as coloured dots, and
+clicking a dot opens that agent's DMs with its neighbours.
 
 The smoke uses **authored questions and scripted mock model output**. It runs
 the real native-agent orchestration, Docker sandbox, board HTTP service,
@@ -88,10 +91,11 @@ Registered task IDs are:
 | `collaboration_index/hle_collaboration` | The entire selected numbered exam |
 | `collaboration_index/counting` | One shared ordered sequence |
 | `collaboration_index/spelling` | One shared sentence attempt |
+| `collaboration_index/colouring` | One hidden network to colour |
 
 `--limit 1` selects a team sample, not one HLE question and not one peer. Use
-`question_limit` to reduce the exam. Calling the three task factories separately
-creates three task logs; the N peers within each task do not get N `.eval` files.
+`question_limit` to reduce the exam. Calling the four task factories separately
+creates four task logs; the N peers within each task do not get N `.eval` files.
 Repeated epochs remain repeated team attempts, with fresh boards and stores.
 
 Real model runs require an explicitly selected subject model, a positive
@@ -165,6 +169,7 @@ Each task owns a complete maintained configuration:
 - [HLE](src/collaboration_index/hle/run_configs/default.yaml)
 - [Counting](src/collaboration_index/counting/run_configs/default.yaml)
 - [Spelling](src/collaboration_index/spelling/run_configs/default.yaml)
+- [Colouring](src/collaboration_index/colouring/run_configs/default.yaml)
 
 Public Python defaults are read from these files. CLI overrides take precedence
 when using `--run-config`. Keep task arguments under `task.args`, subject
@@ -185,7 +190,7 @@ route before a real-model launch; the YAML fraction alone does not establish
 provider compatibility.
 
 Task `seed` and model generation seed are separate. Spelling uses task seed to
-draw candidates and hands. Counting uses it as an attempt identifier, and HLE
+draw candidates and hands, and colouring uses it to draw the network. Counting uses it as an attempt identifier, and HLE
 retains it as metadata without shuffling the pinned batch. Varying that argument
 alone does not produce new counting problems or randomized HLE selections.
 
@@ -198,6 +203,7 @@ because complementary information is the task's mechanic.
 `condition=oracle_allocation` supplies an evaluator allocation and removes the
 board tool. HLE assigns question numbers round-robin. Counting assigns
 consecutive blocks. Spelling supplies a feasible target and character owners.
+Colouring gives each peer its node's colour in the hidden planted colouring.
 Ordered controls receive `oracle_progress`, which reveals only accepted prefix
 length so they can sequence actions without messaging.
 
@@ -300,8 +306,8 @@ the whole batch or numbered ranges through the restricted `read_file` tool.
 exposed to these toy-task agents. Files are not an alternate communication
 channel. Submission and board tools execute trusted controller-side Python.
 
-Answers and other agents' private spelling hands are excluded from participant
-inputs. They are retained in trusted task metadata for scoring, so a native
+Answers, other agents' private spelling hands and the colouring graph beyond
+a peer's own neighbours are excluded from participant inputs. They are retained in trusted task metadata for scoring, so a native
 `.eval` log is **not** a public, sanitized artifact. Keep credentials out of
 logs, Git, receipts and model-visible files. Do not print real HLE records when
 checking access or loading: report revisions, counts and hashes.
@@ -433,6 +439,27 @@ character or the aliases `space`, `comma`, `period`, `return`. Only a peer holdi
 return can end the line. Any exact shown sentence followed by return is complete;
 the deal's selected sentence is not the only sentence the scorer accepts.
 
+### Graph colouring
+
+| Argument | Maintained default | Meaning |
+| --- | --- | --- |
+| `colours` | `3` | Palette size, 2–8, taken in order from red, green, blue, yellow, purple, orange, pink, brown. |
+| `topology` | `random` | `random` planted graph, `ring` or `grid`. |
+| `degree` | `3.0` | Target average degree of a random network. |
+| `sandbox_enabled` | `false` | Peers have no file or shell tool, so no container is started by default. |
+
+Every peer is one node of a hidden graph drawn with a planted proper colouring,
+so a solution exists; random networks have no isolated nodes. A peer's prompt
+names its fixed ID and its neighbours' IDs, never the team size or the rest of
+the graph. `set_colour(colour)` sets or changes the caller's colour at any time.
+`send_message(neighbour, text)` sends a board DM and refuses anyone who is not a
+neighbour. `read_messages(wait_seconds)` collects new neighbour DMs, waiting up
+to the board's wait bound when none is pending. There is no global room. The
+attempt ends the moment every node holds a colour and no edge joins two equal
+colours. The defaults and planted-graph rules follow Multi-Agent-Bench's Hawk
+`colouring_local` task; that version delivered messages automatically before
+each decision and hid IDs behind random numbers.
+
 ## Scoring
 
 The scorer reads authoritative `TeamHistory` in Inspect's typed store. It never
@@ -449,6 +476,10 @@ similarity. HLE quality is correct answers divided by all selected questions;
 unanswered questions receive zero credit. HLE `completed` means every question
 has an accepted answer, not that every answer is correct. Ordered-task completion
 requires the exact correct sequence or an exact shown sentence plus return.
+Colouring quality is the fraction of edges whose two ends hold different colours
+at the end; an uncoloured end counts as a clash, and an edgeless network scores
+1 once its node is coloured. Colouring `completed` means a proper colouring of
+every node, and `coverage` is the coloured fraction of nodes.
 
 | Measurement | Interpretation |
 | --- | --- |

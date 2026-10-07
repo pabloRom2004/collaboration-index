@@ -50,9 +50,12 @@ def make_task(
         sandbox_enabled=sandbox_enabled,
         answer_judge=answer_judge,
         benchmark_title=title
-        or {"hle": "HLE collaboration", "counting": "Counting", "spelling": "Spelling"}[
-            benchmark
-        ],
+        or {
+            "hle": "HLE collaboration",
+            "counting": "Counting",
+            "spelling": "Spelling",
+            "colouring": "Graph colouring",
+        }[benchmark],
     )
     return Task(
         dataset=[sample],

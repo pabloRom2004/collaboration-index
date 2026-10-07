@@ -39,9 +39,9 @@ motivated the shared-state design but is not imported here.
 
 | Location | Responsibility |
 | --- | --- |
-| `_registry.py` | Registers the three packaged Inspect tasks. |
-| `{hle,counting,spelling}/task.py` | Explicit public interfaces and benchmark inputs. |
-| `{hle,counting,spelling}/run_configs/default.yaml` | Maintained adjustable defaults. |
+| `_registry.py` | Registers the four packaged Inspect tasks. |
+| `{hle,counting,spelling,colouring}/task.py` | Explicit public interfaces and benchmark inputs. |
+| `{hle,counting,spelling,colouring}/run_configs/default.yaml` | Maintained adjustable defaults. |
 | `task.py` | Common Task assembly, invariant setup, solver, scorer and sandbox. |
 | `harness.py` | Peer preparation, native execution, limits, cancellation and board lifecycle. |
 | `prompts.py` | Named collaborative/oracle prompt objects and provenance. |
@@ -50,6 +50,7 @@ motivated the shared-state design but is not imported here.
 | `scorers.py` | Team quality, explicit judge outcomes and separate subject costs. |
 | `hle/dataset.py` | Pinned data selection, public/private records and stable batch identity. |
 | `spelling/dataset.py` | Seeded candidate selection and private reusable hands. |
+| `colouring/dataset.py` | Seeded planted graphs mapped onto fixed peer IDs. |
 | `board/` | Database, authenticated HTTP API, client/tools and process lifecycle. |
 | `replay.py`, `viewer.py` | Trusted-state export and local HTML serving. |
 | `assets/` | Common visualiser, Docker definition, sentence pool and starter. |
@@ -112,6 +113,12 @@ shared-state architecture rather than sharing a Python object across machines.
 The board runs with a filtered environment, private credential-hash files and
 a fresh database. Its event journal has ordered, run-attributed global/DM
 events and read receipts. A peer cannot forge another run/actor with its token.
+Colouring replaces the general `message_board` tool with `send_message` and
+`read_messages`, which DM only the caller's evaluator-fixed graph neighbours.
+The neighbour check runs in the controller before any board request, so the
+board itself stays generic. `read_messages` polls unread counts and reads every
+neighbour DM from per-neighbour cursors held in the tool closure; a failed poll
+falls through to that authoritative read.
 Chosen names supplement fixed IDs; they do not replace evaluator identity.
 
 ## Scoring and replay boundaries
@@ -129,7 +136,10 @@ counts. Some structural fields remain in store/score metadata rather than
 headline aggregates. A completed peer status is not a claim of task correctness.
 
 `collaboration-replay` combines a selected sample/epoch's typed state with its
-matching board journal. It validates run and actor identities, omits private
+matching board journal. Colouring replays carry `topology: graph` with nodes and
+edges; the frontend lays the network out by stress majorization over hop
+distances, colours each dot from the trusted `set_colour` order, and styles each
+edge as proper, clashing or not yet coloured. It validates run and actor identities, omits private
 model histories, and emits one collective result with peer execution statistics.
 HLE grade information is post-hoc. Failed grading becomes JSON null rather than
 invalid JSON NaN. Exported message bodies and submissions remain data; only the
@@ -161,7 +171,7 @@ For a different mechanic:
 6. Prove the path with authored native-agent mocks, sandbox checks and packaging
    tests before proposing paid runs.
 
-The current core has explicit branches for three mechanics. It is not a generic
+The current core has explicit branches for four mechanics. It is not a generic
 game plugin engine; add an abstraction only when multiple concrete tasks need it.
 Number-sequence ordering with private numbers is a plausible fourth task.
 Python line assembly additionally requires validated execution/scoring and pool

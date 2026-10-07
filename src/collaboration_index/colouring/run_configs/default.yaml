@@ -1,0 +1,32 @@
+task:
+  task: collaboration_index/colouring
+  args:
+    agents: 2
+    condition: collaborative
+    seed: 0
+    token_limit_per_agent: null
+    team_time_limit: null
+    agent: react
+    agent_args: {}
+    artifact_dir: run-artifacts
+    sandbox_enabled: false
+    compaction_threshold: 0.75
+    colours: 3
+    topology: random
+    degree: 3.0
+
+model: null
+
+model_roles: {}
+
+generate_config:
+  temperature: null
+  max_tokens: null
+  seed: null
+  max_connections: null
+
+eval_config:
+  epochs: 1
+  limit: null
+  message_limit: null
+  time_limit: null

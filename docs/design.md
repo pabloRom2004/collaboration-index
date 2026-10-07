@@ -3,6 +3,9 @@
 HLE is a bag of independent questions and tests division of labour. Counting
 is an ordered shared output and tests turn coordination. Spelling adds private
 complementary resources and tests information sharing and ordered assembly.
+Colouring restricts each peer to its graph neighbours and tests whether local
+DM negotiation converges on a global constraint; its peers cannot use the
+global room or discover non-neighbours.
 The board reveals peer IDs/counts and permits chosen names, global messages,
 DMs, pagination, blocking waits and read receipts, equally in every emergent arm.
 This deliberately changes the anonymous/shared-files conditions in the old repo.

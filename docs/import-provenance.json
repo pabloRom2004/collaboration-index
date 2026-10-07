@@ -52,5 +52,16 @@
     "source": "tests/exploitbench/test_message_board_guardrails.py",
     "excluded_test": "test_setup_roster_retries_busy_with_stable_id",
     "reason": "Original benchmark-specific context setup is not imported"
+  },
+  "colouring": {
+    "source": "https://github.com/pabloRom2004/Multi-Agent-Bench/tree/james/leader",
+    "commit": "e633b04cd109b6616a0273a3dd27724711814a5c",
+    "files": [
+      "hivemind/tasks/colouring.py",
+      "hivemind/tasks/colouring_local.py",
+      "hivemind/hawk_tasks.py"
+    ],
+    "destination": "src/collaboration_index/colouring/",
+    "changes": "board DMs to graph neighbours replace automatic inbox delivery; fixed agent IDs replace random six-digit IDs; seeded draws"
   }
 }

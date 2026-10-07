@@ -161,9 +161,10 @@ def test_starter_uses_common_core_and_public_defaults(tmp_path: Path) -> None:
     assert log.samples[0].scores["team_score"].value["quality"] == 1
     with pytest.raises(ValueError, match="new destination"):
         create_project(project)
-    for name in ("hle", "counting", "spelling"):
+    for name in ("hle", "counting", "spelling", "colouring"):
         config = defaults(name)
-        assert config["task"]["args"]["sandbox_enabled"]
+        # colouring peers exchange DMs only and have no file or shell tool
+        assert config["task"]["args"]["sandbox_enabled"] is (name != "colouring")
         assert config["task"]["args"]["token_limit_per_agent"] is None
         assert config["task"]["args"]["compaction_threshold"] == 0.75
 

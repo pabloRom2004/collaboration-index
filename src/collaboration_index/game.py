@@ -35,6 +35,20 @@ def similarity(sequence: list[Any] | str, expected: list[Any] | str) -> float:
     return max(0.0, 1 - distance(sequence, expected) / len(expected))
 
 
+def final_colours(submissions: list[Submission]) -> dict[str, str]:
+    """Return each node's latest colour, since a later set_colour replaces an earlier one."""
+    return {s.actor: str(s.value) for s in submissions}
+
+
+def clashing_edges(colours: dict[str, str], edges: list[list[str]]) -> list[list[str]]:
+    """List network edges with an uncoloured end or two ends of the same colour."""
+    return [
+        [a, b]
+        for a, b in edges
+        if a not in colours or b not in colours or colours[a] == colours[b]
+    ]
+
+
 class TeamGame:
     """Own one sample's lock and apply the benchmark's submission contract."""
 
@@ -106,6 +120,18 @@ class TeamGame:
                 ):
                     history.end_reason = "output_limit"
                     raise ToolError("The shared output reached its character limit")
+            elif kind == "colouring":
+                if (
+                    not isinstance(value, str)
+                    or value.strip().lower() not in self.data["colours"]
+                ):
+                    history.rejected_submissions += 1
+                    raise ToolError(
+                        "The colour must be one of: "
+                        + ", ".join(self.data["colours"])
+                        + "; nothing changed"
+                    )
+                value = value.strip().lower()
             else:
                 raise RuntimeError("Unknown initialized benchmark")
             entries = history.submissions
@@ -127,6 +153,12 @@ class TeamGame:
                 history.end_reason = "sequence_full"
             elif kind == "spelling" and value == "\n":
                 history.end_reason = "line_returned"
+            elif kind == "colouring":
+                colours = final_colours(history.submissions)
+                if len(colours) == len(self.actors) and not clashing_edges(
+                    colours, self.data["edges"]
+                ):
+                    history.end_reason = "properly_coloured"
             if history.end_reason is not None:
                 history.objective_completed = now()
             return {
@@ -155,6 +187,8 @@ class TeamGame:
                     )
                 )
             }
+        if self.history.benchmark == "colouring":
+            return {"colour": self.data["planted"][actor]}
         target = self.data["dealt_sentence"]
         owners = [
             next(a for a in self.actors if char in self.data["hands"][a])
@@ -208,6 +242,21 @@ def submit_letter(game: TeamGame, actor: str) -> Tool:
             character: One held character, or space, comma, period, return.
         """
         return json.dumps(await game.submit(actor, character))
+
+    return execute
+
+
+@tool
+def set_colour(game: TeamGame, actor: str) -> Tool:
+    """Bind the colour tool to the network node owned by one trusted participant."""
+
+    async def execute(colour: str) -> str:
+        """Set or change your colour. You can call this at any time.
+
+        Args:
+            colour: One of the allowed colour names.
+        """
+        return json.dumps(await game.submit(actor, colour))
 
     return execute
 

@@ -3,6 +3,8 @@
 import asyncio
 import json
 import os
+import time
+from collections.abc import Callable
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any, Literal
@@ -168,6 +170,20 @@ class BoardClient:
         raise AssertionError("Request attempts must be positive")
 
 
+async def recorded_call(
+    client: BoardClient, agent_id: str, request: dict[str, Any]
+) -> dict[str, Any]:
+    """Record one board request in the trusted store and complete it with the service result."""
+    call = BoardCall(
+        request_id=uuid4().hex, action=request["action"], agent_id=agent_id
+    )
+    store_as(BoardHistory).calls.append(call)
+    result = await client.call({"request_id": call.request_id, **request})
+    call.result = result
+    call.completed = True
+    return result
+
+
 @tool
 def message_board(
     options: dict[str, Any], transport: httpx.AsyncBaseTransport | None = None
@@ -197,12 +213,7 @@ def message_board(
             reply_to: Optional message sequence in this conversation to reply to.
             wait_seconds: Maximum wait duration; the server caps it to its configured bound.
         """
-        call = BoardCall(
-            request_id=uuid4().hex, action=action, agent_id=options["agent_id"]
-        )
-        store_as(BoardHistory).calls.append(call)
         request = {
-            "request_id": call.request_id,
             "action": action,
             "name": name,
             "conversation": conversation,
@@ -212,9 +223,98 @@ def message_board(
             "reply_to": reply_to,
             "wait_seconds": wait_seconds,
         }
-        result = await client.call(request)
-        call.result = result
-        call.completed = True
+        result = await recorded_call(client, options["agent_id"], request)
         return json.dumps(result, ensure_ascii=False)
+
+    return execute
+
+
+@tool
+def send_message(
+    options: dict[str, Any],
+    contacts: list[str],
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> Tool:
+    """Build a board DM tool that only reaches the caller's evaluator-fixed contacts."""
+    client = BoardClient(options, transport)
+
+    async def execute(neighbour: str, text: str) -> str:
+        """Send a direct message to one of your neighbours.
+
+        Args:
+            neighbour: The fixed ID of one of your neighbours.
+            text: The message.
+        """
+        neighbour = neighbour.strip()
+        if neighbour not in contacts:
+            raise ToolError("You can only message your neighbours; nothing was sent")
+        await recorded_call(
+            client,
+            options["agent_id"],
+            {"action": "send", "recipient": neighbour, "message": text},
+        )
+        return json.dumps({"sent_to": neighbour})
+
+    return execute
+
+
+@tool
+def read_messages(
+    options: dict[str, Any],
+    contacts: list[str],
+    ended: Callable[[], bool],
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> Tool:
+    """Build a tool that collects new DMs from contacts, optionally waiting for the first."""
+    client = BoardClient(options, transport)
+    cursors = dict.fromkeys(contacts, 0)
+
+    async def pending() -> bool:
+        """Poll unread DM counts, deferring to an authoritative read when the poll fails."""
+        try:
+            return (await client.unread())["direct"] > 0
+        except BoardConnectionError:
+            return True
+
+    async def execute(wait_seconds: float = 0) -> str:
+        """Return new direct messages from your neighbours.
+
+        Args:
+            wait_seconds: If no message is waiting, how long to wait for one before returning; 0 returns at once.
+        """
+        wait = max(0.0, min(wait_seconds, LIMITS["wait_seconds"]))
+        deadline = time.monotonic() + wait
+        while not await pending():
+            if ended():
+                return json.dumps({"messages": [], "team_ended": True})
+            if time.monotonic() >= deadline:
+                return json.dumps({"messages": []})
+            await asyncio.sleep(LIMITS["poll_seconds"])
+        delivered = []
+        for neighbour in contacts:
+            while True:
+                page = await recorded_call(
+                    client,
+                    options["agent_id"],
+                    {
+                        "action": "read",
+                        "recipient": neighbour,
+                        "after": cursors[neighbour],
+                    },
+                )
+                cursors[neighbour] = page["next_after"]
+                # a DM page also returns the caller's own messages
+                delivered += [m for m in page["messages"] if m["actor"] == neighbour]
+                if not page["has_more"]:
+                    break
+        delivered.sort(key=lambda m: m["sequence"])
+        return json.dumps(
+            {
+                "messages": [
+                    {"from": m["actor"], "text": m["data"]["text"]} for m in delivered
+                ]
+            },
+            ensure_ascii=False,
+        )
 
     return execute
