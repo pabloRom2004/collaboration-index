@@ -17,6 +17,11 @@ main{height:100dvh;min-height:500px}.workspace{height:100%;position:relative;iso
 @media(max-width:650px){main{min-height:700px}.board-panel{left:12px;right:12px;top:auto;bottom:106px;width:auto;height:48%;padding:16px;border-radius:14px}.board-toolbar{margin-bottom:12px}.board-content{overflow:auto}.agent-panel{bottom:102px}.panel-toggle{left:12px;bottom:12px}.map-tools{left:12px;top:auto;bottom:102px}.dm-head{margin-bottom:12px}.agent-tabs{margin-bottom:12px}.flags{grid-template-columns:repeat(2,minmax(0,1fr))}.timeline{right:12px;bottom:12px;width:calc(100% - 80px);height:78px;padding:10px 12px}.source{font-size:10px}.dm-body{min-height:130px}.board-actions{gap:6px}.speed{font-size:10px}.team-summary{font-size:10px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 .graph-node .dot{transition:fill .2s,stroke-width .2s}.graph-node:hover .dot,.graph-node:focus .dot{stroke-width:5}.graph-node.active .dot{stroke:#28372d;stroke-width:5}.recipient{font-size:11px;color:var(--muted)}
+.view-tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin:-6px 0 16px;flex-shrink:0}.view-tab{border:0;border-bottom:2px solid transparent;border-radius:0;padding:0 2px 9px;margin-bottom:-1px;background:none;font-size:12px;color:var(--muted)}.view-tab:hover{background:none;color:var(--green)}.view-tab[aria-selected=true]{color:var(--green);border-bottom-color:var(--green)}
+#target-view{height:100%;overflow:auto;padding-right:8px}.target-stats{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 18px}.stat{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:5px 8px;color:#5d6a61}.stat strong{color:#2f4a38;font-weight:600}.target-section{margin-bottom:20px}.target-section h3{font-size:12px;margin-bottom:9px;color:#46604b}
+.target-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(34px,1fr));gap:5px}.cell{position:relative;height:30px;border-radius:5px;display:grid;place-items:center;font-size:11px;font-variant-numeric:tabular-nums;border:1px solid #e3e8e4;color:#a3aca5;background:#fff}.cell.placed{background:#e3f1e6;border-color:#bcd9c3;color:#3f7a50;font-weight:600}.cell.present{background:#fbf3df;border-color:#ecd9a6;color:#8a6d22}.cell.missing{border-style:dashed}.cell .dup{position:absolute;top:-6px;right:-5px;background:#d0645a;color:#fff;border-radius:7px;font-size:9px;padding:0 4px;line-height:14px}
+.sequence,.mono-row{display:flex;flex-wrap:wrap;gap:3px}.mono-row{margin-bottom:7px}.mono-row .label{font-size:10px;color:var(--muted);width:44px;flex-shrink:0;align-self:center}.chip{font:11px ui-monospace,Menlo,monospace;min-width:22px;padding:4px 5px;text-align:center;border-radius:4px;background:#eef5ef;color:#3f7a50}.chip.bad{background:#fbe9e7;color:#b04a40}.chip.pending{background:#f3f5f3;color:#a3aca5}
+.sentences{list-style:none;margin:0;padding:0}.sentences li{font-size:12px;line-height:1.5;padding:8px 0;border-bottom:1px solid #f0f3f0;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}.sentences .text{flex:1;min-width:60%;color:#4a534d}.tag{font-size:9.5px;border-radius:9px;padding:2px 7px;white-space:nowrap;background:#f0f3f0;color:#77847a}.tag.ok{background:#e3f1e6;color:#3f7a50}.tag.no{background:#fbe9e7;color:#b04a40}.tag.best{background:#e5ecf7;color:#3e5f8f}.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:10px;color:var(--muted);margin-top:9px}.legend span{display:inline-flex;align-items:center;gap:5px}.legend .cell,.legend .chip{display:inline-block;width:14px;height:12px;min-width:0;padding:0}
 .refresh-controls{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:-8px 0 16px;color:#727e75;font-size:11px}.refresh-controls[hidden]{display:none}.refresh-controls label{display:inline-flex;align-items:center;gap:4px}.refresh-controls input[type=number]{width:48px;padding:4px;border:1px solid var(--line);border-radius:5px;color:inherit;background:#fff}.refresh-controls button{border:1px solid var(--line);border-radius:5px;padding:5px 8px;background:#fff;color:inherit;font-size:11px}.refresh-controls button:disabled{opacity:.5}.refresh-note{width:100%;font-size:10px;color:#8e998f}
 </style>
 </head>
@@ -32,7 +37,9 @@ main{height:100dvh;min-height:500px}.workspace{height:100%;position:relative;iso
     <section class="board-panel" id="board-panel" aria-label="Message board">
       <div class="board-toolbar"><div class="team-summary" id="team-summary"></div><div class="board-actions"><span id="open-status" role="status"></span><button class="upload" id="open" disabled>Saved replay</button><input id="file-input" type="file" multiple accept=".eval,.jsonl"></div></div>
       <div class="refresh-controls" id="refresh-controls" hidden><label><input id="live-updates" type="checkbox">Live</label><label>Every <input id="refresh-minutes" type="number" min="0.1" step="0.1" value="1" aria-label="Refresh interval in minutes"> min</label><button id="refresh-now">Refresh now</button><span id="refresh-status" role="status"></span><span class="refresh-note" id="refresh-note"></span></div>
+      <div class="view-tabs" id="view-tabs" role="tablist" aria-label="Board views" hidden><button class="view-tab" id="messages-view-tab" role="tab" aria-selected="true">Messages</button><button class="view-tab" id="target-view-tab" role="tab" aria-selected="false">Target &amp; progress</button></div>
       <div class="board-content">
+        <div id="target-view" role="tabpanel" aria-labelledby="target-view-tab" hidden></div>
         <div id="global-view">
           <header class="panel-head"><h2 id="global-title">Global message board</h2><span class="count" id="global-count"></span></header>
           <input class="search" id="search" type="search" placeholder="Search global messages" aria-label="Search global messages">
@@ -83,6 +90,63 @@ const PAINT={red:'#d9655b',green:'#5f9e6e',blue:'#5b86c4',yellow:'#e2bd4f',purpl
 const EDGE_STATE={proper:'#4f8a63',clash:'#d0645a',open:'#d5dbd6'};
 const EDGE_LABEL={proper:'different colours',clash:'same colour',open:'not yet coloured at both ends'};
 const graphMode=()=>dataset.topology==='graph';
+let boardView='messages';
+const glyph=c=>c===' '?'␣':c==='\n'?'⏎':c;
+function levenshtein(a,b){const row=Array.from({length:b.length+1},(_,j)=>j);for(let i=1;i<=a.length;i++){let diagonal=row[0];row[0]=i;for(let j=1;j<=b.length;j++){const above=row[j];row[j]=Math.min(row[j]+1,row[j-1]+1,diagonal+(a[i-1]===b[j-1]?0:1));diagonal=above;}}return row[b.length];}
+// Same normalisation as the scorer: edit distance over target length, floored at zero.
+const similarity=(actual,expected)=>Math.max(0,1-levenshtein(actual,expected)/expected.length);
+function selectBoardView(view){boardView=view;setPanelOpen(true);render(true);}
+function applyBoardView(){
+  const target=boardView==='target'&&Boolean(dataset.target);
+  $('target-view').hidden=!target;$('global-view').hidden=target||Boolean(selectedAgent);$('dm-view').hidden=target||!selectedAgent;
+  $('messages-view-tab').setAttribute('aria-selected',String(!target));$('target-view-tab').setAttribute('aria-selected',String(target));
+}
+function stat(label,value){const item=node('span',undefined,'stat');item.append(node('strong',String(value)),' '+label);return item;}
+function section(title,...children){const part=node('section',undefined,'target-section');part.append(node('h3',title),...children);return part;}
+function legend(...items){const row=node('div',undefined,'legend');for(const [cls,text]of items){const key=node('span');key.append(node('span',' ',cls),' '+text);row.append(key);}return row;}
+function renderTarget(time){
+  const box=$('target-view'),spec=dataset.target;box.replaceChildren();if(!spec)return;
+  const entries=(dataset.submissions||[]).filter(entry=>ms(entry.time)<=time);
+  if(spec.kind==='counting')renderCounting(box,spec,entries);else if(spec.kind==='spelling')renderSpelling(box,spec,entries);
+}
+function renderCounting(box,spec,entries){
+  const values=entries.map(entry=>entry.value),expected=Array.from({length:spec.target},(_,i)=>i+1),counts=new Map();
+  for(const value of values)counts.set(value,(counts.get(value)||0)+1);
+  const placed=values.filter((value,i)=>value===i+1).length,extra=[...counts].filter(([value,count])=>count>1&&value>=1&&value<=spec.target).reduce((sum,[,count])=>sum+count-1,0);
+  const missing=expected.filter(n=>!counts.has(n)).length,outside=values.filter(value=>!(value>=1&&value<=spec.target)).length;
+  const head=node('header',undefined,'panel-head');head.append(node('h2','Count from 1 to '+spec.target),node('span','quota '+spec.quota+' per agent','count'));
+  const stats=node('div',undefined,'target-stats');stats.append(stat('of '+spec.target+' entries',values.length),stat('in the right place',placed),stat('missing numbers',missing),stat('duplicate copies',extra),stat('outside 1..'+spec.target,outside),stat('similarity',Math.round(100*similarity(values,expected))+'%'));
+  const grid=node('div',undefined,'target-grid');
+  for(const n of expected){
+    const state=values[n-1]===n?'placed':counts.has(n)?'present':'missing',cell=node('div',String(n),'cell '+state);
+    cell.title=n+': '+(state==='placed'?'submitted at position '+n:state==='present'?'submitted, but not at position '+n:'not submitted yet')+((counts.get(n)||0)>1?' · '+counts.get(n)+' copies':'');
+    if((counts.get(n)||0)>1)cell.append(node('span','×'+counts.get(n),'dup'));grid.append(cell);
+  }
+  const sequence=node('div',undefined,'sequence');
+  entries.forEach((entry,i)=>{const chip=node('span',String(entry.value),'chip'+(entry.value===i+1?'':' bad'));chip.title='position '+(i+1)+' · '+name(entry.actor)+' · '+clock(ms(entry.time));sequence.append(chip);});
+  if(!entries.length)sequence.append(node('span','Nothing submitted yet.','count'));
+  box.append(head,stats,section('Target numbers',grid,legend(['cell placed','in place'],['cell present','submitted elsewhere'],['cell missing','gap'])),section('Submitted in arrival order',sequence));
+}
+function renderSpelling(box,spec,entries){
+  const text=entries.map(entry=>String(entry.value)).join(''),returned=text.endsWith('\n'),line=returned?text.slice(0,-1):text;
+  let closest=spec.sentences[0],best=-1;for(const sentence of spec.sentences){const score=similarity(line,sentence);if(score>best){best=score;closest=sentence;}}
+  const letters=new Set(spec.team_characters),feasible=new Set(spec.feasible);
+  const head=node('header',undefined,'panel-head');head.append(node('h2','Spell one of '+spec.sentences.length+' sentences'),node('span',returned?'line ended with return':'line still open','count'));
+  const stats=node('div',undefined,'target-stats');stats.append(stat('characters on the line',line.length),stat('similarity to the closest sentence',Math.round(100*best)+'%'),stat('sentences the team can spell',feasible.size+' / '+spec.sentences.length));
+  const built=node('div',undefined,'mono-row'),target=node('div',undefined,'mono-row');built.append(node('span','Built','label'));target.append(node('span','Closest','label'));
+  [...line].forEach((char,i)=>{const chip=node('span',glyph(char),'chip'+(char===closest[i]?'':' bad'));chip.title=name(entries[i].actor)+' · '+clock(ms(entries[i].time));built.append(chip);});
+  if(returned)built.append(node('span','⏎','chip'));if(!line.length&&!returned)built.append(node('span','Nothing submitted yet.','count'));
+  [...closest].forEach((char,i)=>target.append(node('span',glyph(char),'chip'+(i>=line.length?' pending':line[i]===char?'':' bad'))));
+  const team=node('div',undefined,'sequence');for(const char of spec.team_characters)team.append(node('span',glyph(char),'chip'));
+  const list=node('ul',undefined,'sentences');
+  for(const sentence of spec.sentences){
+    const item=node('li'),absent=[...new Set(sentence)].filter(char=>!letters.has(char));item.append(node('span',sentence,'text'));
+    item.append(node('span',feasible.has(sentence)?'feasible':'needs '+absent.map(glyph).join(' '),'tag '+(feasible.has(sentence)?'ok':'no')));
+    if(line.length&&sentence===closest)item.append(node('span','closest','tag best'));if(sentence===spec.dealt_sentence)item.append(node('span','dealt','tag'));
+    list.append(item);
+  }
+  box.append(head,stats,section('Built so far against the closest sentence',built,target,legend(['chip','matches by position'],['chip bad','differs'],['chip pending','still to come'])),section('Team letters (reusable)',team),section('Candidate sentences',list));
+}
 // Each node's latest colour at a replay time, from the trusted set_colour order.
 function coloursAt(time){const colours={};for(const entry of dataset.submissions||[])if(ms(entry.time)<=time)colours[entry.actor]=entry.value;return colours;}
 function edgeState(a,b,colours){return !colours[a]||!colours[b]?'open':colours[a]===colours[b]?'clash':'proper';}
@@ -167,6 +231,7 @@ function setup(){
   selectedAgent='';selectedPeer='';selectedAgentTab='dms';highlighted=null;lastContentKey='';
   $('global-view').hidden=false;$('dm-view').hidden=true;
   $('agent-details').replaceChildren();$('dm-journal').replaceChildren();$('dm-title').textContent='';
+  boardView='messages';$('view-tabs').hidden=!dataset.target;
   $('global-title').textContent=graphMode()?'All direct messages':'Global message board';
   $('search').placeholder=graphMode()?'Search direct messages':'Search global messages';
   $('duration').textContent=elapsed(end-start);
@@ -276,11 +341,11 @@ function buildTicks(){
 function visibleRooms(time){return Object.values(rooms).filter(room=>room.created<=time&&room.kind==='dm'&&(room.members||[]).includes(selectedAgent));}
 function selectAgent(id){
   if(!ids.includes(id))return;
-  setPanelOpen(true);selectedAgent=id;selectedPeer='';selectedAgentTab='dms';highlighted=null;$('dm-search').value='';
+  setPanelOpen(true);boardView='messages';selectedAgent=id;selectedPeer='';selectedAgentTab='dms';highlighted=null;$('dm-search').value='';
   $('global-view').hidden=true;$('dm-view').hidden=false;render(true);
 }
 function selectGlobal(){
-  setPanelOpen(true);$('search').value='';selectedAgent='';selectedPeer='';highlighted=null;
+  setPanelOpen(true);boardView='messages';$('search').value='';selectedAgent='';selectedPeer='';highlighted=null;
   $('global-view').hidden=false;$('dm-view').hidden=true;render(true);
 }
 function selectPeer(id){
@@ -410,10 +475,12 @@ function render(force=false){
     entry.group.dataset.earned=state.earned;
   }
   if($('map-global-count'))$('map-global-count').textContent=sent.filter(event=>event.room==='global').length+' messages';
-  const key=JSON.stringify([prefix.length,JSON.stringify(colours),selectedAgent,selectedPeer,selectedAgentTab,$('search').value,$('dm-search').value,highlighted,ids.map(id=>[name(id),snapshot[id].earned,JSON.stringify(snapshot[id].caps),currentTime>=finished(agentsById[id])])]);
+  const accepted=(dataset.submissions||[]).filter(entry=>ms(entry.time)<=currentTime).length;
+  const key=JSON.stringify([prefix.length,accepted,boardView,JSON.stringify(colours),selectedAgent,selectedPeer,selectedAgentTab,$('search').value,$('dm-search').value,highlighted,ids.map(id=>[name(id),snapshot[id].earned,JSON.stringify(snapshot[id].caps),currentTime>=finished(agentsById[id])])]);
   if(force||key!==lastContentKey){
     const picker=$('agent-picker');picker.replaceChildren(node('option','Choose an agent'));picker.firstChild.value='';for(const id of ids){const option=node('option',name(id));option.value=id;picker.append(option);}picker.value='';
     const globalMessages=graphMode()?sent:sent.filter(event=>event.room==='global');$('global-count').textContent=globalMessages.length+' messages';renderMessages('journal',globalMessages,receipts,$('search').value,false);
+    applyBoardView();if(boardView==='target')renderTarget(currentTime);
     if(selectedAgent){
       renderDetails(snapshot);
       const directMessages=renderContacts(sent);renderMessages('dm-journal',directMessages,receipts,$('dm-search').value,true);
@@ -596,6 +663,7 @@ $('reset').onclick=()=>{highlighted=null;seek(start);};
 $('time').addEventListener('input',()=>{stop();highlighted=null;render(true);});
 $('speed').onchange=()=>render(true);
 $('back-to-global').onclick=selectGlobal;
+$('messages-view-tab').onclick=()=>selectBoardView('messages');$('target-view-tab').onclick=()=>selectBoardView('target');
 for(const tab of ['dms','flags']){
   const button=$(tab+'-tab');button.onclick=()=>selectAgentTab(tab);
   button.onkeydown=event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const next=event.key==='Home'?'dms':event.key==='End'?'flags':tab==='dms'?'flags':'dms';selectAgentTab(next);$(next+'-tab').focus();}};

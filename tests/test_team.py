@@ -59,6 +59,11 @@ def test_counting_team(agents: int, tmp_path: Path) -> None:
     ]
     replay = replay_data(Path(log.location), artifact / "board.jsonl")
     assert replay["team"]["quality"] == 1 and len(replay["agents"]) == agents
+    assert replay["target"] == {
+        "kind": "counting",
+        "target": 64,
+        "quota": sample.metadata["data"]["quota"],
+    }
     assert replay["events"]
     assert replay_data(Path(log.location), None)["events"] == replay["events"]
     assert all(not p["grades"] for p in replay["agents"])
@@ -86,6 +91,11 @@ def test_spelling_team(condition: str, tmp_path: Path) -> None:
         data["dealt_sentence"]
     ) | {"\n"}
     assert sample.store["TeamHistory:condition"] == condition
+    target = replay_data(Path(log.location), None)["target"]
+    # the deal comes from one shown sentence, so the team can always spell that one
+    assert data["dealt_sentence"] in target["feasible"]
+    assert set(target["team_characters"]) >= set(data["dealt_sentence"]) | {"\n"}
+    assert set(target["feasible"]) <= set(target["sentences"])
     if condition == "oracle_allocation":
         assert sample.scores["team_score"].value["message_count"] == 0
 

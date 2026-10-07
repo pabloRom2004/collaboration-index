@@ -11,6 +11,23 @@ from inspect_ai.log import read_eval_log
 from collaboration_index.game import clashing_edges, similarity
 
 
+def target_view(kind: str, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Describe what an ordered task should produce, so the replay can show progress against it."""
+    if kind == "counting":
+        return {"kind": kind, "target": data["target"], "quota": data["quota"]}
+    if kind == "spelling":
+        # hands are reusable, so the team can spell any sentence covered by their union
+        letters = set().union(*(set(hand) for hand in data["hands"].values()))
+        return {
+            "kind": kind,
+            "sentences": data["sentences"],
+            "dealt_sentence": data["dealt_sentence"],
+            "team_characters": sorted(letters),
+            "feasible": [s for s in data["sentences"] if set(s) <= letters],
+        }
+    return None
+
+
 def replay_data(
     log_path: Path,
     journal_path: Path | None,
@@ -126,6 +143,7 @@ def replay_data(
         }
         if kind == "colouring"
         else None,
+        "target": target_view(kind, data),
         "benchmark_title": sample.metadata.get("benchmark_title", kind),
         "condition": store["TeamHistory:condition"],
         "flags": items,
