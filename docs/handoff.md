@@ -218,6 +218,20 @@ exchanged a DM. 100,000 tokens is too small for this task to measure quality or
 speed. Hawk runs the task with the images published to
 `ghcr.io/pablorom2004/mirrorcode` (see README); its runner uses Python 3.13.
 
+[Hawk sweep](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mirrorcode-rev-sweep-250m-i306z3nmwo6xtybn)
+at `bf8f6ab`, same settings, 250,000,000 tokens per agent and no deadline. Every
+team passed all 208 cases and ended by a submit; costs use OpenRouter's
+under-100K-prompt prices, so they are lower bounds. One seed per row:
+
+| Agents | Score | Solving time | Tokens | Cache reads | Board messages | Cost |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1.00 | 362 s | 1,115,777 | 4.5% | 0 | $0.12 |
+| 2 | 1.00 | 413 s | 743,958 | 8.2% | 0 | $0.09 |
+| 4 | 1.00 | 631 s | 6,846,492 | 3.5% | 10 | $0.73 |
+| 8 | 1.00 | 325 s | 8,079,144 | 4.7% | 37 | $0.82 |
+
+`rev` is too easy to separate team sizes: one agent solves it in six minutes.
+
 ## Credential and source context
 
 The user approved creating and privately saving the fine-grained
