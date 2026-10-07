@@ -79,6 +79,33 @@ def test_deadline_joins_peers_and_closes_board(tmp_path: Path) -> None:
     ]
 
 
+def test_prompt_omits_sandbox_when_disabled(tmp_path: Path) -> None:
+    """Tell peers about a shared computer only when the task provides one."""
+    seen: list[str] = []
+
+    async def capture(*args: Any) -> ModelOutput:
+        """Record each peer's model input and answer without tool calls."""
+        seen.append("\n".join(message.text for message in args[0]))
+        return ModelOutput.from_content("mockllm/model", "done")
+
+    task = counting(
+        target=8,
+        token_limit_per_agent=10000,
+        team_time_limit=3,
+        sandbox_enabled=False,
+        artifact_dir=str(tmp_path),
+    )
+    [log] = inspect_eval(
+        task,
+        model=get_model("mockllm/model", custom_outputs=capture),
+        log_dir=str(LOGS),
+        display="none",
+    )
+    assert log.status == "success", log.error
+    assert seen and all("board ID" in text for text in seen)
+    assert not any("sandbox" in text for text in seen)
+
+
 def test_missing_answers_are_loss_not_judge_failure(tmp_path: Path) -> None:
     """Grade one wrong answer and one omission without requiring an unused grader model."""
     path = tmp_path / "records.json"

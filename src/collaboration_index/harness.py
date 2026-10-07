@@ -29,7 +29,12 @@ from collaboration_index.game import (
     submit_letter,
     submit_number,
 )
-from collaboration_index.prompts import COLLABORATE, COLOURING, ORACLE
+from collaboration_index.prompts import (
+    COLLABORATE,
+    COLLABORATE_NO_SANDBOX,
+    COLOURING,
+    ORACLE,
+)
 from collaboration_index.state import Peer, TeamHistory, now
 
 
@@ -198,9 +203,12 @@ def team_agents(
                     )
                 elif history.condition == "collaborative":
                     tools.append(message_board(options))
-                    extra = COLLABORATE.prompt.format(
-                        agents=len(actors), actor=record.id
+                    prompt = (
+                        COLLABORATE
+                        if state.metadata["sandbox_enabled"]
+                        else COLLABORATE_NO_SANDBOX
                     )
+                    extra = prompt.prompt.format(agents=len(actors), actor=record.id)
                 else:
                     if history.benchmark in ("counting", "spelling"):
                         tools.append(oracle_progress(game))
