@@ -53,7 +53,7 @@ are different conditions.
 - HLE is a batch of pinned gold/text CAIS records, with original CAIS references.
   Authenticated loading yielded 575 questions on 2026-10-07. No real records are
   committed. A question limit changes batch work, not the Inspect sample count.
-- Counting defaults to fixed target 64 and ceil(64/N) per-peer quota.
+- Counting defaults to target 2N (two numbers per agent) and ceil(target/N) per-peer quota.
 - Spelling preserves reusable private character hands; historical candidate
   count scales with N. Set a constant `candidate_count` for fixed-work studies.
 - One separate loopback board service per attempt; one common replay frontend.

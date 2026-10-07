@@ -216,6 +216,17 @@ def test_sandbox_type_selects_packaged_definition() -> None:
         counting(token_limit_per_agent=1, sandbox_type="podman")
 
 
+def test_default_work_is_two_per_agent() -> None:
+    """Scale default counting and spelling work with team size; explicit values stay fixed."""
+    for agents in (1, 4, 8, 32):
+        task = counting(agents=agents, token_limit_per_agent=1)
+        assert task.dataset[0].metadata["data"] == {"target": 2 * agents, "quota": 2}
+        shown = spelling(agents=agents, token_limit_per_agent=1).dataset[0]
+        assert len(shown.metadata["data"]["sentences"]) == 2 * agents
+    fixed = counting(agents=8, target=64, token_limit_per_agent=1)
+    assert fixed.dataset[0].metadata["data"]["target"] == 64
+
+
 @pytest.mark.docker
 def test_one_real_sandbox_and_one_log_for_eight_peers(tmp_path: Path) -> None:
     """Prove every native Inspect peer sees the same container and trusted public exam file."""

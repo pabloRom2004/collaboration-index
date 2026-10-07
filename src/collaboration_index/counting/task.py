@@ -31,11 +31,9 @@ def counting(
     """Build one team attempt with private peers, a common board and shared sandbox."""
     if agents < 1:
         raise ValueError("agents must be positive")
-    goal = min(2 * agents, 100) if target is None else target
+    goal = 2 * agents if target is None else target
     if type(goal) is not int or goal < 1:
-        raise ValueError(
-            "target must be positive or null for the original scaled-work rule"
-        )
+        raise ValueError("target must be positive, or null for two numbers per agent")
     quota = (
         math.ceil(goal / agents)
         if submissions_per_agent is None

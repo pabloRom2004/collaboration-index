@@ -422,7 +422,7 @@ reads question ranges without exposing references.
 
 | Argument | Maintained default | Meaning |
 | --- | --- | --- |
-| `target` | `64` | Fixed sequence 1..target; null selects historical min(2N,100) scaled work. |
+| `target` | `null` | Null counts to 2N, two numbers per agent; a positive integer fixes the sequence 1..target. |
 | `submissions_per_agent` | `null` | Null gives ceil(target/N); an explicit quota must permit the team target. |
 
 `submit_number(number)` atomically appends a signed 64-bit integer in arrival
@@ -436,7 +436,7 @@ merely getting every peer to submit its intended numbers eventually.
 | Argument | Maintained default | Meaning |
 | --- | --- | --- |
 | `sentences_file` | `null` | Null selects the packaged 1,000-line sentence pool. |
-| `candidate_count` | `null` | Historical min(2N,100); set a fixed positive count for fixed-work comparisons. |
+| `candidate_count` | `null` | Null shows 2N candidates; set a fixed positive count for fixed-work comparisons. |
 | `copies` | `3` | Copies of distinct required character cards before dealing. |
 | `minimum_hand` | `2` | Minimum distinct-character hand size where possible. |
 | `max_characters` | `null` | Optional shared output bound; null adds no character ceiling. |

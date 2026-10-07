@@ -26,7 +26,7 @@ def deal(
         or any(set(s) - (ALPHABET - {"\n"}) for s in pool)
     ):
         raise ValueError("Invalid spelling deck or sentence pool")
-    shown_count = min(2 * agents, 100) if candidate_count is None else candidate_count
+    shown_count = 2 * agents if candidate_count is None else candidate_count
     if type(shown_count) is not int or shown_count < 1:
         raise ValueError("candidate_count must be positive or null")
     if len(set(pool)) < shown_count:
