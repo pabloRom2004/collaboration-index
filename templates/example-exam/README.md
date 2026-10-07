@@ -52,6 +52,12 @@ mechanics, native limits, scorer and frontend. Find its source path in
 `pyproject.toml`, then read its README, AGENTS and architecture/design documents
 before modifying those components.
 
+Every collaborative agent gets the team clock and unread global-board/DM counts
+before its first decision and each later decision. The shared core polls only
+counts; messages stay unread until the agent reads them with `message_board`.
+Unavailable counts are reported explicitly, and oracle controls have no count
+reminders. The starter inherits this without extra tools or configuration.
+
 ## Supplying a question batch
 
 The file is a JSON list. A valid authored record looks like:

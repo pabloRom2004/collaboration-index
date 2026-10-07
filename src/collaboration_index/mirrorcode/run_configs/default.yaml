@@ -1,0 +1,32 @@
+task:
+  task: collaboration_index/mirrorcode
+  args:
+    agents: 2
+    token_limit_per_agent: null
+    team_time_limit: null
+    agent: react
+    agent_args: {}
+    artifact_dir: run-artifacts
+    compaction_threshold: 0.75
+    context_window: null
+    target: rev
+    language: python
+    docs: true
+    include_source: false
+    reference_binary: true
+
+model: null
+
+model_roles: {}
+
+generate_config:
+  temperature: null
+  max_tokens: null
+  seed: null
+  max_connections: null
+
+eval_config:
+  epochs: 1
+  limit: null
+  message_limit: null
+  time_limit: null

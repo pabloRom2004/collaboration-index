@@ -190,6 +190,30 @@ could not: pinned to OpenAI it returned 404, because the workspace guardrails
 exclude that provider and require zero data retention, and unpinned it routed
 to Azure, which rejected the board tool's optional parameters.
 
+## MirrorCode addition (2026-10-07)
+
+`collaboration_index/mirrorcode` runs N peers in one upstream
+[MirrorCode](https://github.com/epoch-research/MirrorCode) workspace, pinned at
+`5c9d7b0`, with the common board. Epoch's prebuilt GHCR images refused anonymous
+pulls, so the `rev` images were built locally. A Docker mock with two peers
+shares one workspace, scores at the same moment and submits; it scores 1.0.
+Without the scoring lock, two of three such runs crashed the sample.
+
+Local real-model runs, Claude Haiku 5.5 via OpenRouter pinned to Anthropic,
+reasoning effort xhigh, `rev` in Python, 100,000 tokens per agent:
+
+| Run | Agents | Score | Solving time | Tokens |
+| --- | --- | --- | --- | --- |
+| [upstream single agent](../logs/2026-10-07T20-45-25-00-00_MirrorCode_o8QNwdoEwsyeNVHoCoz5Ka.eval) | 1 | 0.00 | 46 s | 125,653 |
+| [team task](../logs/2026-10-07T21-04-32-00-00_mirrorcode_6eNJRfHEzgHqkaaBNejGhn.eval) | 2 | 0.00 | 87 s | 216,197 |
+
+In both runs every agent spent its budget reading the docs and probing the
+reference binary, so `/workdir/src` stayed empty. The two peers registered and
+exchanged a DM. 100,000 tokens is too small for this task to measure quality or
+speed. The task is not yet runnable on Hawk: it needs registry images and a
+k8s sandbox, and the Hawk runner's Python version has not been checked against
+the 3.13 requirement.
+
 ## Credential and source context
 
 The user approved creating and privately saving the fine-grained

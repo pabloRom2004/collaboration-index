@@ -15,6 +15,11 @@ chosen names, global messages, DMs and counts; do not introduce text-file
 communication or assign a leader by default. Oracle allocation is a distinct
 privileged control, not proof of an optimal strategy.
 
+The common harness supplies the team clock and unread global/DM counts before
+each collaborative peer decision. Counts use scoped metadata polls and leave
+messages unread until explicit reads; oracle allocation has no count reminders.
+Reuse this behavior instead of adding a separate notification loop.
+
 The supplied questions and smoke are authored fixtures. Mock outputs and token
 usage verify plumbing and cannot establish model collaboration ability or an
 ECI. A positive per-peer budget and explicit subject model are required for real

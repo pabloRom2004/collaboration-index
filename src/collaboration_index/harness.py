@@ -20,6 +20,7 @@ from collaboration_index.board.client import (
     read_messages,
     send_message,
 )
+from collaboration_index.board.context import unread_reminder
 from collaboration_index.board.runtime import local_board
 from collaboration_index.game import (
     TeamGame,
@@ -27,15 +28,18 @@ from collaboration_index.game import (
     read_file,
     set_colour,
     submit_answer,
+    submit_codebase,
     submit_letter,
     submit_number,
 )
 from collaboration_index.prompts import (
+    CODEBASE,
     COLLABORATE,
     COLLABORATE_NO_SANDBOX,
     COLOURING,
     ORACLE,
     TIME_UPDATE,
+    TOKEN_UPDATE,
 )
 from collaboration_index.state import Peer, TeamHistory, now
 
@@ -68,9 +72,9 @@ def prepare_team(
             if not hostname.success:
                 raise RuntimeError("Cannot identify the shared sandbox")
             state.store.set("shared_sandbox_hostname", hostname.stdout.strip())
+            # peers with a shell can read this file, so it omits the team size
             await sandbox().write_file(
-                "/workspace/team.json",
-                json.dumps({"run_id": history.run_id, "agents": agents}),
+                "/workspace/team.json", json.dumps({"run_id": history.run_id})
             )
         if benchmark == "hle":
             import hashlib
@@ -97,18 +101,17 @@ def prepare_team(
 @solver
 def team_agents(
     token_limit_per_agent: int,
-    team_time_limit: float,
+    team_time_limit: float | None,
     agent: str,
     agent_args: dict[str, Any],
     compaction_threshold: float,
     context_window: int | None = None,
 ) -> Solver:
     """Build fixed-identity tools and run prepared peers with independent token limits."""
-    if (
-        token_limit_per_agent < 1
-        or team_time_limit is None
-        or not math.isfinite(team_time_limit)
-        or team_time_limit <= 0
+    # MirrorCode teams run without a deadline; every other task sets one
+    if token_limit_per_agent < 1 or (
+        team_time_limit is not None
+        and (not math.isfinite(team_time_limit) or team_time_limit <= 0)
     ):
         raise ValueError("Team token and time limits must be finite and positive")
     forbidden = {"tools", "submit", "on_continue", "model", "compaction"} & set(
@@ -161,6 +164,8 @@ def team_agents(
 
             def time_update() -> str:
                 """Tell a peer the team's elapsed and remaining solving time before its next decision."""
+                if team_time_limit is None:
+                    return ""
                 elapsed = time.monotonic() - clock["released"]
                 return TIME_UPDATE.prompt.format(
                     elapsed=elapsed,
@@ -184,8 +189,30 @@ def team_agents(
                     record.sandbox_hostname = identity.stdout.strip()
                 limit = token_limit(token_limit_per_agent)
 
+                def token_update() -> str:
+                    """Show a MirrorCode peer its own budget, which upstream's resources tool reported."""
+                    if history.benchmark != "mirrorcode":
+                        return ""
+                    used = int(limit.usage)
+                    return TOKEN_UPDATE.prompt.format(
+                        used=used,
+                        fraction=used / token_limit_per_agent,
+                        remaining=max(0, token_limit_per_agent - used),
+                        limit=token_limit_per_agent,
+                    )
+
+                async def decision_update() -> str:
+                    """Combine the team clock, the peer's token budget and non-destructive unread counts."""
+                    unread = await unread_reminder(
+                        options if history.condition == "collaborative" else None,
+                        direct_only=history.benchmark == "colouring",
+                    )
+                    return "\n\n".join(
+                        filter(None, (time_update(), token_update(), unread))
+                    )
+
                 async def on_continue(current: AgentState) -> bool | str:
-                    """Count this peer's turn, then stop at the team's end or send the clock."""
+                    """Count the turn, then stop at the team's end or refresh clock and unread counts."""
                     record.turns += 1
                     output = current.output
                     record.tool_calls += len(output.message.tool_calls or [])
@@ -194,7 +221,9 @@ def team_agents(
                         record.output_tokens += output.usage.output_tokens
                     # peers work until the task ends or time runs out, not until a
                     # turn happens to carry no tool call
-                    return history.end_reason is None and time_update()
+                    if history.end_reason is not None:
+                        return False
+                    return await decision_update()
 
                 tools = [
                     {
@@ -202,8 +231,12 @@ def team_agents(
                         "counting": submit_number,
                         "spelling": submit_letter,
                         "colouring": set_colour,
+                        "mirrorcode": submit_codebase,
                     }[history.benchmark](game, record.id)
                 ]
+                if history.benchmark == "mirrorcode":
+                    # the shared workspace tools that the task's setup installed
+                    tools += list(state.tools)
                 if history.benchmark == "hle":
                     tools.append(
                         read_file(
@@ -228,7 +261,9 @@ def team_agents(
                     tools.append(message_board(options))
                     # agents see neither their evaluator ID nor the team size
                     extra = (
-                        COLLABORATE
+                        CODEBASE
+                        if history.benchmark == "mirrorcode"
+                        else COLLABORATE
                         if state.metadata["sandbox_enabled"]
                         else COLLABORATE_NO_SANDBOX
                     ).prompt
@@ -264,7 +299,7 @@ def team_agents(
                 try:
                     await release.wait()
                     record.started, record.status = now(), "running"
-                    messages.append(ChatMessageUser(content=time_update()))
+                    messages.append(ChatMessageUser(content=await decision_update()))
                     _, exceeded = await run(
                         runner, messages, limits=[limit], name=record.id
                     )

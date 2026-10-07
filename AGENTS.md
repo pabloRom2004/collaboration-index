@@ -41,10 +41,19 @@ are different conditions.
 
 ## Current implementation and status
 
-- Python 3.12; locked Inspect AI 0.3.277; package name `collaboration-index`;
+- Python 3.13 (MirrorCode requires it; the other tasks still support 3.12);
+  locked Inspect AI 0.3.277; package name `collaboration-index`;
   registered task namespace `collaboration_index`.
-- Task IDs: `hle_collaboration`, `counting`, `spelling`, `colouring` under that
-  namespace.
+- Task IDs: `hle_collaboration`, `counting`, `spelling`, `colouring`,
+  `mirrorcode` under that namespace.
+- MirrorCode peers share one upstream MirrorCode workspace and its bash,
+  text editor and `evaluate_testcases` tools, imported from the pinned `mc`
+  package in the `mirrorcode` extra. A team lock serializes
+  `evaluate_testcases`, because concurrent calls clobber its fixed scoring paths.
+  Any peer's `submit` ends the attempt; upstream's scorer grades
+  `/workdir/src`. Its sandbox is Docker only, built locally from upstream's
+  generated compose files, and its scorer writes sidecar files beside the log,
+  so log to `run-artifacts/<run>/` and move the `.eval` into `logs/`.
 - Colouring peers are nodes of a hidden planted graph. They communicate only by
   board DMs to their graph neighbours through `send_message`/`read_messages`;
   the neighbour check lives in the trusted tool closure, and there is no global
@@ -120,6 +129,19 @@ every turn, the harness sends the Multi-Agent-Bench time update as a user
 message: elapsed seconds, remaining seconds and the deadline in minutes. Peers
 keep working until the task ends or the deadline passes, rather than stopping
 on a turn without a tool call. Keep this in any new task or agent factory.
+MirrorCode is the exception the user asked for: it has no deadline by default,
+so peers run until their token budgets or a submit end the attempt. Its update
+replaces the time line with the peer's own token usage and limit, following
+upstream's `resources` tool, which the task removes.
+
+The same decision update includes the peer's current unread global and DM
+counts, reusing ExploitBench's reminder wording and the scoped board count
+endpoint. Colouring reports only unread neighbour DMs and points to
+`read_messages`; other collaborative tasks point to `message_board`. Polls
+neither deliver bodies nor mark messages read, and disclose no participant
+IDs or team size. A bounded failed poll says counts are unavailable instead of
+inventing zeros. Oracle allocation receives no reminders or count polls.
+Preserve this shared behavior when adding tasks or alternate agent factories.
 
 ## Trusted state and concurrency contracts
 
@@ -196,7 +218,7 @@ workloads; do not label the current 2 CPU / 1 GiB setting a measured minimum.
 From the repository root:
 
 ```bash
-uv sync --extra hle --group dev
+uv sync --extra hle --extra mirrorcode --group dev
 uv run ruff check src tests templates
 uv run ruff format --check src tests templates
 uv run mypy src

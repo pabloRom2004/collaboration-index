@@ -31,11 +31,11 @@ leaderboard scores or historical Multi-Agent-Bench results. See
 ### Installation
 
 The current project is a local source checkout. It has no published package or
-configured remote repository. Use Python 3.12, `uv`, and a running Docker daemon:
+configured remote repository. Use Python 3.13, `uv`, and a running Docker daemon:
 
 ```bash
 cd /Users/pabloromero/Documents/Generality-Labs/Benchmark-Audits/collaboration-index
-uv sync --extra hle --group dev
+uv sync --extra hle --extra mirrorcode --group dev
 docker version
 uv run python -c 'from importlib.metadata import version; print(version("inspect-ai"))'
 ```
@@ -439,6 +439,25 @@ written to private files, and the board process does not inherit model/cloud
 secrets. The service supports global messages, pairwise DMs, ordered events,
 pagination, waits, read receipts and request idempotency. It is stopped after
 peers are joined, including cancellation paths.
+
+Before each agent's first decision and every later decision, the shared harness
+adds an unread-message reminder alongside the time update. HLE, counting,
+spelling and MirrorCode report separate global-board and DM counts, using the
+same wording as ExploitBench:
+
+> You have 3 unread messages from the Global Board and 2 unread Direct Messages
+> from other agents. Use message_board to read them.
+
+Those numbers are illustrative. Colouring reports only unread neighbour DMs
+and points to `read_messages`. Polling the counts does not deliver message
+bodies or mark anything read; explicit reads still control read receipts.
+If a bounded count request fails, the reminder says counts are unavailable.
+Oracle allocation gets no count polls or reminders. New tasks and generated
+starters inherit this behavior from the common harness.
+
+Automatic polls are metadata requests, so they do not inflate `message_count`
+or `communication_calls`. Reminder text contributes to model input tokens, and
+polling time is included in the solving deadline.
 
 The board is a separate controller-side process, not a server inside the
 no-network participant container. Agents access it through trusted tool closures.

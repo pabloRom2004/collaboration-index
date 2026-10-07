@@ -1,0 +1,33 @@
+name: Publish MirrorCode images
+on:
+  push:
+    branches: [main, "codex/**"]
+    paths: [.github/workflows/mirrorcode-images.yml, pyproject.toml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/pablorom2004/mirrorcode
+      MIRRORCODE: mc @ git+https://github.com/epoch-research/MirrorCode@5c9d7b00b0c6d7609003e33896cd41d28f092fcb
+    steps:
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      # Hawk sets MC_IMAGE_NAME to this repository, so tags follow MirrorCode's own naming
+      - name: Build and push rev in Python
+        run: |
+          read -r context version < <(uv run --no-project --python 3.13 --with "$MIRRORCODE" python -c '
+          from mc import AgentImplementationLanguage, TargetProgram, version
+          from mc.task import get_compose_file
+          path = get_compose_file(TargetProgram("rev"), AgentImplementationLanguage.PYTHON, False)
+          print(path.parent, version.__version__)')
+          for name in workspace agent-scoring reference-scoring; do
+            docker buildx build --platform linux/amd64 --push \
+              --label org.opencontainers.image.source=https://github.com/pabloRom2004/collaboration-index \
+              -f "$context/$name.Dockerfile" -t "$IMAGE:mc_rev_python_llm_${name}_${version}" "$context"
+          done

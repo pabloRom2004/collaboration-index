@@ -132,7 +132,7 @@ class TeamGame:
                         + "; nothing changed"
                     )
                 value = value.strip().lower()
-            else:
+            elif kind != "mirrorcode":
                 raise RuntimeError("Unknown initialized benchmark")
             entries = history.submissions
             entries.append(
@@ -153,6 +153,8 @@ class TeamGame:
                 history.end_reason = "sequence_full"
             elif kind == "spelling" and value == "\n":
                 history.end_reason = "line_returned"
+            elif kind == "mirrorcode":
+                history.end_reason = "codebase_submitted"
             elif kind == "colouring":
                 colours = final_colours(history.submissions)
                 if len(colours) == len(self.actors) and not clashing_edges(
@@ -257,6 +259,18 @@ def set_colour(game: TeamGame, actor: str) -> Tool:
             colour: One of the allowed colour names.
         """
         return json.dumps(await game.submit(actor, colour))
+
+    return execute
+
+
+@tool(name="submit")
+def submit_codebase(game: TeamGame, actor: str) -> Tool:
+    """Let any peer end the team attempt and send the shared codebase to scoring."""
+
+    async def execute() -> str:
+        """Submit the shared codebase as the team's final answer. This ends the task for every agent."""
+        await game.submit(actor, "codebase")
+        return "Submission successful. No feedback is provided."
 
     return execute
 

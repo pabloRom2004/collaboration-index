@@ -19,6 +19,10 @@ dependencies = [
 
 [project.optional-dependencies]
 hle = ["datasets>=4,<5"]
+# MirrorCode supplies the sandbox, tools and scorer for the team variant; it needs Python 3.13
+mirrorcode = [
+  "mc @ git+https://github.com/epoch-research/MirrorCode@5c9d7b00b0c6d7609003e33896cd41d28f092fcb ; python_version >= '3.13'",
+]
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=1", "ruff>=0.13", "mypy>=1.18", "types-PyYAML"]
@@ -32,6 +36,10 @@ collaboration-replay = "collaboration_index.replay:main"
 collaboration-board = "collaboration_index.board.service:main"
 collaboration-new = "collaboration_index.scaffold:main"
 collaboration-smoke = "collaboration_index.smoke:main"
+
+[tool.hatch.metadata]
+# lets the mirrorcode extra pin MirrorCode by commit, which is not published on PyPI
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/collaboration_index"]

@@ -39,9 +39,9 @@ motivated the shared-state design but is not imported here.
 
 | Location | Responsibility |
 | --- | --- |
-| `_registry.py` | Registers the four packaged Inspect tasks. |
-| `{hle,counting,spelling,colouring}/task.py` | Explicit public interfaces and benchmark inputs. |
-| `{hle,counting,spelling,colouring}/run_configs/default.yaml` | Maintained adjustable defaults. |
+| `_registry.py` | Registers the five packaged Inspect tasks. |
+| `{hle,counting,spelling,colouring,mirrorcode}/task.py` | Explicit public interfaces and benchmark inputs. |
+| `{hle,counting,spelling,colouring,mirrorcode}/run_configs/default.yaml` | Maintained adjustable defaults. |
 | `task.py` | Common Task assembly, invariant setup, solver, scorer and sandbox. |
 | `harness.py` | Peer preparation, native execution, limits, cancellation and board lifecycle. |
 | `prompts.py` | Named collaborative/oracle prompt objects and provenance. |
@@ -119,6 +119,15 @@ The neighbour check runs in the controller before any board request, so the
 board itself stays generic. `read_messages` polls unread counts and reads every
 neighbour DM from per-neighbour cursors held in the tool closure; a failed poll
 falls through to that authoritative read.
+The native harness also calls `board.context.unread_reminder` before the first
+and every subsequent collaborative decision, combining count-only reminders
+with the current team clock. Global-board tasks report global and direct
+counts; colouring reports direct counts only with its neighbour read tool.
+The count endpoint neither returns bodies nor records a read, so polling does
+not affect the board journal or communication metrics. Its existing timeout
+bounds the request; failures produce a sanitized unavailable reminder, while
+cancellation propagates. Oracle peers are not polled. Every task and generated
+starter using `team_agents` inherits the same update contract.
 Chosen names supplement fixed IDs; they do not replace evaluator identity.
 Board-task peers never see those IDs or the team size: `message_board` maps
 chosen names to IDs on the controller, addresses DMs by name, lists only
@@ -180,7 +189,7 @@ For a different mechanic:
 6. Prove the path with authored native-agent mocks, sandbox checks and packaging
    tests before proposing paid runs.
 
-The current core has explicit branches for four mechanics. It is not a generic
+The current core has explicit branches for five mechanics. It is not a generic
 game plugin engine; add an abstraction only when multiple concrete tasks need it.
 Number-sequence ordering with private numbers is a plausible fourth task.
 Python line assembly additionally requires validated execution/scoring and pool
