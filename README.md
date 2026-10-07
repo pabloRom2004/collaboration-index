@@ -1,50 +1,269 @@
 # Collaboration Index
 
-Three Inspect AI prototypes measure emergent collaboration using one
-authenticated message board and a portable replay: a batch of Humanity's Last
-Exam questions, ordered counting, and spelling from private character hands.
-One team attempt is one Inspect sample and one `.eval`: N concurrent native
-Inspect subagents share one Docker sandbox, with separate model histories and
-per-agent budgets. Every benchmark uses the same board client and visualiser.
+Collaboration Index is an Inspect AI research prototype for measuring how well
+multiple copies of a model coordinate. It currently contains three tasks:
+[Humanity's Last Exam](https://huggingface.co/datasets/cais/hle) answered as a
+team, ordered counting, and spelling using private character hands. Counting
+and spelling adapt tasks from the local Multi-Agent-Bench project. Communication
+and replay reuse the authenticated message board developed in ExploitBench.
+
+The initial question is whether a team can divide work, share information and
+sequence actions efficiently without a prescribed leader or delegation
+protocol. The longer-term aim is a suite of roughly 5–10 tasks, evaluated with
+teams of 2–32 agents, from which a defensible collaboration index or ECI might
+be estimated. A single aggregate index is **not implemented yet**. Quality,
+completion, wall time, tokens and communication are retained separately so that
+normalization and weighting can follow measured evidence.
+
+One team attempt is one Inspect sample. All N peers are native Inspect subagents
+inside the same controller, sharing **one Docker sandbox and one `.eval` file
+for that task invocation**. Each peer has its own model history and token
+budget. Every collaborative task uses the same board API and visualiser. The
+oracle allocation control intentionally withholds the communication tool.
+
+This is a new collaboration variant, not a reproduction of standard HLE
+leaderboard scores or historical Multi-Agent-Bench results. See
+[the measurement contract](docs/design.md) and [provenance](NOTICE.md).
 
 ## Usage
 
 ### Installation
 
+The current project is a local source checkout. It has no published package or
+configured remote repository. Use Python 3.12, `uv`, and a running Docker daemon:
+
 ```bash
-uv sync --extra hle
-uv run collaboration-smoke --agents 8
-uv run collaboration-view --artifacts run-artifacts/mock-suite
-uv run pytest
-uv run pytest -m docker
+cd /Users/pabloromero/Documents/Generality-Labs/Benchmark-Audits/collaboration-index
+uv sync --extra hle --group dev
+docker version
+uv run python -c 'from importlib.metadata import version; print(version("inspect-ai"))'
 ```
 
-Docker must be running for the default smoke and the Docker-marked test. The
-unit suite also exercises 1, 2, 4, 8, 16 and 32 peers without containers.
+The lockfile and project pin Inspect AI to **0.3.277**. The `hle` extra installs
+dataset loading; it is unnecessary for authored fixture questions. The dev
+group provides pytest, Ruff and mypy. On another machine, replace the `cd` path
+with the checkout's location. Do not change the global Docker context to run
+these tasks; use the intended daemon explicitly if more than one is configured.
 
-The smoke command uses authored fixtures and mock models, with no paid calls.
-Real runs require an explicit model, per-agent token budget, and appropriate
-provider configuration; HLE also requires a bound `grader` model role.
+Another local project can depend on this source checkout through an editable
+`uv` path dependency. The installed starter below demonstrates that arrangement.
+The wheel also includes task configs, the sandbox definition, sentence pool,
+visualiser and starter assets; no external ExploitBench package is required.
+
+### Start with the free infrastructure smoke
+
+```bash
+uv run collaboration-smoke --agents 8
+uv run collaboration-view --artifacts run-artifacts/mock-suite --port 14368
+```
+
+Open <http://127.0.0.1:14368/>. The three links show the HLE fixture, counting and
+spelling replays. Each displays one collective computer, peer identities,
+collective progress, global messages, DMs and token counts.
+
+The smoke uses **authored questions and scripted mock model output**. It runs
+the real native-agent orchestration, Docker sandbox, board HTTP service,
+submission tools, scorer and renderer. Its token usage is synthetic. Fixture
+scripts know the answers and coordinate their tool actions externally; success
+tests infrastructure, not emergent collaboration or model capability. The
+command retains replays and a verification receipt, then deletes only the exact
+mock `.eval` files it created.
+
+For a container-free development control:
+
+```bash
+uv run collaboration-smoke --agents 8 --no-sandbox
+```
+
+That control still exercises agents and the board, but cannot establish that
+peers shared an actual container. Use the Docker smoke before relying on the
+shared-computer condition.
 
 ### Running evaluations
 
-Task IDs are `collaboration_index/hle_collaboration`,
-`collaboration_index/counting`, and `collaboration_index/spelling`. Use Inspect's
-native `--run-config` and `-T` options. A complete team, not each question or
-agent, is the unit selected by `--limit`.
+Registered task IDs are:
+
+| Task ID | Work in one team sample |
+| --- | --- |
+| `collaboration_index/hle_collaboration` | The entire selected numbered exam |
+| `collaboration_index/counting` | One shared ordered sequence |
+| `collaboration_index/spelling` | One shared sentence attempt |
+
+`--limit 1` selects a team sample, not one HLE question and not one peer. Use
+`question_limit` to reduce the exam. Calling the three task factories separately
+creates three task logs; the N peers within each task do not get N `.eval` files.
+Repeated epochs remain repeated team attempts, with fresh boards and stores.
+
+Real model runs require an explicitly selected subject model, a positive
+per-agent token budget and verified provider credentials. HLE's default judge
+also requires an explicitly bound `grader` role. No subject, judge, paid token
+budget or reasoning effort is silently selected. The following are interface
+examples **to use after a real run has been authorized and its provider route
+verified**; this documentation update does not launch them.
+
+Set `CI_SUBJECT_MODEL` to a valid Inspect model identifier and `CI_AGENT_TOKENS`
+to the authorized per-peer ceiling. Then a counting run is:
 
 ```bash
-uv run inspect eval collaboration_index/counting --model MODEL \
-  -T agents=8 -T token_limit_per_agent=100000 --log-dir logs
+uv run inspect eval \
+  --run-config src/collaboration_index/counting/run_configs/default.yaml \
+  --model "${CI_SUBJECT_MODEL:?Set the authorized subject model}" \
+  -T agents=8 \
+  -T token_limit_per_agent="${CI_AGENT_TOKENS:?Set the authorized per-agent budget}" \
+  -T artifact_dir=run-artifacts/counting-team \
+  --log-dir logs
+```
+
+A small real-data HLE run additionally uses `CI_GRADER_MODEL`:
+
+```bash
+uv run inspect eval \
+  --run-config src/collaboration_index/hle/run_configs/default.yaml \
+  --model "${CI_SUBJECT_MODEL:?Set the authorized subject model}" \
+  --model-role "grader=${CI_GRADER_MODEL:?Set the authorized grader model}" \
+  -T agents=8 \
+  -T question_limit=10 \
+  -T token_limit_per_agent="${CI_AGENT_TOKENS:?Set the authorized per-agent budget}" \
+  -T artifact_dir=run-artifacts/hle-team \
+  --log-dir logs
+```
+
+The 10-question example is a small selection, not a default. Omit that override
+to select the full maintained gold/text batch. Keep the same selection across
+team sizes and controls. The current HLE scorer grades accepted answers
+sequentially after the peers finish; grading a full batch can take appreciable
+additional time even when solving has ended.
+
+For spelling, substitute its config path and consider a fixed `candidate_count`
+when comparing different N. Provider concurrency also matters: N peer tasks are
+released together, but a provider connection limit or rate limit can serialize
+inference. Record generation and connection settings when comparing teams.
+
+The Python interface is supported as well:
+
+```python
+import os
+from inspect_ai import eval
+from collaboration_index.counting import counting
+
+task = counting(
+    agents=8,
+    token_limit_per_agent=int(os.environ["CI_AGENT_TOKENS"]),
+    artifact_dir="run-artifacts/counting-team",
+)
+logs = eval(task, model=os.environ["CI_SUBJECT_MODEL"], log_dir="logs")
+```
+
+Inspect's [task and run-config documentation](https://inspect.aisi.org.uk/tasks.html#run-config-file)
+describes its native CLI and model-role interface. Project-specific behavior is
+defined by the source and YAML in this repository.
+
+### Configurations
+
+Each task owns a complete maintained configuration:
+
+- [HLE](src/collaboration_index/hle/run_configs/default.yaml)
+- [Counting](src/collaboration_index/counting/run_configs/default.yaml)
+- [Spelling](src/collaboration_index/spelling/run_configs/default.yaml)
+
+Public Python defaults are read from these files. CLI overrides take precedence
+when using `--run-config`. Keep task arguments under `task.args`, subject
+configuration under `model`/`generate_config`, judge bindings under
+`model_roles`, and framework settings under `eval_config`. Do not put `epochs`
+in `task.args`; use `--epochs` or `eval_config.epochs`.
+
+For an experiment, copy a complete config to `run-artifacts/<experiment>/` and
+record the effective settings and source commit. Committed `run_configs/`
+directories contain maintained `default.yaml` and, only when a verified original
+configuration warrants it, `original.yaml`. These are new collaboration tasks,
+so there is no fabricated original configuration or claimed upstream parity.
+
+The common default is two peers, one epoch, collaborative communication,
+native ReAct and 75% context compaction. `model`, grader bindings and the token
+ceiling are operator-supplied. Verify the actual model context and provider
+route before a real-model launch; the YAML fraction alone does not establish
+provider compatibility.
+
+Task `seed` and model generation seed are separate. Spelling uses task seed to
+draw candidates and hands. Counting uses it as an attempt identifier, and HLE
+retains it as metadata without shuffling the pinned batch. Varying that argument
+alone does not produce new counting problems or randomized HLE selections.
+
+### Controls and team-size comparisons
+
+`condition=collaborative` gives every peer equal tools and the same collaboration
+instructions, with no leader or assigned work. Private spelling hands differ
+because complementary information is the task's mechanic.
+
+`condition=oracle_allocation` supplies an evaluator allocation and removes the
+board tool. HLE assigns question numbers round-robin. Counting assigns
+consecutive blocks. Spelling supplies a feasible target and character owners.
+Ordered controls receive `oracle_progress`, which reveals only accepted prefix
+length so they can sequence actions without messaging.
+
+This is an allocation control, **not a proven optimum**. It has extra task
+information, ignores unknown per-question difficulty and model latency, and can
+have lower accuracy than collaboration. HLE assignment ownership is enforced
+by its submission tool; ordered tasks retain their quota/hand restrictions and
+use the disclosed assignment protocol. Do not describe all assignments as
+equally privileged to the collaborative condition.
+
+Use one peer as a baseline and compare N = 2, 4, 8, 16, 32 across matched
+model/provider, task work, seed, generation settings and budget conventions.
+At a fixed per-agent ceiling, the planned aggregate ceiling grows with N. A
+fixed-total-budget comparison is a different experiment. Counting defaults to
+fixed work; spelling's historical candidate count scales with N unless overridden.
+The current prototype implements the shared-sandbox topology only. Independent
+computers are a future matched ablation, not a hidden mode already implemented.
+
+### Viewing and preserving results
+
+Native logs can be opened with:
+
+```bash
 uv run inspect view --log-dir logs
 ```
 
-These commands describe the interface and are not authorization for paid runs.
+Keep the repository's `logs/` flat and containing only `.eval` files. Preserve
+real evaluation logs. Config snapshots, board databases/journals, receipts and
+HTML belong under `run-artifacts/`. The team setup creates a unique
+`team-<uuid>` directory inside the selected artifact directory.
+
+To render a retained run, set `CI_EVAL_FILE` to its `.eval` path and
+`CI_BOARD_JOURNAL` to the matching team's `board.jsonl`:
+
+```bash
+uv run collaboration-replay \
+  --eval "${CI_EVAL_FILE:?Set the retained evaluation path}" \
+  --journal "${CI_BOARD_JOURNAL:?Set its matching board journal}" \
+  --html run-artifacts/replays/team.html
+uv run collaboration-view --artifacts run-artifacts/replays --port 14368
+```
+
+Create the output directory first if necessary. For repeated epochs, add
+`--epoch <number>` and, when needed, `--sample <sample-id>` to select exactly one
+team attempt. The renderer verifies run and actor identities; a journal from
+another attempt must fail rather than produce a plausible mixed replay.
+
+The visualiser exports board events, trusted submissions, statuses and team
+measurements. It does not export private model histories or fabricate individual
+benchmark grades. HLE correctness appears after final grading. Saved replays
+show authored mock provenance when applicable. Board messages and submissions
+are still run data; the HTML is not a guarantee of content redaction.
 
 ### New benchmark starter
 
-An installed example lives in `templates/example-exam`; it passed a real Docker
-mock smoke. Generate another project with the same infrastructure:
+An installed example is in [templates/example-exam](templates/example-exam/README.md).
+It has its own task, question file, YAML, local environment and smoke script:
+
+```bash
+cd templates/example-exam
+uv sync
+uv run python smoke.py
+```
+
+Its portable replay is `run-artifacts/replay.html` inside that project. Generate
+a separate starter from the core checkout with:
 
 ```bash
 uv run collaboration-new /absolute/path/my-benchmark
@@ -53,96 +272,238 @@ uv sync
 uv run python smoke.py
 ```
 
-The starter owns its task, question data and `run_configs/default.yaml`. It
-imports the shared core instead of copying the board or visualiser. It is a
-numbered-answer starter; new game mechanics still need a trusted tool/scorer
-implementation and end-to-end mock validation. The installed example's replay
-is `templates/example-exam/run-artifacts/replay.html`.
+Use `--core-path /absolute/path/collaboration-index` when creating from an
+installed package or moving machines. The generated dependency points to that
+source checkout; it is not an independently published package.
 
-### Configurations
+Replace the starter's trusted `questions.json` with records containing `id`,
+`question` and `answer`. Optional `answer_type` is retained as metadata. The
+loader assigns contiguous question numbers. Nonempty strings and unique IDs
+are required; image records are excluded. Reference answers remain in the
+controller, while only public fields reach the participant file/tool. The
+starter's exact judge is appropriate for authored fixtures; open-ended answers
+need `hle_json_judge` and a bound grader, or a separately validated scorer.
 
-Each evaluation owns `run_configs/default.yaml`. Defaults select two agents,
-one epoch and emergent collaboration. The model, token budget and HLE judge
-are intentionally operator-supplied. `condition=oracle_allocation` supplies
-assignments and omits the board from participant tools, providing a matched
-allocation baseline without delegation. It is not a proven optimal strategy.
+The starter reuses the installed board, harness, scorer and renderer. It is a
+numbered-answer template. A different game mechanic requires trusted tools,
+typed state, scoring and replay support in the core; changing only the question
+file does not create an arbitrary game plugin. See
+[architecture and extension contracts](docs/architecture.md).
 
-These are new collaboration variants. There is no claimed original configuration
-or reproduction of historic Multi-Agent-Bench/HLE scores.
+## Security Considerations
 
-## Environment
+### Task files and private references
 
-One minimal unprivileged Docker container serves the whole team. It has no
-network, a read-only root filesystem, dropped capabilities and an ephemeral
-workspace; every peer verifies the same hostname and run file. The 2 CPU / 1 GiB
-allocation is a bounded prototype setting, not a measured requirement for future
-command-heavy benchmarks. `sandbox_enabled=false` is a local unit-test control;
-real prototype runs default to the shared sandbox.
+The HLE batch lives in the shared `/workspace/questions.json`; peers can read
+the whole batch or numbered ranges through the restricted `read_file` tool.
+`team.json` identifies the shared attempt. No arbitrary file or shell tool is
+exposed to these toy-task agents. Files are not an alternate communication
+channel. Submission and board tools execute trusted controller-side Python.
 
-The board is a separate loopback service process with its own SQLite database.
-Only credential hashes reach its files. Peer tool closures receive scoped
-credentials; the service does not inherit model or cloud credentials. No shell
-or arbitrary host-file tool is available. HLE's public `questions.json` can be
-read through a restricted file tool; reference answers stay in the controller.
+Answers and other agents' private spelling hands are excluded from participant
+inputs. They are retained in trusted task metadata for scoring, so a native
+`.eval` log is **not** a public, sanitized artifact. Keep credentials out of
+logs, Git, receipts and model-visible files. Do not print real HLE records when
+checking access or loading: report revisions, counts and hashes.
 
-Keep `logs/` flat and `.eval`-only. Supporting state, board journals, question
-files and HTML replays belong under `run-artifacts/`.
+### Docker sandbox
+
+The [Compose definition](src/collaboration_index/assets/sandbox/compose.yaml)
+pins `python:3.12-slim` by digest. It runs as UID/GID 65534, with no network,
+a read-only root filesystem, all capabilities dropped, no new privileges,
+2 CPUs and a 1 GiB memory limit. `/workspace` and `/tmp` are bounded tmpfs mounts.
+Every peer verifies the same hostname and run file before inference begins.
+
+These are bounded prototype settings, not measured minimum resources for
+arbitrary future workloads. Real grading, provider concurrency, cold/warm caches
+and peak CPU/RAM/disk use need measurement before scaling unfamiliar tasks.
+Hawk and alternative sandbox runtimes have not been validated for this project.
+
+### Message board and credentials
+
+Each attempt starts its own loopback HTTP service and SQLite database. Participant
+IDs are fixed by the evaluator; agents may choose unique display names. Bearer
+credentials are scoped to run and participant. Only credential hashes are
+written to private files, and the board process does not inherit model/cloud
+secrets. The service supports global messages, pairwise DMs, ordered events,
+pagination, waits, read receipts and request idempotency. It is stopped after
+peers are joined, including cancellation paths.
+
+The board is a separate controller-side process, not a server inside the
+no-network participant container. Agents access it through trusted tool closures.
+These are native Inspect tools backed by HTTP, not an MCP integration. The
+viewer is also loopback-only and serves selected top-level replay HTML files,
+not the whole artifact directory.
+
+The local Hugging Face account already has CAIS HLE access. An approved
+fine-grained read token named `collaboration-index-hle-read` is stored in the
+standard private Hugging Face cache, outside this repo. On a new machine,
+authenticate through a hidden token/login flow and verify dataset access;
+never copy the credential into a config or documentation. Local access does not
+automatically supply remote workers with credentials or cached data.
+
+## Options
+
+Use `uv run inspect eval --help` for installed framework options. Useful controls
+include `--epochs`, `--temperature`, `--max-tokens` and `--max-connections`.
+These differ from task arguments supplied with `-T`. `--max-tokens` caps an
+individual generated response; it does not replace `token_limit_per_agent`.
+
+`team_time_limit` is the task's solving deadline in seconds, beginning only after
+all peers are ready. A generic Inspect `--time-limit` or sample-level token limit
+can interrupt controller finalization; do not silently substitute it for the
+team/per-peer limits. Use explicit bounded solving limits when supervising
+real smoke tests, and retain partial work and infrastructure errors.
 
 ## Parameters
 
-Common controls include `agents`, `condition`, `seed`, `token_limit_per_agent`,
-`team_time_limit`, and `agent`/`agent_args`. Team sizes 1–32 are supported for
-the prototype; one agent is useful as a control. The task rejects a missing
-positive token budget before starting inference.
+### Shared arguments
 
-HLE selects pinned CAIS data, optionally intersected with audited gold IDs;
-the prototype is text-only. CAIS HLE is gated on Hugging Face: approve its dataset
-access and provide an authorized HF login before loading real records. An
-authenticated preflight verified both revision pins and loaded 575 gold/text
-questions successfully. Dataset contents remain in the private local cache and
-are not committed. `records_file` loads a trusted
-local fixture.
-Questions are numbered and submitted with `submit_answer(question_number,
-answer)`. First accepted answers are final, and correctness is hidden until
-scoring. Unanswered questions receive no credit; judge failures remain
-explicitly unscored and cannot become model errors or zero capability.
+| Argument | Maintained default | Meaning |
+| --- | --- | --- |
+| `agents` | `2` | Integer 1–32; all peers share one sandbox. |
+| `condition` | `collaborative` | Collaborative board or `oracle_allocation` control. |
+| `seed` | `0` | Stable task draw identifier; spelling uses it for dealing. |
+| `token_limit_per_agent` | `null` | Required positive native token ceiling for each peer. |
+| `team_time_limit` | `null` | Optional positive solving deadline in seconds. |
+| `agent` | `react` | Native ReAct, or a compatible dotted Python factory. |
+| `agent_args` | `{}` | Factory options; trusted tools/lifecycle/model/compaction cannot be replaced here. |
+| `artifact_dir` | `run-artifacts` | Parent of fresh `team-<uuid>` attempt directories. |
+| `sandbox_enabled` | `true` | Shared Docker by default; false is a development control. |
+| `compaction_threshold` | `0.75` | Fraction passed to native `CompactionAuto`. |
 
-Counting defaults to a fixed target of 64 and a per-agent quota of ceil(64/N).
-Arrival order is irreversible and hidden. Spelling preserves the old private
-reusable-character-hands mechanic and scores against the closest shown sentence;
-only an agent holding return can end the line. Its candidate count is
-min(2N,100), as in the source; candidate work changes across team sizes. Set
-`candidate_count` to the same positive value across N to hold the shown
-candidates and seeded target fixed; keep this separate from the historic
-scaled-work condition. Both use the board instead of
-shared text files. Dataset draws are seeded and retained in logs.
+An alternate agent factory must accept the injected native tools, `submit`,
+`on_continue` and compaction contract. Preserve the invariant setup and trusted
+game/scorer. This interface does not promise compatibility with every external
+agent framework without adaptation.
+
+### HLE collaboration
+
+| Argument | Maintained default | Meaning |
+| --- | --- | --- |
+| `title` | `HLE collaboration` | Task/replay display title; the starter uses its own title. |
+| `records_file` | `null` | Trusted local JSON records; null loads pinned CAIS data. |
+| `gold_only` | `true` | Intersect CAIS IDs with HLE-Verified's `Gold subset`. |
+| `question_limit` | `null` | Optional positive prefix length; null keeps the selected batch. |
+| `answer_characters` | `64000` | Maximum characters in each accepted answer. |
+| `answer_judge` | `hle_json_judge` | Bound JSON equivalence judge; `exact` for suitable fixtures. |
+| `max_grader_attempts` | `3` | Bounded attempts to obtain a parseable judge verdict. |
+
+Pinned revisions are CAIS `5a81a4c7271a2a2a312b9a690f0c2fde837e4c29` and
+HLE-Verified `0bc83643672d4f68a5f89998617a639d85e7318b`. They are explicit
+`dataset_revision` and `verified_revision` parameters. The authenticated
+2026-10-07 preflight loaded **575 gold/text questions**. Images are always
+excluded by the current loader. Gold annotations select IDs; reference answers
+remain the original CAIS answers. "Diamond" ordinarily refers to GPQA Diamond,
+a separate benchmark, not this selection.
+
+Agents call `submit_answer(question_number, answer)`. The first valid accepted
+answer is final. Empty, out-of-range or oversized answers are rejected;
+duplicates are counted and cannot overwrite an answer. There is no correctness
+feedback during solving. `read_file(path="questions.json", start=1, count=...)`
+reads question ranges without exposing references.
+
+### Counting
+
+| Argument | Maintained default | Meaning |
+| --- | --- | --- |
+| `target` | `64` | Fixed sequence 1..target; null selects historical min(2N,100) scaled work. |
+| `submissions_per_agent` | `null` | Null gives ceil(target/N); an explicit quota must permit the team target. |
+
+`submit_number(number)` atomically appends a signed 64-bit integer in arrival
+order. The output is hidden, irreversible and never sorted. Wrong integers still
+occupy slots and consume quota. The team ends at `target` accepted entries or
+the solving boundary. Global success therefore depends on sequencing, not
+merely getting every peer to submit its intended numbers eventually.
+
+### Spelling
+
+| Argument | Maintained default | Meaning |
+| --- | --- | --- |
+| `sentences_file` | `null` | Null selects the packaged 1,000-line sentence pool. |
+| `candidate_count` | `null` | Historical min(2N,100); set a fixed positive count for fixed-work comparisons. |
+| `copies` | `3` | Copies of distinct required character cards before dealing. |
+| `minimum_hand` | `2` | Minimum distinct-character hand size where possible. |
+| `max_characters` | `null` | Optional shared output bound; null adds no character ceiling. |
+
+All peers see the candidate sentences; each sees only its own reusable character
+hand. A seeded candidate determines the dealt character pool. Characters are
+not consumed when submitted. `submit_letter(character)` accepts a held
+character or the aliases `space`, `comma`, `period`, `return`. Only a peer holding
+return can end the line. Any exact shown sentence followed by return is complete;
+the deal's selected sentence is not the only sentence the scorer accepts.
 
 ## Scoring
 
-Report quality, completion/coverage, solving wall time, individual and total
-subject tokens, communication calls, duplicate work and submission timelines
-separately. HLE judge time and tokens are excluded from solving costs. Completion
-time ends at the last required accepted submission; peer join latency is recorded
-separately. The HLE equivalence prompt is a simplified configurable prototype
-judge, rather than the exact CAIS/Inspect-Evals leaderboard judge. Ordered
-tasks retain edit-distance partial credit. Deadline/budget exhaustion preserves
-partial work. Per-peer limits use Inspect's native response-level accounting,
-so one in-flight response may exceed its remaining budget; the planned aggregate
-budget is N times the per-peer budget, not a provider billing hard cap. No second
-sample limit interrupts finalization; infrastructure errors raise and are not
-scored as ordinary losses.
+The scorer reads authoritative `TeamHistory` in Inspect's typed store. It never
+grades a peer's claimed success or reconstructs submissions from chat text.
+Counting and spelling use normalized Levenshtein similarity:
 
-## Verification
+```text
+quality = max(0, 1 - edit_distance(actual, expected) / len(expected))
+```
 
-The prototype passed 45 local tests and the shared Docker integration test.
-Eight-peer authored mocks completed all three benchmarks through native Inspect,
-the real sandbox, authenticated board, scorer and replay. A 32-peer counting
-mock also completed in one sandbox, and the installed starter passed its Docker
-smoke. Ruff, mypy and the packaged wheel checks passed. These are infrastructure
-checks with synthetic model output and token usage; no paid capability evaluation
-has been run. Authenticated dataset preflight loaded the pinned 575-question HLE
-gold/text batch without printing questions or answers.
+Counting compares ordered integers with 1..target. Spelling compares the shared
+line with the closest shown sentence, excluding a final return from text
+similarity. HLE quality is correct answers divided by all selected questions;
+unanswered questions receive zero credit. HLE `completed` means every question
+has an accepted answer, not that every answer is correct. Ordered-task completion
+requires the exact correct sequence or an exact shown sentence plus return.
 
-See [the experiment design](docs/design.md), [provenance](NOTICE.md) and the
-test suite. A single collaboration index and benchmark weights remain a research
-decision; this prototype does not invent an aggregate score.
+| Measurement | Interpretation |
+| --- | --- |
+| `quality` | Team accuracy/similarity, normally 0–1. |
+| `coverage` | Submitted fraction/length; it does not guarantee correctness. |
+| `completed` | Task-specific completion indicator. |
+| `elapsed_seconds` | Release barrier to final required submission, or joined partial end. |
+| `tokens`, `input_tokens`, `output_tokens` | Aggregate subject-model usage across peers. |
+| `message_count` | Successful board sends, with global/direct counts also recorded. |
+| `communication_calls` | Recorded board operations, including non-send actions. |
+| `duplicate_submissions` | HLE attempts to answer an already answered question. |
+| `unscored_questions` | Judge verdicts unavailable after bounded parsing attempts. |
+
+Per-peer tokens, turns, tool calls and statuses are retained in the typed store.
+`peer_quiescence_seconds` is in the sample score value; it is not currently a
+declared headline aggregate metric. Rejections, end reasons and judgments are
+also retained structurally. Default score metrics and epoch reduction use means;
+they are not best-of-N, pass-at-k or a union of successes.
+
+HLE's simplified configurable equivalence judge is not the exact upstream
+leaderboard judge. If a verdict remains malformed, its correctness is `null` and
+the team quality is `NaN` rather than treating failed grading as zero capability.
+The portable replay converts nonfinite numbers to JSON null. Judge transport
+errors and deterministic infrastructure failures raise. Report unscored attempts
+and failures explicitly when aggregating; do not silently drop them.
+
+Solving time and subject token counts exclude grading. Native per-peer limits
+are checked at response boundaries, so a final in-flight response can exceed the
+remaining allowance. N × per-peer budget is a planned ceiling, not a hard billing
+cap. There is deliberately no second aggregate sample token limit that interrupts
+finalization. Partial work survives native peer-budget exhaustion and the team
+deadline. Checkpoint continuation is rejected until all peer histories, limits,
+board and irreversible game state can be restored together.
+
+## Development and verification
+
+```bash
+uv run ruff check src tests templates
+uv run ruff format --check src tests templates
+uv run mypy src
+uv run pytest -q
+uv run pytest -m docker -q
+uv build --wheel
+```
+
+Default pytest excludes Docker tests; the explicit second pytest command runs them.
+The 2026-10-07 baseline passed **45 local tests plus one Docker integration test**.
+Eight-peer Docker mocks completed all three tasks; a 32-peer counting Docker
+mock and the installed starter smoke also completed. Wheel assets, Ruff and
+mypy passed. Dataset access/loading was verified separately without printing
+records. No real-model capability results or collaboration ECI exist yet.
+
+Start a fresh coding session with [AGENTS.md](AGENTS.md), then
+[architecture](docs/architecture.md), [measurement design](docs/design.md) and
+[the dated handoff](docs/handoff.md). Useful next tasks are controlled real-model
+smokes and matched scaling studies. Number-sequence coordination is a promising
+fourth task; Python line assembly needs additional execution/scoring validation
+before import. Keep benchmark diversity in mind before adding close variants.
