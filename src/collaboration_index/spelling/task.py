@@ -27,6 +27,7 @@ def spelling(
     sandbox_enabled: bool = ARGS["sandbox_enabled"],
     sandbox_type: str = ARGS["sandbox_type"],
     compaction_threshold: float = ARGS["compaction_threshold"],
+    context_window: int | None = ARGS["context_window"],
     sentences_file: str | None = ARGS["sentences_file"],
     candidate_count: int | None = ARGS["candidate_count"],
     copies: int = ARGS["copies"],
@@ -67,4 +68,5 @@ def spelling(
         "exact",
         1,
         compaction_threshold,
+        context_window=context_window,
     )

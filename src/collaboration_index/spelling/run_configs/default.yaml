@@ -12,6 +12,7 @@ task:
     sandbox_enabled: true
     sandbox_type: docker
     compaction_threshold: 0.75
+    context_window: null
     sentences_file: null
     candidate_count: null
     copies: 3

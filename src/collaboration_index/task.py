@@ -37,6 +37,7 @@ def make_task(
     answer_judge: str,
     max_grader_attempts: int,
     compaction_threshold: float,
+    context_window: int | None = None,
     title: str | None = None,
 ) -> Task:
     """Wire invariant setup, replaceable agent, shared sandbox and authoritative scoring."""
@@ -74,6 +75,7 @@ def make_task(
             agent,
             agent_args,
             compaction_threshold,
+            context_window,
         ),
         scorer=team_score(answer_judge, max_grader_attempts),
         sandbox=(
@@ -96,5 +98,6 @@ def make_task(
             "benchmark_variant": "collaboration_index_v1",
             "token_limit_per_agent": token_limit_per_agent,
             "planned_team_token_budget": agents * token_limit_per_agent,
+            "context_window": context_window,
         },
     )

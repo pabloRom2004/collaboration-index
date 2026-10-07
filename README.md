@@ -481,6 +481,7 @@ real smoke tests, and retain partial work and infrastructure errors.
 | `sandbox_enabled` | `true` | Shared sandbox by default; false is a development control. |
 | `sandbox_type` | `docker` | `docker` uses Compose; `k8s` uses the packaged Helm values for Hawk. |
 | `compaction_threshold` | `0.75` | Fraction passed to native `CompactionAuto`. |
+| `context_window` | `null` | Verified context window in tokens; when set, compaction triggers at `compaction_threshold` times this value instead of Inspect's model metadata. |
 
 An alternate agent factory must accept the injected native tools, `submit`,
 `on_continue` and compaction contract. Preserve the invariant setup and trusted

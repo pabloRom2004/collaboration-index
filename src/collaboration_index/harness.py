@@ -101,6 +101,7 @@ def team_agents(
     agent: str,
     agent_args: dict[str, Any],
     compaction_threshold: float,
+    context_window: int | None = None,
 ) -> Solver:
     """Build fixed-identity tools and run prepared peers with independent token limits."""
     if (
@@ -119,6 +120,14 @@ def team_agents(
         )
     if not 0 < compaction_threshold <= 1:
         raise ValueError("Compaction threshold must be within (0,1]")
+    if context_window is not None and context_window < 1:
+        raise ValueError("Context window must be a positive token count")
+    # a verified window covers models missing from Inspect's model metadata
+    threshold = (
+        compaction_threshold
+        if context_window is None
+        else int(context_window * compaction_threshold)
+    )
     factory = (
         react
         if agent == "react"
@@ -248,7 +257,7 @@ def team_agents(
                     tools=tools,
                     submit=False,
                     on_continue=on_continue,
-                    compaction=CompactionAuto(threshold=compaction_threshold),
+                    compaction=CompactionAuto(threshold=threshold),
                     **dict(agent_args),
                 )
                 ready.put_nowait(None)

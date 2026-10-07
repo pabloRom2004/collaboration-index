@@ -173,3 +173,34 @@ def test_team_time_limit_is_required(tmp_path: Path) -> None:
             sandbox_enabled=False,
             artifact_dir=str(tmp_path),
         )
+
+
+def test_context_window_sets_absolute_compaction_threshold(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Resolve the compaction fraction against a supplied window, not Inspect's default."""
+    import collaboration_index.harness as harness
+
+    thresholds = []
+
+    def recording(threshold):
+        thresholds.append(threshold)
+        return harness_compaction(threshold=threshold)
+
+    harness_compaction = harness.CompactionAuto
+    monkeypatch.setattr(harness, "CompactionAuto", recording)
+    task = counting(
+        agents=2,
+        target=4,
+        token_limit_per_agent=10000,
+        team_time_limit=600,
+        sandbox_enabled=False,
+        artifact_dir=str(tmp_path),
+        context_window=1_000_000,
+    )
+    [log] = inspect_eval(
+        task, model=fixture_model(task), log_dir=str(LOGS), display="none"
+    )
+    assert log.status == "success", log.error
+    assert log.eval.metadata["context_window"] == 1_000_000
+    assert thresholds == [750_000, 750_000]

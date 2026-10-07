@@ -25,6 +25,7 @@ def colouring(
     sandbox_enabled: bool = ARGS["sandbox_enabled"],
     sandbox_type: str = ARGS["sandbox_type"],
     compaction_threshold: float = ARGS["compaction_threshold"],
+    context_window: int | None = ARGS["context_window"],
     colours: int = ARGS["colours"],
     topology: str = ARGS["topology"],
     degree: float = ARGS["degree"],
@@ -55,4 +56,5 @@ def colouring(
         "exact",
         1,
         compaction_threshold,
+        context_window=context_window,
     )

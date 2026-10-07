@@ -26,6 +26,7 @@ def hle_collaboration(
     sandbox_enabled: bool = ARGS["sandbox_enabled"],
     sandbox_type: str = ARGS["sandbox_type"],
     compaction_threshold: float = ARGS["compaction_threshold"],
+    context_window: int | None = ARGS["context_window"],
     records_file: str | None = ARGS["records_file"],
     dataset_revision: str = ARGS["dataset_revision"],
     verified_revision: str = ARGS["verified_revision"],
@@ -71,5 +72,6 @@ def hle_collaboration(
         answer_judge,
         max_grader_attempts,
         compaction_threshold,
+        context_window=context_window,
         title=title,
     )

@@ -12,6 +12,7 @@ task:
     sandbox_enabled: false
     sandbox_type: docker
     compaction_threshold: 0.75
+    context_window: null
     colours: 3
     topology: random
     degree: 3.0
