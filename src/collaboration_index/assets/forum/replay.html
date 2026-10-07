@@ -120,14 +120,16 @@ function spellingTarget(spec,entries){
 function buildSharedBoard(top){
   const spec=dataset.target;if(!['counting','spelling'].includes(spec?.kind)||dataset.topology!=='shared_sandbox')return;
   const counting=spec.kind==='counting',slots=counting?spec.target:Math.max(spec.dealt_sentence.length+1,(dataset.submissions||[]).length);
-  const side=Math.ceil(Math.sqrt(slots)),cell=Math.min(64,Math.floor((counting?440:520)/side)),size=side*cell,left=world.w/2-size/2;
-  world.h=Math.max(world.h,top+size+90);
-  $('target-board').append(svg('text',{x:world.w/2,y:top-28,'text-anchor':'middle',fill:'#46604b','font-size':23,'font-weight':600},counting?'Shared hidden list · 1 to '+spec.target:'Shared hidden line'));
+  // big teams spread over a wide map, so the shared grid grows with it to stay legible
+  const side=Math.ceil(Math.sqrt(slots)),cell=Math.max(Math.min(64,Math.floor((counting?440:520)/side)),Math.min(140,Math.floor(world.w*.25/side))),size=side*cell,left=world.w/2-size/2;
+  world.h=Math.max(world.h,top+size+110);
+  $('target-board').append(svg('rect',{x:left-36,y:top-78,width:size+72,height:size+114,rx:20,fill:'#f7faf7',stroke:'#d5ddd6','stroke-width':2}));
+  $('target-board').append(svg('text',{x:world.w/2,y:top-30,'text-anchor':'middle',fill:'#46604b','font-size':23,'font-weight':600},counting?'Shared output · 1 to '+spec.target:'Shared output · one line'));
   for(let i=0;i<slots;i++){
     const x=left+(i%side)*cell,y=top+Math.floor(i/side)*cell,group=svg('g',{class:'slot','data-slot':i+1});
     const rect=svg('rect',{x:x+3,y:y+3,width:cell-6,height:cell-6,rx:7,fill:'#fafbfa',stroke:'#d9dfda','stroke-width':1.5,'stroke-dasharray':'5 4'});
     const label=svg('text',{x:x+cell/2,y:y+cell/2+Math.round(cell*.13),'text-anchor':'middle','font-size':Math.round(cell*.36),'font-weight':600}),title=svg('title',{},'slot '+(i+1)+': empty');
-    group.append(rect,label,title);$('target-board').append(group);numberSlots.push({rect,label,title,center:{x:x+cell/2,y:y+cell/2},state:':'});
+    group.append(rect,label,title);$('target-board').append(group);numberSlots.push({rect,label,title,center:{x:x+cell/2,y:y+cell/2},cell,state:':'});
   }
 }
 // Rebuilt from replay time on every frame, so seeking backwards simply empties later slots.
@@ -151,7 +153,8 @@ function renderSharedBoard(time){
     const progress=(time-ms(entry.time))/flightDuration(entry),source=positions[entry.actor];if(progress<0||progress>=1||!numberSlots[i]||!source)return;
     const b=numberSlots[i].center,mid={x:(source.x+b.x)/2+(source.x<b.x?-70:70),y:source.y+(b.y-source.y)*.3},{x,y}=routePoint({a:source,b,mid},1-Math.pow(1-progress,2));
     const token=svg('g',{class:'number-flight','data-slot':i+1,transform:'translate('+x+' '+y+')'});
-    token.append(svg('circle',{r:22,fill:'#fff',stroke:color(entry.actor),'stroke-width':3,filter:'url(#mail-shadow)'}),svg('text',{y:7,'text-anchor':'middle','font-size':19,'font-weight':600,fill:'#2f4a38'},label(entry.value)));
+    const scale=Math.max(1,numberSlots[i].cell/52);
+    token.append(svg('circle',{r:22*scale,fill:'#fff',stroke:color(entry.actor),'stroke-width':3*scale,filter:'url(#mail-shadow)'}),svg('text',{y:7*scale,'text-anchor':'middle','font-size':19*scale,'font-weight':600,fill:'#2f4a38'},label(entry.value)));
     layer.append(token);
   });
 }
@@ -317,21 +320,22 @@ function buildScene(){
   numberSlots=[];$('target-board').replaceChildren();$('number-layer').replaceChildren();
   positions={};computerNodes={};connectionNodes=new Map();$('connection-layer').replaceChildren();$('computer-nodes').replaceChildren();$('global-node').replaceChildren();$('scene-title').replaceChildren();$('mail-layer').replaceChildren();
   if(graphMode()){buildGraphScene();return;}
+  // Team replays draw every agent as its own computer, so nothing shows whether peers shared a container.
+  const team=dataset.topology==='shared_sandbox';
   const columns=Math.max(1,Math.ceil(Math.sqrt(ids.length))),rows=Math.ceil(ids.length/columns);
   world={w:Math.max(1000,columns*340+160),h:Math.max(1000,rows*340+600)};
-  const shared=dataset.topology==='shared_sandbox';
-  const circular=!shared&&ids.length>4;
+  const circular=ids.length>4;
   // Keep enough space between neighbouring computers as the circle grows.
   const radius=circular?Math.max(440,400/(2*Math.sin(Math.PI/ids.length))):0;
-  if(circular)world={w:radius*2+360,h:radius*2+620};
-  if(shared)world={w:Math.max(1000,columns*230+260),h:Math.max(1050,rows*190+800)};
-  boardPosition={x:world.w/2,y:circular?world.h/2:GLOBAL_Y};
-  $('computer-nodes').setAttribute('data-layout',shared?'shared':circular?'circle':'grid');
-  const title=svg('g',{role:'heading','aria-level':1,'aria-label':ids.length+' '+(ids.length===1?'agent':'agents')+' running a collaboration task'});
-  title.append(svg('text',{x:world.w/2,y:76,'text-anchor':'middle',fill:'#829087','font-size':25},ids.length+' '+(ids.length===1?'agent':'agents')+(shared?' · one computer':' running on')));
-  title.append(svg('text',{x:world.w/2,y:138,'text-anchor':'middle',fill:'#28372d','font-size':60,'font-weight':600,'letter-spacing':-2},shared?(dataset.benchmark_title||'Shared collective'):'Collaboration Index'));
+  if(circular)world={w:radius*2+360,h:radius*2+700};
+  boardPosition={x:world.w/2,y:circular?world.h/2+40:GLOBAL_Y};
+  $('computer-nodes').setAttribute('data-layout',circular?'circle':'grid');
+  const agentsLabel=ids.length+' '+(ids.length===1?'agent':'agents');
+  const title=svg('g',{role:'heading','aria-level':1,'aria-label':agentsLabel+' running a collaboration task'});
+  title.append(svg('text',{x:world.w/2,y:76,'text-anchor':'middle',fill:'#829087','font-size':25},team?agentsLabel:agentsLabel+' running on'));
+  title.append(svg('text',{x:world.w/2,y:138,'text-anchor':'middle',fill:'#28372d','font-size':60,'font-weight':600,'letter-spacing':-2},team?(dataset.benchmark_title||'Team task'):'Collaboration Index'));
   if(dataset.fixture_verification)title.append(svg('text',{x:world.w/2,y:173,'text-anchor':'middle',fill:'#829087','font-size':18},'Authored mock · synthetic token usage'));
-  title.setAttribute('aria-label',shared?ids.length+' agents sharing one computer':ids.length+' collaboration agents');
+  if(team)title.append(svg('text',{id:'collective-score',x:world.w/2,y:dataset.fixture_verification?210:180,'text-anchor':'middle',fill:'#46604b','font-size':22},'Team result pending'));
   $('scene-title').append(title);
   const global=svg('g',{id:'global-board',class:'global-board',role:'button',tabindex:0,'aria-label':'Global Message board',transform:'translate('+boardPosition.x+' '+boardPosition.y+')'});
   global.append(svg('circle',{r:160,fill:'#f0f7f0',stroke:'#a8c3af','stroke-width':1.4}));
@@ -342,32 +346,11 @@ function buildScene(){
   const globalMotion=svg('g',{id:'global-motion',class:'board-motion'});
   while(global.firstChild)globalMotion.append(global.firstChild);global.append(globalMotion);
   $('global-node').append(global);
-  if(shared){
-    const frame=svg('g',{id:'collective-workspace',role:'group','aria-label':'One shared computer and filesystem'}),height=rows*190+130;
-    frame.append(svg('rect',{x:105,y:565,width:world.w-210,height,rx:24,fill:'#f7faf7',stroke:'#9daaa1','stroke-width':3}),svg('text',{x:world.w/2,y:609,'text-anchor':'middle',fill:'#46604b','font-size':23,'font-weight':600},'1 computer · shared files · 1 benchmark result'));
-    const bottom=565+height;
-    frame.append(svg('path',{d:'M '+(world.w/2-25)+' '+bottom+' l -12 45 h 74 l -12 -45',fill:'#f0f4ef',stroke:'#9daaa1','stroke-width':2}),svg('rect',{x:world.w/2-70,y:bottom+45,width:140,height:8,rx:4,fill:'#9daaa1'}));
-    frame.append(svg('text',{id:'collective-score',x:world.w/2,y:bottom-24,'text-anchor':'middle',fill:'#46604b','font-size':22},'Collective result pending'));
-    $('computer-nodes').append(frame);buildSharedBoard(bottom+160);
-  }
   ids.forEach((id,index)=>{
     const row=Math.floor(index/columns),column=index%columns,inRow=Math.min(columns,ids.length-row*columns);
     const angle=-Math.PI/2+index*Math.PI*2/ids.length;
     const x=circular?boardPosition.x+radius*Math.cos(angle):world.w/2+(column-(inRow-1)/2)*340;
     const y=circular?boardPosition.y+radius*Math.sin(angle):700+row*340;
-    if(shared){
-      const sx=world.w/2+(column-(inRow-1)/2)*230,sy=700+row*190;
-      positions[id]={x:sx,y:sy};
-      const group=svg('g',{class:'computer shared-peer','data-agent-id':id,role:'button',tabindex:0,transform:'translate('+sx+' '+sy+')','aria-label':id+' peer on shared computer'});
-      const motion=svg('g'),effects=svg('g',{'aria-hidden':'true'});
-      motion.append(svg('circle',{r:42,fill:'#fff',stroke:color(id),'stroke-width':2}),svg('text',{x:0,y:8,'text-anchor':'middle',fill:color(id),'font-size':23,'font-weight':600},String(index+1)));
-      const nameLabel=svg('text',{x:0,y:66,'text-anchor':'middle',fill:'#46604b','font-size':18},id),score=svg('text',{x:0,y:93,'text-anchor':'middle',fill:'#829087','font-size':14},'Equal peer'),fill=svg('rect',{width:0,height:0});
-      motion.append(nameLabel,score,fill);group.append(motion,effects);
-      const hand=dataset.target?.kind==='spelling'?dataset.target.hands?.[id]:null;
-      if(hand){const letters=svg('text',{x:0,y:119,'text-anchor':'middle',fill:'#6f7d73','font-size':14,'font-family':'ui-monospace,Menlo,monospace'},hand.map(glyph).join(' '));letters.append(svg('title',{},'Private reusable hand'));motion.append(letters);}
-      group.onclick=()=>{if(!dragged)selectAgent(id);};group.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selectAgent(id);}};
-      $('computer-nodes').append(group);computerNodes[id]={group,motion,effects,nameLabel,fill,score};return;
-    }
     positions[id]={x,y};
     const group=svg('g',{class:'computer','data-agent-id':id,role:'button',tabindex:0,transform:'translate('+x+' '+y+')','aria-label':id+' computer'});
     group.append(svg('rect',{x:-125,y:-112,width:250,height:276,fill:'transparent','pointer-events':'all'}),svg('rect',{x:-110,y:59,width:220,height:80,rx:7,fill:'#fff'}));
@@ -381,16 +364,20 @@ function buildScene(){
     group.append(svg('path',{d:'M-17 29 L-21 48 L21 48 L17 29',fill:'#f0f4ef',stroke:'#9daaa1','stroke-width':1.5}),svg('path',{d:'M-44 49 L44 49',fill:'none',stroke:'#9daaa1','stroke-width':2.2,'stroke-linecap':'round'}));
     group.append(svg('text',{class:'computer-model',x:0,y:8,'text-anchor':'middle',fill:'#354139','font-size':21,'font-weight':600},modelName(agentsById[id]?.model)));
     const nameLabel=svg('text',{class:'computer-name',x:0,y:80,'text-anchor':'middle',fill:'#829087','font-size':17},id);
-    const track=svg('rect',{x:-65,y:97,width:130,height:5,rx:2.5,fill:'#e5ece5'});
-    const fill=svg('rect',{class:'computer-progress',x:-65,y:97,width:0,height:5,rx:2.5,fill:'#82a98d'});
-    const score=svg('text',{class:'computer-score',x:0,y:125,'text-anchor':'middle',fill:'#87988c','font-size':16},'Awaiting team result');
-    group.append(nameLabel,track,fill,score);
+    // team agents share one result, so their computers show status instead of a personal progress bar
+    const fill=svg('rect',team?{width:0,height:0}:{class:'computer-progress',x:-65,y:97,width:0,height:5,rx:2.5,fill:'#82a98d'});
+    const score=svg('text',{class:'computer-score',x:0,y:team?106:125,'text-anchor':'middle',fill:'#87988c','font-size':16},team?'ready':'Awaiting team result');
+    if(!team)group.append(svg('rect',{x:-65,y:97,width:130,height:5,rx:2.5,fill:'#e5ece5'}));
+    group.append(nameLabel,fill,score);
+    const hand=dataset.target?.kind==='spelling'?dataset.target.hands?.[id]:null;
+    if(hand){const letters=svg('text',{x:0,y:130,'text-anchor':'middle',fill:'#6f7d73','font-size':14,'font-family':'ui-monospace,Menlo,monospace'},hand.map(glyph).join(' '));letters.append(svg('title',{},'Private reusable hand'));group.append(letters);}
     group.onclick=()=>{if(!dragged)selectAgent(id);};
     group.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selectAgent(id);}};
     const motion=svg('g',{class:'computer-motion'}),effects=svg('g',{class:'flag-celebration','aria-hidden':'true'});
     while(group.firstChild)motion.append(group.firstChild);group.append(motion,effects);
     $('computer-nodes').append(group);computerNodes[id]={group,motion,effects,nameLabel,fill,score};
   });
+  if(team)buildSharedBoard(Math.max(...Object.values(positions).map(p=>p.y))+330);
   for(const id of ids)ensureConnection(routeFor({actor:id,room:'global'}),id);
 }
 function mapAnchor(){
@@ -498,7 +485,7 @@ function renderTeam(snapshot){
     box.dataset.status=status;
     const metrics=team.metrics||{},accepted=(dataset.submissions||[]).filter(entry=>ms(entry.time)<=currentTime).length;
     const text=status==='unscored'?'Unavailable':status==='scored'?Number(100*team.quality).toFixed(1)+'% quality':accepted+' accepted';
-    box.append(node('span','Team '+text),node('span','1 computer · '+team.expected_count+' peers'));
+    box.append(node('span','Team '+text),node('span',team.expected_count+' '+(team.expected_count===1?'agent':'agents')));
     if(final){box.append(node('span',Number(metrics.elapsed_seconds||0).toFixed(2)+'s · '+(metrics.tokens||0)+' tokens'),node('span',(metrics.message_count||0)+' messages'));}
     $('collective-score').textContent='Team result: '+text;return;
   }
@@ -545,7 +532,7 @@ function render(force=false){
   $('replay-status').textContent=playing?'Playing':Number($('time').value)>=1000?'Finished':'Paused';renderTeam(snapshot);
   for(const id of ids){
     const entry=computerNodes[id],agent=agentsById[id],state=snapshot[id];entry.nameLabel.textContent=name(id);
-    entry.group.setAttribute('aria-label',name(id)+(dataset.topology==='shared_sandbox'?' peer on shared computer':' computer'));entry.group.classList.toggle('active',id===selectedAgent);
+    entry.group.setAttribute('aria-label',name(id)+' computer');entry.group.classList.toggle('active',id===selectedAgent);
     entry.fill.setAttribute('width',String(130*state.earned/Math.max(dataset.flags.length,1)));
     entry.score.textContent=ungradedAt(agent,currentTime)?'Ungraded':agent?.benchmark?state.earned+' / '+dataset.flags.length+' confirmed positions':agent?.communication?'Communication smoke':'Awaiting log';
     if(dataset.topology==='shared_sandbox')entry.score.textContent=currentTime<ms(agent?.started)?'ready':currentTime<finished(agent)?'running':agent?.status||'Equal peer';
