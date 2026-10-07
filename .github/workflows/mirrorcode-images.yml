@@ -21,7 +21,7 @@ jobs:
       # Hawk sets MC_IMAGE_NAME to this repository, so tags follow MirrorCode's own naming
       - name: Build and push rev in Python
         run: |
-          read -r context version < <(uv run --no-project --python 3.13 --with "$MIRRORCODE" python -c '
+          read -r context version < <(uv run --no-project --python 3.13 --with "$MIRRORCODE" --with inspect-ai==0.3.277 python -c '
           from mc import AgentImplementationLanguage, TargetProgram, version
           from mc.task import get_compose_file
           path = get_compose_file(TargetProgram("rev"), AgentImplementationLanguage.PYTHON, False)

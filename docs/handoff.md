@@ -200,15 +200,19 @@ shares one workspace, scores at the same moment and submits; it scores 1.0.
 Without the scoring lock, two of three such runs crashed the sample.
 
 Local real-model runs, Claude Haiku 5.5 via OpenRouter pinned to Anthropic,
-reasoning effort xhigh, `rev` in Python, 100,000 tokens per agent:
+reasoning effort xhigh, `rev` in Python:
 
-| Run | Agents | Score | Solving time | Tokens |
-| --- | --- | --- | --- | --- |
-| [upstream single agent](../logs/2026-10-07T20-45-25-00-00_MirrorCode_o8QNwdoEwsyeNVHoCoz5Ka.eval) | 1 | 0.00 | 46 s | 125,653 |
-| [team task](../logs/2026-10-07T21-04-32-00-00_mirrorcode_6eNJRfHEzgHqkaaBNejGhn.eval) | 2 | 0.00 | 87 s | 216,197 |
+| Run | Agents | Tokens per agent | Score | Solving time | Tokens |
+| --- | --- | --- | --- | --- | --- |
+| [upstream single agent](../logs/2026-10-07T20-45-25-00-00_MirrorCode_o8QNwdoEwsyeNVHoCoz5Ka.eval) | 1 | 100,000 | 0.00 | 46 s | 125,653 |
+| [team task, 1-hour deadline](../logs/2026-10-07T21-04-32-00-00_mirrorcode_6eNJRfHEzgHqkaaBNejGhn.eval) | 2 | 100,000 | 0.00 | 87 s | 216,197 |
+| [team task, no deadline](../logs/2026-10-07T21-59-39-00-00_mirrorcode_B7MEwMFfTQH7x66Z9XPq5u.eval) | 4 | 5,000,000 | 1.00 | 296 s | 5,402,174 |
 
-In both runs every agent spent its budget reading the docs and probing the
-reference binary, so `/workdir/src` stayed empty. The two peers registered and
+At 100,000 tokens every agent spent its budget reading the docs and probing
+the reference binary, so `/workdir/src` stayed empty. The four-agent team passed
+all 208 cases, hidden ones included, and one peer submitted. All four peers
+sent board messages, nine in total, though only two registered a name; 4% of
+input tokens were cache reads. The two peers registered and
 exchanged a DM. 100,000 tokens is too small for this task to measure quality or
 speed. The task is not yet runnable on Hawk: it needs registry images and a
 k8s sandbox, and the Hawk runner's Python version has not been checked against
