@@ -221,9 +221,8 @@ above exists for a reason:
   A sample-level cap would stop the team before it is scored.
 - **Output cap:** set `max_tokens` to the route's full output limit (131072
   for GLM 5.3 Flash on `z-ai/fp8`, 128000 for GPT 6.1 Sol) and budget with
-  per-agent tokens and the team time limit instead. A peer stops at its first
-  turn without a tool call, so a smaller cap that truncates a turn ends that
-  agent.
+  per-agent tokens and the team time limit instead. A smaller cap cuts a
+  response off mid-reasoning and measures the model below its capability.
 - **Concurrency:** Inspect shares one connection pool per model across the
   process, so set `max_connections` to at least the total agents across every
   task in the eval-set. 2 CPU / 8 GiB ran teams of up to eight; 4 CPU / 16 GiB
