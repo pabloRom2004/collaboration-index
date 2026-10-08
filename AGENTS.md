@@ -6,6 +6,8 @@ ExploitBench. Read this file, [README.md](README.md),
 [docs/architecture.md](docs/architecture.md), [docs/design.md](docs/design.md),
 [docs/handoff.md](docs/handoff.md), then the source/configs relevant to your task.
 Use the implementation and fresh checks to resolve drift in the dated handoff.
+The current team-size experiment is planned in
+[docs/scaling-plan.md](docs/scaling-plan.md).
 
 ## Research goal and accepted scope
 
