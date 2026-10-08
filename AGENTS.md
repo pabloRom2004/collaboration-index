@@ -83,9 +83,12 @@ are different conditions.
   The board client is used by native Inspect tools; this is not an MCP server.
 - Local mock orchestration, Docker, board, scoring and replay are verified.
   Counting, spelling and colouring have run on Hawk with a real model and the
-  sandbox off; the k8s sandbox has booted on Hawk but no sandboxed task has
-  finished there. Resource scaling and checkpoint resume are not established.
-  See the dated handoff for exact evidence.
+  sandbox off. MirrorCode mailauth has now completed on Hawk with 32 and 64
+  real-model peers, successful testing and final grades over all 1,553 cases;
+  both used a planned 32M team allowance and embedded their board histories.
+  Hawk CPU/RAM peaks were unavailable. Resource minima, interruption cleanup
+  and checkpoint resume are not established. See the dated handoff for exact
+  evidence and the deliberately different workspace/grading allocations.
 - Known bug: after an Inspect sample interrupt (for example `hawk stop`), the
   peers are cancelled but the board never shuts down and no score or `.eval` is
   written. The unshielded cleanup awaits in `board/runtime.py` `local_board` are

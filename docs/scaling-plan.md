@@ -10,6 +10,15 @@ approach and authorized the 32/64-agent Haiku smokes and failure-repair iteratio
 This replaces the temporary launch hold for those smokes; expansion follows
 review of their actual results.
 
+Both smokes subsequently completed at `77f2937`, with no testing or
+reference-grading errors and durable `.eval` files. N=32 scored 34.96% overall
+in 825.00 s from launch to final log, using 33.16M actual tokens; N=64 scored
+1.09% in 784.74 s, using 33.66M. Both ended on native peer limits rather than
+submit. Final scoring covered all 1,553 cases, and the board journals are
+embedded. See [handoff.md](handoff.md#mailauth-scoring-repair-and-shared-workspace-smokes-2026-10-08)
+and the local `run-artifacts/hawk-mirrorcode-haiku55-smokes-20261008/smoke-results.md`.
+The larger sweep remains at the evidence/resource-policy review phase.
+
 ## Questions
 
 For a fixed total token budget, does adding agents to one shared box make a

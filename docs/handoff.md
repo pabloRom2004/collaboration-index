@@ -235,14 +235,15 @@ per row:
 `rev` is too easy to separate team sizes reliably: one agent solves it in six
 minutes, and a single seed cannot separate team effects from run variance.
 
-### Mailauth scoring repair and launch hold (2026-10-08)
+### Mailauth scoring repair and shared-workspace smokes (2026-10-08)
 
-The next scope is Haiku 5.5 on mailauth/Python at 32 and 64 peers, one epoch
+The approved smoke scope was Haiku 5.5 on mailauth/Python at 32 and 64 peers, one epoch
 each, followed by review. The user chose **32M total tokens per smoke team**:
 1M per peer at N=32 and 500K at N=64, with equal, non-transferable allowances.
 The 250M comparison and six-model sweep remain future work. The user wants to
 understand the budget, grading, isolation and recovery boundaries and explain
-them back before launch. No paid run was started during this repair.
+them back before expanding the study. The subsequent authorization resumed
+the two smokes and tested failure-repair iteration.
 
 The failed [64-peer pipeline smoke](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mc-mailauth-64-pipelines--calsm3n51oq5y3di)
 at `e9147dd` produced a durable error `.eval`, 20 testing calls with 20 errors,
@@ -260,8 +261,8 @@ one reference binary and no agents reproduced a timeout on an unresponsive
 resolver. All 1,553 reference outputs matched exactly across upstream's Docker
 `network_mode: none`, that network with the repair, and a Docker bridge with
 the repair; all three completed without case timeouts. This supports an
-environment-dependent failure that can also affect N=1. It does not establish
-that the repaired Hawk network path has passed.
+environment-dependent failure that can also affect N=1. The later Hawk retry
+below verifies the repaired grading path with a real 64-peer team.
 
 Local checks on the working tree based on `e9147dd`:
 
@@ -316,7 +317,47 @@ not an upstream configuration feature; remove it when that feature exists.
 Local Helm rendering verified that only `data.resolv.conf` changes, while
 pod security and network policy remain identical. A new Docker regression
 exercises a genuinely read-only resolver mount through testing and final grading.
-The retry still needs to establish this behavior on Hawk.
+The `77f2937` retry completed successfully on Hawk. All 64 peers used tools
+and reached their 500K allowances; actual total usage was 33,656,454 tokens
+because native limits stop after a response finishes. Ten testing calls
+completed without reference errors, then the final scorer graded all 1,553
+cases. The final all-case score was 0.010946555 (17/1,553), visible
+0.019976498 (17/851), hidden 0.0. The team made no submit call and ended when
+all peers reached their limits. Launch-to-log completion was 784.74 s,
+release-to-peer join 468.63 s, and peer join-to-log completion 47.98 s.
+The `.eval` embeds 61 registrations, 82 messages and 204 board reads. All
+60 board tool errors were rejected name collisions or name changes, with
+no board-connection errors; there were also three existing-file errors and
+five shell timeouts. These recoverable tool failures are retained as experiment
+observations, not grounds for retrying a successfully graded low score.
+
+The owned sandbox pods were removed after completion. Hawk CPU/RAM metrics
+were unavailable, so this run establishes successful execution at the configured
+bounds rather than a measured minimum or matched hardware speedup. Checkpoint
+continuation and interrupt cleanup remain unverified. The 32-peer comparison
+used the same source and 32M planned team allowance with 1M per peer, and also
+completed successfully. All 32 peers used tools and reached their limits;
+actual usage was 33,155,189 tokens. Twelve testing calls completed without
+reference errors and the final scorer graded all 1,553 cases. Its final all-case
+score was 0.349645847 (543/1,553), visible 0.357226792 (304/851), hidden
+0.340455840 (239/702). Its best intermediate all-case score was 0.352221507.
+Launch-to-log completion was 825.00 s, release-to-peer join 456.57 s, and
+peer join-to-log completion 113.85 s. The board journal contains 32
+registrations, 103 messages, 216 reads and 10 DM creations. The 29 board
+errors were 25 name collisions, two rejected name changes, a self-recipient
+request and an unknown conversation; two editor calls attempted to create
+existing files. No board-connection error occurred.
+
+Both jobs are complete with zero remaining sandbox pods and successful logs
+in root `logs/`. Monitoring was paused after both durable results were verified.
+These one-epoch results do not show a collaboration scaling law: the
+32-peer team scored much higher, the actual token totals differ slightly,
+and the grading and workspace allocations differ. Their elapsed times describe
+budget-bound attempts rather than time to an agreed quality threshold.
+Results and configuration receipts are under
+`run-artifacts/hawk-mirrorcode-haiku55-smokes-20261008/`; the full model sweep
+has not started. That folder's `smoke-results.md` is the readable comparison,
+and `results.json` retains sanitized timing and numeric score events.
 
 ## 16-agent counting model sweep (2026-10-08)
 
