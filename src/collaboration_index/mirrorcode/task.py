@@ -3,7 +3,10 @@
 import asyncio
 import copy
 import math
+import os
+import tempfile
 from contextvars import ContextVar
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -110,6 +113,34 @@ def scaled_workspace(
     return path
 
 
+def offline_resolver_configmap(path: Path) -> None:
+    """Configure the chart's read-only resolver without changing its sandbox protections."""
+    content = path.read_text()
+    original, replacement = "    nameserver 127.0.0.1\n", "    nameserver 100::1\n"
+    if content.count(replacement) == 1 and original not in content:
+        return
+    if content.count(original) != 1:
+        raise RuntimeError("The Hawk resolver ConfigMap format changed")
+    # Replace the venv file atomically, breaking a possible uv cache hardlink.
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as file:
+        file.write(content.replace(original, replacement))
+        temporary = Path(file.name)
+    temporary.chmod(path.stat().st_mode)
+    temporary.replace(path)
+
+
+def prepare_hawk_dns() -> None:
+    """Set offline DNS in the dedicated Hawk runner's installed chart before pod creation."""
+    if not os.environ.get("HAWK_JOB_ID"):
+        return
+    # The current converter has no resolver setting, and Hawk replaces a custom
+    # chart with its default. Change only the resolver ConfigMap in this runner.
+    chart = files("k8s_sandbox").joinpath(
+        "resources/helm/agent-env/templates/coredns.yaml"
+    )
+    offline_resolver_configmap(Path(str(chart)))
+
+
 @solver
 def shared_workspace(docs: bool, include_source: bool, pipelines: int) -> Solver:
     """Run MirrorCode's workspace setup, then adapt its tools for several peers."""
@@ -136,6 +167,11 @@ def shared_workspace(docs: bool, include_source: bool, pipelines: int) -> Solver
             for name in SCORING_SERVICES
         ]
         for name in services:
+            # Hawk mounts this ConfigMap read-only; it was set before pod creation.
+            if (await sandbox(name).read_file("/etc/resolv.conf")).strip() == (
+                "nameserver 100::1"
+            ):
+                continue
             result = await sandbox(name).exec(
                 ["sh", "-c", "echo 'nameserver 100::1' > /etc/resolv.conf"]
             )
@@ -204,6 +240,7 @@ def mirrorcode(
     languages = {item.value.lower(): item for item in AgentImplementationLanguage}
     if language not in languages:
         raise ValueError("language must be one of: " + ", ".join(languages))
+    prepare_hawk_dns()
     # a submit gate needs one shared token budget, which teams do not have
     sample = get_sample(
         TargetProgram(target),

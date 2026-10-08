@@ -296,6 +296,28 @@ interruption cleanup and unsupported checkpoint continuation remain open.
 Do not call this repair an escape-proof or unattended-recovery validation.
 See [scaling-plan.md](scaling-plan.md) for the updated scope and launch gate.
 
+The subsequent authorized N=64 Hawk smoke at `4c18068` failed in setup with
+zero model calls: `/etc/resolv.conf` is a read-only ConfigMap mount. Its durable
+error log is preserved under
+`run-artifacts/hawk-mirrorcode-haiku55-smokes-20261008/downloads/`.
+Image-pull errors appeared transiently during startup, but the final exception
+was the attempted resolver write. No 32-agent attempt was launched on that
+commit.
+
+The follow-up repair sets the resolver before pod creation. The current k8s
+Compose converter offers no resolver setting, and Hawk discards custom chart
+selection when patching a task's sandbox. In the dedicated runner only
+(`HAWK_JOB_ID` is present), the task therefore atomically replaces the single
+resolver line in its installed chart's ConfigMap template. It checks the exact
+expected line, accepts an already configured template, breaks uv cache
+hardlinks, and fails if the chart format differs. Setup reads the configured
+file and skips writing it. This is a scoped dependency-resource workaround,
+not an upstream configuration feature; remove it when that feature exists.
+Local Helm rendering verified that only `data.resolv.conf` changes, while
+pod security and network policy remain identical. A new Docker regression
+exercises a genuinely read-only resolver mount through testing and final grading.
+The retry still needs to establish this behavior on Hawk.
+
 ## 16-agent counting model sweep (2026-10-08)
 
 Nine models counted to 32 with 16 agents, a three-hour team deadline, xhigh

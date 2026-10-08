@@ -20,8 +20,39 @@ from inspect_ai.model import (
 pytest.importorskip("mc")
 
 from collaboration_index.mirrorcode import mirrorcode  # noqa: E402
+from collaboration_index.mirrorcode.task import offline_resolver_configmap  # noqa: E402
 
 SOLUTION = (Path(__file__).parent / "fixtures/mirrorcode_rev_main.txt").read_text()
+
+
+def test_offline_configmap_preserves_other_chart_content(tmp_path: Path) -> None:
+    """Change only the expected resolver line and accept repeated configuration."""
+    chart = tmp_path / "coredns.yaml"
+    original = "data:\n  resolv.conf: |\n    nameserver 127.0.0.1\n"
+    chart.write_text(original)
+    offline_resolver_configmap(chart)
+    expected = original.replace("127.0.0.1", "100::1")
+    assert chart.read_text() == expected
+    offline_resolver_configmap(chart)
+    assert chart.read_text() == expected
+    # Replacing a venv file must leave a shared uv cache inode unchanged.
+    cache = tmp_path / "cached-template.yaml"
+    cache.write_text(original)
+    chart.unlink()
+    chart.hardlink_to(cache)
+    offline_resolver_configmap(chart)
+    assert cache.read_text() == original
+    assert chart.read_text() == expected
+
+
+def test_offline_configmap_refuses_an_unknown_chart(tmp_path: Path) -> None:
+    """Fail before launch when the installed chart no longer matches the repair."""
+    chart = tmp_path / "coredns.yaml"
+    original = "data:\n  resolv.conf: |\n    nameserver 192.0.2.1\n"
+    chart.write_text(original)
+    with pytest.raises(RuntimeError, match="format changed"):
+        offline_resolver_configmap(chart)
+    assert chart.read_text() == original
 
 
 async def wait_for_fixture(action: Awaitable[Any], timeout: int) -> Any:
@@ -231,6 +262,45 @@ def test_mailauth_scores_with_unresponsive_dns(
     ]
     assert len(calls) == 2
     assert all(call.error is None for call in calls)
+
+
+@pytest.mark.docker
+def test_mailauth_scores_with_readonly_resolver(tmp_path: Path) -> None:
+    """Grade through a read-only resolver mount matching Hawk's startup contract."""
+    task = mirrorcode(
+        agents=2,
+        target="mailauth",
+        token_limit_per_agent=10000,
+        artifact_dir=str(tmp_path),
+        agents_per_scoring_pipeline=1,
+    )
+    sample = task.dataset[0]
+    spec = yaml.safe_load(Path(str(sample.sandbox.config)).read_text())
+    resolver = tmp_path / "offline-resolv.conf"
+    resolver.write_text("nameserver 100::1\n")
+    for service in spec["services"].values():
+        service["network_mode"] = "bridge"
+        service["volumes"] = [f"{resolver}:/etc/resolv.conf:ro"]
+        service.pop("build", None)
+    compose = tmp_path / "readonly-resolver-compose.yaml"
+    compose.write_text(yaml.safe_dump(spec))
+    sample.sandbox = sample.sandbox.model_copy(update={"config": str(compose)})
+    [log] = inspect_eval(
+        task, model=mailauth_fixture(), log_dir=str(tmp_path), display="none"
+    )
+    assert log.status == "success", log.error
+    result = log.samples[0]
+    assert result.error is None
+    assert result.scores["mirrorcode_scorer"].value["all"] == 0.0
+    case_sets = [
+        value["cases"]
+        for key, value in result.metadata.items()
+        if key.startswith("scored_cases_")
+    ]
+    assert [len(cases) for cases in case_sets] == [1553]
+    calls = [e for e in result.events if e.event == "tool"]
+    assert sum(e.function == "evaluate_testcases" for e in calls) == 2
+    assert all(e.error is None for e in calls)
 
 
 @pytest.mark.docker
