@@ -122,7 +122,8 @@ The native compaction setting is 0.75. Verify a new model's effective context,
 provider route and harness consumption before launch. Do not silently select a
 model, reasoning effort or grader. Set `max_tokens` to the full output limit of
 the exact model and route, never a smaller per-turn cap; bound spending with
-per-agent token budgets and the team time limit. Graders use an explicit
+the team time limit, plus a per-agent token budget only when one is requested
+(`null` means none). Graders use an explicit
 `grader` model role; there is no fallback to subject self-grading.
 
 Every evaluation runs against a wall-clock `team_time_limit` (default 3600 s;

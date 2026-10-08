@@ -94,9 +94,9 @@ def mirrorcode(
 
     if type(agents) is not int or not 1 <= agents <= 32:
         raise ValueError("Prototype team sizes must be between 1 and 32")
-    if token_limit_per_agent is None or token_limit_per_agent < 1:
+    if token_limit_per_agent is not None and token_limit_per_agent < 1:
         raise ValueError(
-            "Provide a positive token_limit_per_agent before running this task"
+            "token_limit_per_agent must be positive, or null for no per-peer budget"
         )
     if team_time_limit is not None and team_time_limit <= 0:
         raise ValueError("team_time_limit must be positive seconds, or null for none")
@@ -150,7 +150,9 @@ def mirrorcode(
             "agents": agents,
             "benchmark_variant": "collaboration_index_v1",
             "token_limit_per_agent": token_limit_per_agent,
-            "planned_team_token_budget": agents * token_limit_per_agent,
+            "planned_team_token_budget": None
+            if token_limit_per_agent is None
+            else agents * token_limit_per_agent,
             "context_window": context_window,
             "mirrorcode_target": target,
             "mirrorcode_language": language,

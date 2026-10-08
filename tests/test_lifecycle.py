@@ -15,6 +15,7 @@ from inspect_ai.util import Store
 
 from collaboration_index.counting import counting
 from collaboration_index.game import TeamGame
+from collaboration_index.harness import team_agents
 from collaboration_index.hle import hle_collaboration
 from collaboration_index.scaffold import create_project
 from collaboration_index.smoke import fixture_model
@@ -44,6 +45,29 @@ def test_partial_work_preserved_on_budget(tmp_path: Path) -> None:
     assert all(
         peer["status"] == "limited" for peer in sample.store["TeamHistory:peers"]
     )
+
+
+def test_team_without_token_budget_runs_to_completion(tmp_path: Path) -> None:
+    """Run peers with no per-agent budget so only the task or deadline ends them."""
+    task = counting(
+        target=8,
+        token_limit_per_agent=None,
+        sandbox_enabled=False,
+        artifact_dir=str(tmp_path),
+    )
+    assert task.metadata["planned_team_token_budget"] is None
+    [log] = inspect_eval(
+        task, model=fixture_model(task), log_dir=str(LOGS), display="none"
+    )
+    assert log.status == "success", log.error
+    sample = log.samples[0]
+    assert sample.scores["team_score"].value["quality"] == 1
+    peers = sample.store["TeamHistory:peers"]
+    assert all(p["status"] == "completed" and p["tokens"] > 0 for p in peers)
+    with pytest.raises(ValueError, match="time limit or a per-agent token limit"):
+        team_agents(None, None, "react", {}, 0.75)
+    with pytest.raises(ValueError, match="positive, or null"):
+        counting(token_limit_per_agent=0, artifact_dir=str(tmp_path))
 
 
 def test_busy_board_export_is_retried(

@@ -100,7 +100,7 @@ def prepare_team(
 
 @solver
 def team_agents(
-    token_limit_per_agent: int,
+    token_limit_per_agent: int | None,
     team_time_limit: float | None,
     agent: str,
     agent_args: dict[str, Any],
@@ -109,11 +109,13 @@ def team_agents(
 ) -> Solver:
     """Build fixed-identity tools and run prepared peers with independent token limits."""
     # MirrorCode teams run without a deadline; every other task sets one
-    if token_limit_per_agent < 1 or (
+    if (token_limit_per_agent is not None and token_limit_per_agent < 1) or (
         team_time_limit is not None
         and (not math.isfinite(team_time_limit) or team_time_limit <= 0)
     ):
         raise ValueError("Team token and time limits must be finite and positive")
+    if token_limit_per_agent is None and team_time_limit is None:
+        raise ValueError("A team needs a time limit or a per-agent token limit")
     forbidden = {"tools", "submit", "on_continue", "model", "compaction"} & set(
         agent_args
     )
@@ -191,7 +193,10 @@ def team_agents(
 
                 def token_update() -> str:
                     """Show a MirrorCode peer its own budget, which upstream's resources tool reported."""
-                    if history.benchmark != "mirrorcode":
+                    if (
+                        history.benchmark != "mirrorcode"
+                        or token_limit_per_agent is None
+                    ):
                         return ""
                     used = int(limit.usage)
                     return TOKEN_UPDATE.prompt.format(

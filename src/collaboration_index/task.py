@@ -47,9 +47,9 @@ def make_task(
         raise ValueError("Unknown collaboration condition")
     if sandbox_type not in SANDBOX_FILES:
         raise ValueError("sandbox_type must be docker or k8s")
-    if token_limit_per_agent is None or token_limit_per_agent < 1:
+    if token_limit_per_agent is not None and token_limit_per_agent < 1:
         raise ValueError(
-            "Provide a positive token_limit_per_agent before running this task"
+            "token_limit_per_agent must be positive, or null for no per-peer budget"
         )
     # teams run against a wall-clock deadline that every peer is reminded of
     if team_time_limit is None or team_time_limit <= 0:
@@ -97,7 +97,9 @@ def make_task(
             "agents": agents,
             "benchmark_variant": "collaboration_index_v1",
             "token_limit_per_agent": token_limit_per_agent,
-            "planned_team_token_budget": agents * token_limit_per_agent,
+            "planned_team_token_budget": None
+            if token_limit_per_agent is None
+            else agents * token_limit_per_agent,
             "context_window": context_window,
         },
     )

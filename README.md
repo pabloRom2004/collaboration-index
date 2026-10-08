@@ -98,8 +98,9 @@ Registered task IDs are:
 creates four task logs; the N peers within each task do not get N `.eval` files.
 Repeated epochs remain repeated team attempts, with fresh boards and stores.
 
-Real model runs require an explicitly selected subject model, a positive
-per-agent token budget and verified provider credentials. HLE's default judge
+Real model runs require an explicitly selected subject model and verified
+provider credentials. With `token_limit_per_agent` left null, peers have no
+token budget and run until the task ends or the team deadline passes. HLE's default judge
 also requires an explicitly bound `grader` role. No subject, judge, paid token
 budget or reasoning effort is silently selected. The following are interface
 examples **to use after a real run has been authorized and its provider route
@@ -217,11 +218,12 @@ above exists for a reason:
   hardening keys. Counting, spelling and colouring expose no file or shell tool,
   so run them with `sandbox_enabled: false`. A task that needs the container
   must use `sandbox_type: k8s`.
-- **Budgets:** set limits per agent and leave the eval-set `token_limit` unset.
-  A sample-level cap would stop the team before it is scored.
+- **Budgets:** leave the eval-set `token_limit` unset; a sample-level cap
+  would stop the team before it is scored. The team deadline is the end
+  condition, and any token budget belongs per agent.
 - **Output cap:** set `max_tokens` to the route's full output limit (131072
-  for GLM 5.3 Flash on `z-ai/fp8`, 128000 for GPT 6.1 Sol) and budget with
-  per-agent tokens and the team time limit instead. A smaller cap cuts a
+  for GLM 5.3 Flash on `z-ai/fp8`, 128000 for GPT 6.1 Sol) and bound runs with
+  the team time limit instead. A smaller cap cuts a
   response off mid-reasoning and measures the model below its capability.
 - **Concurrency:** Inspect shares one connection pool per model across the
   process, so set `max_connections` to at least the total agents across every
@@ -499,7 +501,7 @@ real smoke tests, and retain partial work and infrastructure errors.
 | `agents` | `2` | Integer 1–32; all peers share one sandbox. |
 | `condition` | `collaborative` | Collaborative board or `oracle_allocation` control. |
 | `seed` | `0` | Stable task draw identifier; spelling uses it for dealing. |
-| `token_limit_per_agent` | `null` | Required positive native token ceiling for each peer. |
+| `token_limit_per_agent` | `null` | Optional positive native token ceiling for each peer; `null` means no budget, so the team deadline ends the attempt. MirrorCode, which has no default deadline, needs one or the other. |
 | `team_time_limit` | `3600` | Required positive solving deadline in seconds. Before every decision each peer gets a user message with elapsed and remaining time, and peers keep working until the task ends or the deadline passes. |
 | `agent` | `react` | Native ReAct, or a compatible dotted Python factory. |
 | `agent_args` | `{}` | Factory options; trusted tools/lifecycle/model/compaction cannot be replaced here. |
