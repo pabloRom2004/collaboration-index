@@ -16,6 +16,7 @@ task:
     reference_binary: true
     memory_per_agent_mb: 256
     cpus_per_agent: 0.25
+    agents_per_scoring_pipeline: 8
 
 model: null
 

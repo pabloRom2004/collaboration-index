@@ -43,6 +43,11 @@ def test_workspace_grows_with_the_team() -> None:
     assert services["default"]["mem_limit"] == "18432m"
     assert services["default"]["cpus"] == 17
     assert services["agent-scoring-visible"]["mem_limit"] == "2g"
+    # eight agents share each scoring pipeline by default
+    assert task.metadata["scoring_pipelines"] == 8
+    assert (
+        "agent-scoring-hidden-7" in services and "reference-scoring-8" not in services
+    )
     with pytest.raises(ValueError):
         mirrorcode(agents=65, token_limit_per_agent=1000)
 
@@ -126,12 +131,16 @@ def team_fixture(updates: list[str] | None = None) -> Any:
 
 
 @pytest.mark.docker
-def test_two_peers_share_one_workspace_and_submit(tmp_path: Path) -> None:
-    """Score one shared codebase after simultaneous evaluations and a peer's submit, with no deadline."""
+@pytest.mark.parametrize("per_pipeline", [8, 1])
+def test_two_peers_share_one_workspace_and_submit(
+    tmp_path: Path, per_pipeline: int
+) -> None:
+    """Score one shared codebase after simultaneous evaluations on one or two pipelines."""
     task = mirrorcode(
         agents=2,
         token_limit_per_agent=10000,
         artifact_dir=str(tmp_path),
+        agents_per_scoring_pipeline=per_pipeline,
     )
     updates: list[str] = []
     # the scorer writes sidecar files beside the log, so keep it out of logs/
