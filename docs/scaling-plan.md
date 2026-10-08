@@ -16,7 +16,7 @@ models, also in one shared box.
 | Setting | Value |
 | --- | --- |
 | Benchmark | MirrorCode team task, `collaboration_index/mirrorcode` |
-| Target | *Proposed:* `gotree` in Python (see below); one target reused for every run |
+| Target | *Proposed:* `mailauth` in Python (see below); one target reused for every run |
 | Team sizes | 1, 2, 4, 8, 16, 32, 64 |
 | Budget | One shared 250M-token budget per run: `token_limit_per_agent = 250_000_000 // agents` |
 | Deadline | None; a run ends when an agent submits or every budget is spent |
@@ -37,13 +37,17 @@ per-target results (arXiv 2606.30182, Figure 2):
 
 | Target | Bucket | Tests (visible / hidden) | Paper result | Fit |
 | --- | --- | --- | --- | --- |
-| `gotree` | M, 16k lines of Go, 40+ subcommands | 1,899 / 102 | Opus 4.7 and GPT-5.5 reach 99% but not 100%; Gemini 3.1 Pro does not reach 99% | Proposed: many independent subcommands, fine-grained scores |
+| `mailauth` | M, 16k lines of Rust | 851 / 702 | No model reached 99% even with 1B tokens; most runs scored 90 to 95% | Proposed: separate SPF, DKIM, DMARC and ARC commands to divide, room above every model |
+| `gotree` | M, 16k lines of Go, 40+ subcommands | 1,899 / 102 | Opus 4.7 and GPT-5.5 reach 99% but not 100%; Gemini 3.1 Pro does not reach 99% | Easier fallback; newer models may saturate it |
 | `wren_cli` | M, interpreter | 853 / 694 | Opus 4.7 72% of runs solved; GPT-5.5 none | One shared interpreter core is harder to divide |
 | `sed` | M, scripting language | 470 / 324 | Never reached 99% for any model | Harder; weaker models may score near zero |
 | `rev` | Excluded from the paper | 156 / 52 | One Haiku 5.5 agent solves it in six minutes | Too easy to separate team sizes |
 
-Frontier models may approach 99% on `gotree`, so their time and tokens will
-carry more of the signal than accuracy.
+`mailauth` tests split across twelve commands, led by `received-spf` (326),
+`dmarc-verify` (306), `auth-results` (298), `arc-verify` (233), `dkim-sign`
+(132) and `dkim-verify` (121). Per-command pass rates show how a team divided
+the work. Our budget is a quarter of the paper's 1B tokens for this bucket, so
+every model should stay below its ceiling.
 
 ## Models
 
@@ -65,11 +69,11 @@ full output limit and compaction at 75% of its context window.
 
 - Raise the MirrorCode team-size limit from 32 to 64 and verify the board,
   unread reminders and Hawk runner at 64 peers with a mock run.
-- Publish the `gotree` Python images with the image workflow.
+- Publish the chosen target's Python images with the image workflow.
 - Scale the workspace container's CPU and memory with team size. MirrorCode's
   compose file gives every service a fixed 2 GiB, so a 64-agent team would
   otherwise be measured against the box rather than its coordination.
-- Measure how long one `evaluate_testcases` call takes on `gotree`. The team
+- Measure how long one `evaluate_testcases` call takes on the chosen target. The team
   lock serializes these calls, so a long call becomes a queue at large teams.
 - Confirm prompt caching on each route. Without caching most of a run's input
   is billed at full price, which can make an Anthropic run several times more
