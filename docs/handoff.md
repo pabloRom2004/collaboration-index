@@ -235,6 +235,43 @@ per row:
 `rev` is too easy to separate team sizes reliably: one agent solves it in six
 minutes, and a single seed cannot separate team effects from run variance.
 
+## 16-agent counting model sweep (2026-10-08)
+
+Nine models counted to 32 with 16 agents, a three-hour team deadline, xhigh
+reasoning (Opus 4.5 at high, its top level), each route's full output limit,
+compaction at 75% of each verified context window, the sandbox off and one seed
+per row. Open models ran on their developers' own APIs through OpenRouter
+(`moonshotai`, `z-ai/fp8`), Claude models on OpenRouter pinned to Anthropic, and
+GPT models through Middleman. Time runs from release to the last accepted
+submission.
+
+| Model | Run | Commit | Log | Score | Time | Tokens | Board messages (DMs) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Claude Opus 4.5 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-16-opus45-202610-6rk6tlun3709pycj) | `551b1bb` | [log](../logs/2026-10-08T13-58-22-00-00_counting_4NDQB5rmotCGzvv7dSTZJh.eval) | 1.00 | 152 s | 6.0M | 61 (0) |
+| Claude Opus 5.5 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-16-opus55-202610-b2tzqsqp1u1n90hj) | `551b1bb` | [log](../logs/2026-10-08T13-58-48-00-00_counting_8G7iNpXZqQDQcLUfsGCiU4.eval) | 1.00 | 243 s | 6.8M | 37 (0) |
+| GPT-6 Luna | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-16-luna-nobudget-2ponsu9imu6zkfz7) | `cc1207a` | [log](../logs/2026-10-08T14-42-49-00-00_counting_n8ot2SfxYNXYZ6JWem5ejU.eval) | 1.00 | 267 s | 9.0M | 135 (36) |
+| GPT-6.1 Sol | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-16-sol61-2026100-xqfc7xycgfhftmoe) | `551b1bb` | [log](../logs/2026-10-08T13-58-20-00-00_counting_bcgofusCyeYNynLMyTSNDB.eval) | 1.00 | 311 s | 2.8M | 79 (35) |
+| GPT-6 Astra | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-16-astra-2026100-m6m1i6cfscdutdef) | `551b1bb` | [log](../logs/2026-10-08T13-58-12-00-00_counting_eJM6qpWp4FKnUTomvJcFSY.eval) | 1.00 | 449 s | 2.6M | 69 (42) |
+| Claude Haiku 5.5 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-16-haiku55-nobud-z6tb859rggmts5fq) | `cc1207a` | [log](../logs/2026-10-08T14-42-47-00-00_counting_6yv8MsN5iE4zCYwa8fhv6D.eval) | 1.00 | 708 s | 217.1M | 368 (0) |
+| Kimi K3 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-16-kimik3-202610-n1b8gdnbijqjz6k5) | `551b1bb` | [log](../logs/2026-10-08T13-58-28-00-00_counting_hN9fBLBzBsUMyjCvXYPoXy.eval) | 1.00 | 1208 s | 47.0M | 250 (85) |
+| GLM 5.3 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-16-glm53-nobudge-y6ou73exzdn49abr) | `cc1207a` | [log](../logs/2026-10-08T14-42-53-00-00_counting_5VVDX3bi8jVP9C3CjVbxBA.eval) | 0.94 | 731 s | 45.0M | 157 (34) |
+| GLM 5.3 Flash | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/counting-16-glm53flash-no-py06t5oe5m4cht46) | `cc1207a` | [log](../logs/2026-10-08T14-42-36-00-00_counting_3hcqR5QrXCguxGckzNiPDT.eval) | 0.75 | 689 s | 36.2M | 135 (29) |
+
+The first launch at `551b1bb` gave every agent a 5M-token budget. That budget
+bound four models (GLM 5.3 Flash, GPT-6 Luna, Haiku 5.5 and GLM 5.3), which were
+rerun at `cc1207a` with no budget; the table shows the reruns. No agent reached
+5M in the other five, and agents never see their budget, so those rows stand.
+The budget-bound logs are kept in `logs/`: Luna placed 5 numbers in 3080 s and
+GLM 5.3 Flash 22 in 1701 s. The first GLM 5.3 run counted 1 to 32 exactly in
+about 600 s but crashed exporting the board journal; `a1045e3` retries that
+export. Single seeds: GLM 5.3 scored 1.00 there and 0.94 in the rerun.
+
+Claude Haiku 5.5 read 1.2% of its input from cache because only the Opus
+configs carried the top-level `cache_control` setting described in README;
+Opus 4.5 and 5.5 read about 90%. Claude Sonnet 3.5 is retired everywhere, and
+GPT-5.6 Sol had no working route (README, Routes). Configs, probes and the
+manifest are in `run-artifacts/hawk-counting-16-sweep-20261008/`.
+
 ## Credential and source context
 
 The user approved creating and privately saving the fine-grained

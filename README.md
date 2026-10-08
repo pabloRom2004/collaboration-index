@@ -242,9 +242,12 @@ above exists for a reason:
 
 - **Routes:** this OpenRouter route was verified for GLM on `z-ai/fp8`. The
   work key cannot reach OpenAI models on OpenRouter, so GPT models go through
-  Middleman instead. A 32-agent Claude Haiku 5.5 run through OpenRouter read
-  under 2% of its input tokens from cache; check cache reads on a short run
-  before a long Anthropic one.
+  Middleman instead. GPT-5.6 Sol is reachable only through OpenRouter, where
+  both the work key and Middleman exclude OpenAI and Azure rejects the board
+  tool's optional parameters. For Claude models on OpenRouter, Inspect's own
+  cache markers cover only the system prompt and tools (about 2% of input
+  read from cache); add `extra_body: {cache_control: {type: ephemeral}}` to
+  the model config so OpenRouter caches the whole conversation.
 
 `hawk watch <id> --json` shows each sample's phase and latest events while it
 runs; `hawk download` mid-run returns only finished samples. Download the logs
