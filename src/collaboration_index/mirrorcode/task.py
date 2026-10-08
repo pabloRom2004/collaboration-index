@@ -1,12 +1,15 @@
 """MirrorCode reimplementation by symmetric peers who share one workspace container."""
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
+import yaml
 from inspect_ai import Epochs, Task, task
 from inspect_ai.model import GenerateConfig
 from inspect_ai.solver import Generate, Solver, TaskState, chain, solver
 from inspect_ai.tool import Tool, ToolDef, ToolResult
+from inspect_ai.util import SandboxEnvironmentSpec
 
 from collaboration_index.harness import prepare_team, team_agents
 from collaboration_index.task import defaults
@@ -34,6 +37,21 @@ def serialized(definition: ToolDef, lock: asyncio.Lock) -> Tool:
         description=definition.description,
         parameters=definition.parameters,
     ).as_tool()
+
+
+def scaled_workspace(
+    compose: Path, agents: int, memory_per_agent_mb: int, cpus_per_agent: float
+) -> Path:
+    """Write a copy of MirrorCode's compose file whose shared workspace grows with the team."""
+    spec = yaml.safe_load(compose.read_text())
+    workspace = spec["services"]["default"]
+    # upstream sizes the workspace for one agent at 2 GiB; each peer adds its share
+    workspace["mem_limit"] = f"{2048 + agents * memory_per_agent_mb}m"
+    workspace["cpus"] = 1 + agents * cpus_per_agent
+    # Hawk only converts files whose names end in compose.yaml
+    path = compose.with_name(f"team-{agents}-compose.yaml")
+    path.write_text(yaml.safe_dump(spec))
+    return path
 
 
 @solver
@@ -86,14 +104,16 @@ def mirrorcode(
     docs: bool = ARGS["docs"],
     include_source: bool = ARGS["include_source"],
     reference_binary: bool = ARGS["reference_binary"],
+    memory_per_agent_mb: int = ARGS["memory_per_agent_mb"],
+    cpus_per_agent: float = ARGS["cpus_per_agent"],
 ) -> Task:
     """Build one team attempt at reimplementing a MirrorCode target in one shared workspace."""
     from mc import AgentImplementationLanguage, TargetProgram
     from mc.scorer import mirrorcode_scorer
     from mc.task import get_sample
 
-    if type(agents) is not int or not 1 <= agents <= 32:
-        raise ValueError("Prototype team sizes must be between 1 and 32")
+    if type(agents) is not int or not 1 <= agents <= 64:
+        raise ValueError("MirrorCode team sizes must be between 1 and 64")
     if token_limit_per_agent is not None and token_limit_per_agent < 1:
         raise ValueError(
             "token_limit_per_agent must be positive, or null for no per-peer budget"
@@ -117,6 +137,22 @@ def mirrorcode(
     if not isinstance(sample.input, str) or RESOURCES_LINE not in sample.input:
         raise RuntimeError("MirrorCode's task description no longer matches")
     sample.input = sample.input.replace(RESOURCES_LINE, "")
+    if (
+        not isinstance(sample.sandbox, SandboxEnvironmentSpec)
+        or not sample.sandbox.config
+    ):
+        raise RuntimeError("MirrorCode's sample no longer carries its compose file")
+    sample.sandbox = SandboxEnvironmentSpec(
+        "docker",
+        str(
+            scaled_workspace(
+                Path(str(sample.sandbox.config)),
+                agents,
+                memory_per_agent_mb,
+                cpus_per_agent,
+            )
+        ),
+    )
     sample.metadata = {
         "data": {},
         "sandbox_enabled": True,

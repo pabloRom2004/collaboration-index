@@ -19,15 +19,17 @@ jobs:
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       # Hawk sets MC_IMAGE_NAME to this repository, so tags follow MirrorCode's own naming
-      - name: Build and push rev in Python
+      - name: Build and push each target in Python
         run: |
-          read -r context version < <(uv run --no-project --python 3.13 --with "$MIRRORCODE" --with inspect-ai==0.3.277 python -c '
+          for target in rev mailauth; do
+            read -r context version < <(uv run --no-project --python 3.13 --with "$MIRRORCODE" --with inspect-ai==0.3.277 python -c "
           from mc import AgentImplementationLanguage, TargetProgram, version
           from mc.task import get_compose_file
-          path = get_compose_file(TargetProgram("rev"), AgentImplementationLanguage.PYTHON, False)
-          print(path.parent, version.__version__)')
-          for name in workspace agent-scoring reference-scoring; do
-            docker buildx build --platform linux/amd64 --push \
-              --label org.opencontainers.image.source=https://github.com/pabloRom2004/collaboration-index \
-              -f "$context/$name.Dockerfile" -t "$IMAGE:mc_rev_python_llm_${name}_${version}" "$context"
+          path = get_compose_file(TargetProgram('$target'), AgentImplementationLanguage.PYTHON, False)
+          print(path.parent, version.__version__)")
+            for name in workspace agent-scoring reference-scoring; do
+              docker buildx build --platform linux/amd64 --push \
+                --label org.opencontainers.image.source=https://github.com/pabloRom2004/collaboration-index \
+                -f "$context/$name.Dockerfile" -t "$IMAGE:mc_${target}_python_llm_${name}_${version}" "$context"
+            done
           done

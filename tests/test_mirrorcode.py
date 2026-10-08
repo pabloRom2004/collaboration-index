@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from inspect_ai import eval as inspect_eval
 from inspect_ai.model import (
     ChatMessageTool,
@@ -33,8 +34,21 @@ def test_task_hides_resources_and_team_size() -> None:
         mirrorcode(language="cobol", token_limit_per_agent=1000)
 
 
+def test_workspace_grows_with_the_team() -> None:
+    """Give every peer its own share of memory and CPU in the one shared workspace."""
+    task = mirrorcode(agents=64, token_limit_per_agent=1000, target="mailauth")
+    compose = Path(str(task.dataset[0].sandbox.config))
+    assert compose.name.endswith("compose.yaml")
+    services = yaml.safe_load(compose.read_text())["services"]
+    assert services["default"]["mem_limit"] == "18432m"
+    assert services["default"]["cpus"] == 17
+    assert services["agent-scoring-visible"]["mem_limit"] == "2g"
+    with pytest.raises(ValueError):
+        mirrorcode(agents=65, token_limit_per_agent=1000)
+
+
 def team_fixture(updates: list[str] | None = None) -> Any:
-    """Script two peers: one writes the solution, both score at once, the other submits."""
+    """Script the first two peers to write, score at once and submit; any others register and wait."""
     both_ready = asyncio.Barrier(2)
     submitted = asyncio.Event()
 
@@ -65,7 +79,10 @@ def team_fixture(updates: list[str] | None = None) -> Any:
         step, function, arguments = len(done), "", {}
         if step == 0:
             function = "message_board"
-            arguments = {"action": "register", "name": f"Peer {actor[-1]}"}
+            arguments = {"action": "register", "name": f"Peer {actor.split('_')[1]}"}
+        elif actor not in ("agent_0", "agent_1"):
+            async with asyncio.timeout(300):
+                await submitted.wait()
         elif actor == "agent_0":
             if step == 1:
                 function = "bash"
@@ -132,3 +149,25 @@ def test_two_peers_share_one_workspace_and_submit(tmp_path: Path) -> None:
     assert [s["actor"] for s in sample.store["TeamHistory:submissions"]] == ["agent_1"]
     assert sample.scores["mirrorcode_scorer"].value["all"] == 1.0
     assert updates and not any("Time update" in update for update in updates)
+
+
+@pytest.mark.docker
+def test_sixty_four_peers_share_one_workspace(tmp_path: Path) -> None:
+    """Run the largest supported team through the board, scoring and submit in one box."""
+    task = mirrorcode(
+        agents=64, token_limit_per_agent=10000, artifact_dir=str(tmp_path)
+    )
+    [log] = inspect_eval(
+        task, model=team_fixture(), log_dir=str(tmp_path), display="none"
+    )
+    assert log.status == "success", log.error
+    sample = log.samples[0]
+    assert sample.error is None
+    peers = sample.store["TeamHistory:peers"]
+    assert len(peers) == 64
+    assert len({peer["sandbox_hostname"] for peer in peers}) == 1
+    assert (
+        sum(e["kind"] == "register" for e in sample.store["BoardHistory:journal"]) == 64
+    )
+    assert sample.store["TeamHistory:end_reason"] == "codebase_submitted"
+    assert sample.scores["mirrorcode_scorer"].value["all"] == 1.0
