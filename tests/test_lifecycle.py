@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 import yaml
 from inspect_ai import eval as inspect_eval
@@ -43,6 +44,37 @@ def test_partial_work_preserved_on_budget(tmp_path: Path) -> None:
     assert all(
         peer["status"] == "limited" for peer in sample.store["TeamHistory:peers"]
     )
+
+
+def test_busy_board_export_is_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Keep the journal and score when the board briefly answers its final export as busy."""
+    original = httpx.AsyncClient.get
+    busy = []
+
+    async def get(self: httpx.AsyncClient, url: str, **kwargs: Any) -> httpx.Response:
+        """Answer the first two export pages as busy, then use the real board."""
+        if "/admin/export/" in str(url) and len(busy) < 2:
+            busy.append(url)
+            return httpx.Response(503, request=httpx.Request("GET", url))
+        return await original(self, url, **kwargs)
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", get)
+    task = counting(
+        target=4,
+        token_limit_per_agent=10000,
+        sandbox_enabled=False,
+        artifact_dir=str(tmp_path),
+    )
+    [log] = inspect_eval(
+        task, model=fixture_model(task), log_dir=str(LOGS), display="none"
+    )
+    assert log.status == "success", log.error
+    sample = log.samples[0]
+    assert len(busy) == 2
+    assert sample.scores["team_score"].value["quality"] == 1
+    assert sample.store["BoardHistory:journal"]
 
 
 def test_deadline_joins_peers_and_closes_board(tmp_path: Path) -> None:

@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 from inspect_ai.util import store_as
 
-from collaboration_index.board.client import BoardHistory
+from collaboration_index.board.client import LIMITS, BoardHistory
 from collaboration_index.board.database import token_hash
 from collaboration_index.board.service import service_environment
 
@@ -107,12 +107,25 @@ async def local_board(
                     async with httpx.AsyncClient(timeout=5, trust_env=False) as client:
                         events: list[dict[str, Any]] = []
                         after = 0
+                        deadline = (
+                            asyncio.get_running_loop().time()
+                            + LIMITS["request_timeout"]
+                        )
                         while True:
                             response = await client.get(
                                 url + "/admin/export/" + run_id,
                                 params={"after": after},
                                 headers={"Authorization": "Bearer " + observer},
                             )
+                            # requests from cancelled peers can hold every database
+                            # connection briefly, so a busy board is retried until
+                            # their bounded waits have drained
+                            if (
+                                response.status_code == 503
+                                and asyncio.get_running_loop().time() < deadline
+                            ):
+                                await asyncio.sleep(LIMITS["retry_seconds"])
+                                continue
                             response.raise_for_status()
                             page = response.json()
                             events.extend(page["events"])
