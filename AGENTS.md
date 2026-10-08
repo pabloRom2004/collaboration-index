@@ -83,8 +83,10 @@ No paid run, remote publication or deployment is authorized merely because a
 configuration or command exists. Work requested in this repository does not
 inherit approvals for older ExploitBench jobs or its main-branch repair exception.
 Carry forward actual approvals within the current task, and keep remaining
-external actions within their stated scope. Use `codex/` branches; do not merge
-or push a default branch without authorization. The remote is the public
+external actions within their stated scope. Work directly on `main`, the only
+branch; the user asked that no other branches be created here. Several agent
+sessions may share one checkout, so stage and commit explicit paths only and
+never switch branches. The remote is the public
 <https://github.com/pabloRom2004/collaboration-index>; Hawk installs pinned
 commits from it. Commits use the work address `pablo.romero@generality.org`,
 set in this repository's Git config; keep the personal address out of commit
