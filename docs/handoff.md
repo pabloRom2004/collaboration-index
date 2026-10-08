@@ -235,6 +235,67 @@ per row:
 `rev` is too easy to separate team sizes reliably: one agent solves it in six
 minutes, and a single seed cannot separate team effects from run variance.
 
+### Mailauth scoring repair and launch hold (2026-10-08)
+
+The next scope is Haiku 5.5 on mailauth/Python at 32 and 64 peers, one epoch
+each, followed by review. The user chose **32M total tokens per smoke team**:
+1M per peer at N=32 and 500K at N=64, with equal, non-transferable allowances.
+The 250M comparison and six-model sweep remain future work. The user wants to
+understand the budget, grading, isolation and recovery boundaries and explain
+them back before launch. No paid run was started during this repair.
+
+The failed [64-peer pipeline smoke](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mc-mailauth-64-pipelines--calsm3n51oq5y3di)
+at `e9147dd` produced a durable error `.eval`, 20 testing calls with 20 errors,
+476 board events and no numeric final grade. Its sample error was
+`ReferenceExecutionError` with a reference-case timeout. The original scorer
+was verified byte-for-byte against upstream `5c9d7b0`: candidate timeouts fail
+cases, whereas a missing reference result aborts grading. The testing tool
+reports a recoverable infrastructure error; the final scorer propagates it.
+This behavior is upstream's single-agent behavior too, not a new team rule.
+
+The local repair configures the workspace and every scoring service to use
+the unrouted IPv6 resolver `100::1`, preserving upstream's immediate offline
+DNS failure instead of waiting for dropped packets. A controlled probe with
+one reference binary and no agents reproduced a timeout on an unresponsive
+resolver. All 1,553 reference outputs matched exactly across upstream's Docker
+`network_mode: none`, that network with the repair, and a Docker bridge with
+the repair; all three completed without case timeouts. This supports an
+environment-dependent failure that can also affect N=1. It does not establish
+that the repaired Hawk network path has passed.
+
+Local checks on the working tree based on `e9147dd`:
+
+- Ruff check and format check, mypy and wheel build passed; non-Docker pytest
+  passed all 97 tests.
+- Seven distinct Docker tests passed across focused checks: the existing shared
+  workspace/board/unread checks, including 64 peers, and two new mailauth
+  regressions with initially unresponsive DNS. The latter exercised two
+  simultaneous testing calls through one or two pipelines, then the upstream
+  final scorer; each graded all 1,553 cases. Their authored incomplete program
+  correctly scored 0.0, not an infrastructure error.
+- Scripted mocks were repaired to give all waiting peers model-call slots;
+  otherwise their barriers could stall behind an adaptive connection pool.
+  The MirrorCode regression also reports fixture timeouts as assertions and
+  enters its coordination barrier only once per peer.
+- A further Docker stress test passed with all 64 scripted peers editing and
+  posting to the board, nine testing calls using the eight-pipeline pool, and
+  a successful final grade. It emitted 204 tool calls without errors and graded
+  the authored `rev` fixture at 1.0. Sampled warm-image local usage reached
+  about 270 MiB across containers and 798% CPU; this small fixture is not a
+  real-model resource requirement. Evidence is in
+  `run-artifacts/hawk-mirrorcode-haiku55-smokes-20261008/active64-verification.json`.
+
+Evidence is under `run-artifacts/mirrorcode-dns-repair-20261008/`, including
+`reference-probe-summary.json` and `verification.json`. These are local mock
+and reference checks, not measured real-model performance or worst-case
+resource minima. Reference outputs and model payloads were not printed.
+
+The board still runs as a separate controller-side loopback process, not in a
+dedicated VM. The requested board isolation design, practical resource cap,
+interruption cleanup and unsupported checkpoint continuation remain open.
+Do not call this repair an escape-proof or unattended-recovery validation.
+See [scaling-plan.md](scaling-plan.md) for the updated scope and launch gate.
+
 ## 16-agent counting model sweep (2026-10-08)
 
 Nine models counted to 32 with 16 agents, a three-hour team deadline, xhigh

@@ -8,6 +8,12 @@ ExploitBench. Read this file, [README.md](README.md),
 Use the implementation and fresh checks to resolve drift in the dated handoff.
 The current team-size experiment is planned in
 [docs/scaling-plan.md](docs/scaling-plan.md).
+The 2026-10-08 discussion of shared workspaces, grading concurrency, and pilot
+readiness is recorded in
+[docs/mirrorcode-shared-workspace-discussion.md](docs/mirrorcode-shared-workspace-discussion.md).
+Keep the shared-computer approach for the pilot; separate agent VMs and a
+whole-VM grading freeze are deferred. The local checks in that note establish
+wrapper behavior, not capacity or grading reliability with 64 busy agents.
 
 ## Research goal and accepted scope
 
@@ -50,17 +56,21 @@ are different conditions.
   `mirrorcode` under that namespace.
 - MirrorCode peers share one upstream MirrorCode workspace and its bash,
   text editor and `evaluate_testcases` tools, imported from the pinned `mc`
-  package in the `mirrorcode` extra. A team lock serializes
-  `evaluate_testcases`, because concurrent calls clobber its fixed scoring paths.
-  Any peer's `submit` ends the attempt; upstream's scorer grades
-  `/workdir/src`. Its sandbox is Docker only, built locally from upstream's
-  generated compose files, and its scorer writes sidecar files beside the log,
+  package in the `mirrorcode` extra. A pool assigns calls to separate scoring
+  pipelines, one call per pipeline; excess calls queue, and a shared lock
+  serializes workspace tar packing. Workspace edits remain unrestricted.
+  Any peer's `submit` marks the attempt ended; peers finish their current turn
+  before stopping, and upstream's scorer grades `/workdir/src` after peer join.
+  Submission does not immediately freeze the files. Its sandbox configuration
+  uses upstream-generated Docker Compose files, and its scorer writes sidecar
+  files beside the log,
   so log to `run-artifacts/<run>/` and move the `.eval` into `logs/`.
 - Colouring peers are nodes of a hidden planted graph. They communicate only by
   board DMs to their graph neighbours through `send_message`/`read_messages`;
   the neighbour check lives in the trusted tool closure, and there is no global
   room. Its sandbox is off by default because it exposes no file or shell tool.
-- Team sizes 1–32; default two; one peer is useful as a baseline.
+- Team sizes 1–32 for the authored tasks and 1–64 for MirrorCode; default two;
+  one peer is useful as a baseline.
 - Maintained default epoch count is one; repeated epochs are separate attempts
   with mean reduction, not best-of-N or a union.
 - HLE is a batch of pinned gold/text CAIS records, with original CAIS references.

@@ -8,7 +8,13 @@ from typing import Any
 
 from inspect_ai import Task
 from inspect_ai import eval as inspect_eval
-from inspect_ai.model import ChatMessageTool, ModelOutput, ModelUsage, get_model
+from inspect_ai.model import (
+    ChatMessageTool,
+    GenerateConfig,
+    ModelOutput,
+    ModelUsage,
+    get_model,
+)
 
 from collaboration_index.colouring import colouring
 from collaboration_index.counting import counting
@@ -166,7 +172,13 @@ def fixture_model(task: Task) -> Any:
         output.usage = ModelUsage(input_tokens=20, output_tokens=10, total_tokens=30)
         return output
 
-    return get_model("mockllm/model", custom_outputs=reply)
+    # Scripted barriers hold their model slots until every peer arrives; fix the
+    # concurrency rather than letting an adaptive pool stall the fixture.
+    return get_model(
+        "mockllm/model",
+        custom_outputs=reply,
+        config=GenerateConfig(max_connections=count),
+    )
 
 
 def main() -> None:

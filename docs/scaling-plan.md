@@ -1,8 +1,14 @@
 # Team-size scaling plan
 
-This is the agreed plan for measuring how team size changes MirrorCode accuracy,
-time and cost, and then repeating it on ExploitBench. Settings marked
-*proposed* still need the user's agreement before any paid run.
+This records the intended MirrorCode comparison and the current launch gate.
+On 2026-10-08 the user narrowed the next paid work to Haiku 5.5 smokes at 32 and
+64 agents, one epoch each, followed by review. Repair and local checks come first;
+the user wants an explanation and a successful teach-back before launch. The
+seven-configuration, six-model sweep and ExploitBench remain later phases.
+After the side conversation, the user explicitly resumed the shared-computer
+approach and authorized the 32/64-agent Haiku smokes and failure-repair iteration.
+This replaces the temporary launch hold for those smokes; expansion follows
+review of their actual results.
 
 ## Questions
 
@@ -16,18 +22,40 @@ models, also in one shared box.
 | Setting | Value |
 | --- | --- |
 | Benchmark | MirrorCode team task, `collaboration_index/mirrorcode` |
-| Target | *Proposed:* `mailauth` in Python (see below); one target reused for every run |
+| Target | `mailauth` in Python; one target reused for every run |
 | Team sizes | 1, 2, 4, 8, 16, 32, 64 |
-| Budget | One shared 250M-token budget per run: `token_limit_per_agent = 250_000_000 // agents` |
+| Budget | Immediate smokes: 32M total allowance each, giving 1M per peer at N=32 and 500K at N=64; planned comparison: 250M total per attempt, divided into equal, non-transferable peer caps |
 | Deadline | None; a run ends when an agent submits or every budget is spent |
 | Agent | Native Inspect `react`, as now |
 | Topology | Every agent in the same MirrorCode workspace container |
 | Communication | The existing message board |
-| Epochs | One for the Haiku pilot; three per configuration for the model sweep |
+| Epochs | One each for the immediate 32/64-agent Haiku smokes; three per configuration for the later model sweep |
 | Platform | Generality Hawk |
 
-Each run reports MirrorCode's pass rate (all, visible and hidden cases), time
-from release to submit, total and per-agent tokens, cost, and board activity.
+Each run reports MirrorCode's pass rate (all, visible and hidden cases), total
+and per-agent tokens, cost, and board activity. The user wants end-to-end time
+to achieving the task. Record setup, release, submit, peer join and final grading
+separately so the chosen time endpoint is explicit. Current release-to-submit
+measurements alone do not include all of those stages.
+
+Do not assume 100% is achievable or define success that way yet. The user wants
+score and timing retained for later analysis of whether more agents reach
+similar quality sooner under the same total allowance. An infrastructure error
+is unscored, never a zero or an ordinary task failure. A faster submit at lower
+quality does not by itself show a better team. If later analysis uses a
+time-to-quality threshold, declare that threshold and its comparable grading
+signal, and account for attempts that never reach it.
+
+The user prefers CPU/RAM to grow with team size up to a practical cap, with
+larger teams sharing the available machine. The cap and measured allocations
+remain to agree for the full comparison. The smokes reuse the current Compose
+limits: N=32 has a 9-CPU/10-GiB workspace and four grading pipelines; N=64 has a
+17-CPU/18-GiB workspace and eight pipelines. Each pipeline has three 2-GiB
+grading containers, whose peak consumption and placement must be observed.
+These are bounds, not measured minimum allocations or a single physical VM.
+This compares team size together with its hardware allocation;
+attributing speed differences to coordination alone needs a matched hardware
+control. Record scoring-pipeline capacity and queue time alongside CPU/RAM.
 
 ## Target choice
 
@@ -37,7 +65,7 @@ per-target results (arXiv 2606.30182, Figure 2):
 
 | Target | Bucket | Tests (visible / hidden) | Paper result | Fit |
 | --- | --- | --- | --- | --- |
-| `mailauth` | M, 16k lines of Rust | 851 / 702 | No model reached 99% even with 1B tokens; most runs scored 90 to 95% | Proposed: separate SPF, DKIM, DMARC and ARC commands to divide, room above every model |
+| `mailauth` | M, 16k lines of Rust | 851 / 702 | No model reached 99% even with 1B tokens; most runs scored 90 to 95% | Chosen: separate SPF, DKIM, DMARC and ARC commands offer work to divide; newer models' attainable scores remain unknown |
 | `gotree` | M, 16k lines of Go, 40+ subcommands | 1,899 / 102 | Opus 4.7 and GPT-5.5 reach 99% but not 100%; Gemini 3.1 Pro does not reach 99% | Easier fallback; newer models may saturate it |
 | `wren_cli` | M, interpreter | 853 / 694 | Opus 4.7 72% of runs solved; GPT-5.5 none | One shared interpreter core is harder to divide |
 | `sed` | M, scripting language | 470 / 324 | Never reached 99% for any model | Harder; weaker models may score near zero |
@@ -45,9 +73,10 @@ per-target results (arXiv 2606.30182, Figure 2):
 
 `mailauth` tests split across twelve commands, led by `received-spf` (326),
 `dmarc-verify` (306), `auth-results` (298), `arc-verify` (233), `dkim-sign`
-(132) and `dkim-verify` (121). Per-command pass rates show how a team divided
-the work. Our budget is a quarter of the paper's 1B tokens for this bucket, so
-every model should stay below its ceiling.
+(132) and `dkim-verify` (121). Per-command pass rates can describe which parts
+were implemented, but do not establish who divided the work or how effectively
+they collaborated. The planned allowance is a quarter of the paper's 1B tokens
+for this bucket; that does not establish a ceiling for these newer models.
 
 ## Models
 
@@ -73,8 +102,12 @@ full output limit and compaction at 75% of its context window.
 - Scale the workspace container's CPU and memory with team size. MirrorCode's
   compose file gives every service a fixed 2 GiB, so a 64-agent team would
   otherwise be measured against the box rather than its coordination.
-- Measure how long one `evaluate_testcases` call takes on the chosen target. The team
-  lock serializes these calls, so a long call becomes a queue at large teams.
+- Verify the mailauth reference-scoring repair locally and on Hawk. The failed
+  64-agent smoke had 20 testing errors and no final grade because reference
+  execution timed out; those errors are not evidence about model quality.
+- Measure `evaluate_testcases` latency and queueing under intended concurrency.
+  Scoring uses a pool of pipelines (one per eight peers by default); tar packing
+  remains serialized, and each pipeline serves one call at a time.
 - Confirm prompt caching on each route. Without caching most of a run's input
   is billed at full price, which can make an Anthropic run several times more
   expensive than with it.
@@ -82,10 +115,12 @@ full output limit and compaction at 75% of its context window.
 
 ## Phases
 
-1. Agree the target and these settings.
-2. Fix the readiness items above.
-3. Haiku 5.5 smoke on Hawk at a small budget, then the seven team sizes at one
-   epoch each.
-4. The six-model sweep, three epochs per configuration.
-5. ExploitBench with the same design, agents in one shared box, open-weight
-   models on their official routes.
+1. Keep the explanation and recorded budget, infrastructure, scoring and recovery
+   limits available; the user has authorized the current shared-computer smokes.
+2. Fix and locally verify the readiness items above.
+3. Haiku 5.5 smokes on Hawk at 32 and 64 agents, one epoch each; review their
+   grades, errors, timings and resource usage before expanding.
+4. Freeze the quality/time endpoints and resource policy, then review the
+   six-model sweep with seven team sizes and three epochs per configuration.
+5. Investigate ExploitBench's multi-agent grading and isolation separately,
+   including concurrent/repeated grade calls, before applying the design there.

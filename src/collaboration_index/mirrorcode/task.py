@@ -12,7 +12,7 @@ from inspect_ai import Epochs, Task, task
 from inspect_ai.model import GenerateConfig
 from inspect_ai.solver import Generate, Solver, TaskState, chain, solver
 from inspect_ai.tool import Tool, ToolDef, ToolResult
-from inspect_ai.util import SandboxEnvironmentSpec
+from inspect_ai.util import SandboxEnvironmentSpec, sandbox
 
 from collaboration_index.harness import prepare_team, team_agents
 from collaboration_index.task import defaults
@@ -126,6 +126,23 @@ def shared_workspace(docs: bool, include_source: bool, pipelines: int) -> Solver
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         """Install the upstream files and tools, then give scoring calls separate pipelines."""
         state = await setup(state, generate)
+        # Upstream's outputs assume a container with no network, where a DNS lookup
+        # fails at once with "Network unreachable". An isolated Kubernetes pod drops
+        # the packets instead, so a lookup outlives the 2 s per-case limit. A
+        # resolver on an unrouted IPv6 address fails the same way in both places.
+        services = ["default"] + [
+            name if index == 0 else f"{name}-{index}"
+            for index in range(pipelines)
+            for name in SCORING_SERVICES
+        ]
+        for name in services:
+            result = await sandbox(name).exec(
+                ["sh", "-c", "echo 'nameserver 100::1' > /etc/resolv.conf"]
+            )
+            if not result.success:
+                raise RuntimeError(
+                    f"Cannot set the resolver in {name}: {result.stderr}"
+                )
         # evaluate_testcases reuses fixed tar and source paths in the scoring
         # containers, so two calls may only run at once on different pipelines
         route_scoring()
