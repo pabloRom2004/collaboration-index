@@ -10,7 +10,13 @@ from typing import Any
 from uuid import uuid4
 
 from inspect_ai.agent import AgentState, react, run
-from inspect_ai.model import ChatMessageUser, CompactionAuto, ModelOutput, get_model
+from inspect_ai.model import (
+    ChatMessageUser,
+    CompactionAuto,
+    ContentText,
+    ModelOutput,
+    get_model,
+)
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from inspect_ai.util import sandbox, token_limit
 
@@ -206,17 +212,21 @@ def team_agents(
                         limit=token_limit_per_agent,
                     )
 
-                async def decision_update() -> str:
+                async def decision_update() -> ChatMessageUser:
                     """Combine the team clock, the peer's token budget and non-destructive unread counts."""
                     unread = await unread_reminder(
                         options if history.condition == "collaborative" else None,
                         direct_only=history.benchmark == "colouring",
                     )
-                    return "\n\n".join(
-                        filter(None, (time_update(), token_update(), unread))
+                    # one block per part: Inspect's Anthropic prompt caching marks the
+                    # penultimate block of the last message, so a single text block
+                    # would leave every turn's history uncached
+                    parts = (time_update(), token_update(), unread)
+                    return ChatMessageUser(
+                        content=[ContentText(text=part) for part in parts if part]
                     )
 
-                async def on_continue(current: AgentState) -> bool | str:
+                async def on_continue(current: AgentState) -> bool | AgentState:
                     """Count the turn, then stop at the team's end or refresh clock and unread counts."""
                     record.turns += 1
                     output = current.output
@@ -228,7 +238,8 @@ def team_agents(
                     # turn happens to carry no tool call
                     if history.end_reason is not None:
                         return False
-                    return await decision_update()
+                    current.messages.append(await decision_update())
+                    return current
 
                 tools = [
                     {
@@ -304,7 +315,7 @@ def team_agents(
                 try:
                     await release.wait()
                     record.started, record.status = now(), "running"
-                    messages.append(ChatMessageUser(content=await decision_update()))
+                    messages.append(await decision_update())
                     _, exceeded = await run(
                         runner, messages, limits=[limit], name=record.id
                     )
