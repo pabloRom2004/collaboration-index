@@ -4,6 +4,12 @@ on:
     branches: [main, "codex/**"]
     paths: [.github/workflows/mirrorcode-images.yml, pyproject.toml]
   workflow_dispatch:
+    inputs:
+      target:
+        description: MirrorCode target to publish in Python
+        type: choice
+        options: [rev, mailauth, ruff]
+        default: ruff
 permissions:
   contents: read
   packages: write
@@ -21,7 +27,7 @@ jobs:
       # Hawk sets MC_IMAGE_NAME to this repository, so tags follow MirrorCode's own naming
       - name: Build and push each target in Python
         run: |
-          for target in rev mailauth; do
+          for target in "${{ inputs.target || 'ruff' }}"; do
             read -r context version < <(uv run --no-project --python 3.13 --with "$MIRRORCODE" --with inspect-ai==0.3.277 python -c "
           from mc import AgentImplementationLanguage, TargetProgram, version
           from mc.task import get_compose_file
