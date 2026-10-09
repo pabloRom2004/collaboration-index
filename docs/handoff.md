@@ -28,6 +28,18 @@ Replacement artifacts live in
 `run-artifacts/hawk-mirrorcode-haiku55-team-aware-250m-20261009/`.
 Its manifest records the published runtime pin, immutable configuration hashes,
 fresh launch receipts and current status; `local-qa.json` records verification.
+All seven replacements were submitted at runtime commit
+`26edd056564d01cbf32d36880260fac9fd834046`. Live log headers independently
+confirm task version 3, the correct team size, `team_size_disclosed=true`,
+`allow_submit=false` and the intended Haiku 5.5 model for every configuration.
+Use the dashboard's model/tool counts for evidence that peers are working;
+these header checks alone are not proof of model work or final grading.
+At 01:40:22 UTC, all 127 peers across the seven jobs had verified real model
+and completed tool work. Every model tool schema contained only `bash`,
+`evaluate_testcases`, `message_board` and `text_editor`; submit was absent.
+One testing call had completed, with zero testing/reference errors across
+the sweep. Final grades remain pending. The existing five-minute heartbeat
+continues collection, authoritative final verification and plotting.
 Docker mock trajectories at N=1,2,64 received the correct disclosure, retained
 private histories and the same board across continuation reminders, reached
 their independent synthetic 300-token caps, and saved final 100% grades over
