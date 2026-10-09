@@ -138,7 +138,9 @@ bounds the request; failures produce a sanitized unavailable reminder, while
 cancellation propagates. Oracle peers are not polled. Every task and generated
 starter using `team_agents` inherits the same update contract.
 Chosen names supplement fixed IDs; they do not replace evaluator identity.
-Board-task peers never see those IDs or the team size: `message_board` maps
+Board-task peers never see those IDs. MirrorCode's opening states the total
+team size and number of teammates, with an explicit solo opening at N=1;
+the authored coordination tasks keep team size hidden. `message_board` maps
 chosen names to IDs on the controller, addresses DMs by name, lists only
 registered teammates, and strips IDs, run IDs and roster counts from every
 reply. The journal and replay keep the IDs for analysis.

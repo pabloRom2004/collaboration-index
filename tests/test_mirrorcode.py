@@ -64,7 +64,7 @@ async def wait_for_fixture(action: Awaitable[Any], timeout: int) -> Any:
         raise AssertionError("Scripted peer coordination timed out") from exc
 
 
-def test_task_hides_resources_and_team_size() -> None:
+def test_task_removes_resources_and_tracks_prompt_contract() -> None:
     """Keep upstream instructions except the sample-limit tool a peer cannot use."""
     task = mirrorcode(agents=3, token_limit_per_agent=1000)
     sample = task.dataset[0]
@@ -72,6 +72,8 @@ def test_task_hides_resources_and_team_size() -> None:
     assert "`submit`" not in str(sample.input)
     assert sample.metadata["allow_submit"] is False
     assert task.metadata["allow_submit"] is False
+    assert task.metadata["team_size_disclosed"] is True
+    assert sample.metadata["team_size_disclosed"] is True
     voluntary = mirrorcode(token_limit_per_agent=1000, allow_submit=True)
     assert "call the `submit` tool" in str(voluntary.dataset[0].input)
     with pytest.raises(ValueError, match="boolean"):
@@ -458,7 +460,7 @@ def busy_team_fixture() -> Any:
     )
 
 
-def budget_team_fixture() -> Any:
+def budget_team_fixture(agents: int) -> Any:
     """Stop every peer once, resume useful work, and exhaust independent native limits."""
     turns: dict[str, int] = {}
     board_run: set[str] = set()
@@ -475,6 +477,16 @@ def budget_team_fixture() -> Any:
         assert "submit" not in names and "resources" not in names
         assert {"bash", "text_editor", "evaluate_testcases", "message_board"} <= names
         assert "There is no submit tool" in opening.text
+        if agents == 1:
+            assert "working on this task alone (1 agent in total)" in opening.text
+            assert "There are no other agents" in opening.text
+        else:
+            noun = "agent" if agents == 2 else "agents"
+            assert f"collaborating with {agents - 1} other {noun}" in opening.text
+            assert f"({agents} agents in total)" in opening.text
+        assert "don't know how many" not in opening.text
+        assert "{team_context}" not in opening.text
+        assert actor not in opening.text
         assert not any("call the `submit` tool" in m.text for m in messages)
         done = [m for m in messages if isinstance(m, ChatMessageTool)]
         assert not any(m.error for m in done)
@@ -535,7 +547,7 @@ def budget_team_fixture() -> Any:
 
 
 @pytest.mark.docker
-@pytest.mark.parametrize("agents", [2, 64])
+@pytest.mark.parametrize("agents", [1, 2, 64])
 def test_budget_team_resumes_and_grades_after_peer_limits(
     tmp_path: Path, agents: int
 ) -> None:
@@ -544,7 +556,7 @@ def test_budget_team_resumes_and_grades_after_peer_limits(
         agents=agents, token_limit_per_agent=300, artifact_dir=str(tmp_path)
     )
     [log] = inspect_eval(
-        task, model=budget_team_fixture(), log_dir=str(tmp_path), display="none"
+        task, model=budget_team_fixture(agents), log_dir=str(tmp_path), display="none"
     )
     log = read_eval_log(log.location, resolve_attachments=True)
     assert log.status == "success", log.error
@@ -557,7 +569,8 @@ def test_budget_team_resumes_and_grades_after_peer_limits(
     assert len(peers) == agents
     assert all(p["status"] == "limited" and p["tokens"] == 300 for p in peers)
     assert all(p["nudges"] == 1 and p["tool_calls"] >= 3 for p in peers)
-    assert peers[0]["completed"] > max(p["completed"] for p in peers[1:])
+    if agents > 1:
+        assert peers[0]["completed"] > max(p["completed"] for p in peers[1:])
     assert len({p["sandbox_hostname"] for p in peers}) == 1
     assert sample.scores["mirrorcode_scorer"].value["all"] == 1.0
     journal = sample.store["BoardHistory:journal"]

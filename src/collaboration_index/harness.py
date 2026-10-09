@@ -39,8 +39,6 @@ from collaboration_index.game import (
     submit_number,
 )
 from collaboration_index.prompts import (
-    CODEBASE,
-    CODEBASE_BUDGET,
     COLLABORATE,
     COLLABORATE_NO_SANDBOX,
     COLOURING,
@@ -48,6 +46,7 @@ from collaboration_index.prompts import (
     ORACLE,
     TIME_UPDATE,
     TOKEN_UPDATE,
+    codebase_prompt,
 )
 from collaboration_index.state import Peer, TeamHistory, now
 
@@ -295,16 +294,15 @@ def team_agents(
                     )
                 elif history.condition == "collaborative":
                     tools.append(message_board(options))
-                    # agents see neither their evaluator ID nor the team size
-                    extra = (
-                        CODEBASE_BUDGET
-                        if budget_driven
-                        else CODEBASE
-                        if history.benchmark == "mirrorcode"
-                        else COLLABORATE
-                        if state.metadata["sandbox_enabled"]
-                        else COLLABORATE_NO_SANDBOX
-                    ).prompt
+                    # MirrorCode discloses team size; evaluator IDs stay private.
+                    if history.benchmark == "mirrorcode":
+                        extra = codebase_prompt(len(actors), budget_driven)
+                    else:
+                        extra = (
+                            COLLABORATE
+                            if state.metadata["sandbox_enabled"]
+                            else COLLABORATE_NO_SANDBOX
+                        ).prompt
                 else:
                     if history.benchmark in ("counting", "spelling"):
                         tools.append(oracle_progress(game))

@@ -286,6 +286,7 @@ def mirrorcode(
         "answer_judge": "mirrorcode_scorer",
         "benchmark_title": "MirrorCode",
         "allow_submit": allow_submit,
+        "team_size_disclosed": True,
     }
     return Task(
         dataset=[sample],
@@ -305,7 +306,7 @@ def mirrorcode(
         config=GenerateConfig(**CONFIG["generate_config"]),
         # MirrorCode's metrics read every epoch's score rather than a reduced mean
         epochs=Epochs(CONFIG["eval_config"]["epochs"], reducer=[]),
-        version=2,
+        version=3,
         name="mirrorcode",
         display_name="MirrorCode",
         metadata={
@@ -313,7 +314,8 @@ def mirrorcode(
             "team_sample": True,
             "condition": "collaborative",
             "agents": agents,
-            "benchmark_variant": "collaboration_index_v2",
+            "benchmark_variant": "collaboration_index_v3",
+            "team_size_disclosed": True,
             "token_limit_per_agent": token_limit_per_agent,
             "planned_team_token_budget": None
             if token_limit_per_agent is None

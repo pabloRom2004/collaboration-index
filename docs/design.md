@@ -6,7 +6,9 @@ complementary resources and tests information sharing and ordered assembly.
 Colouring restricts each peer to its graph neighbours and tests whether local
 DM negotiation converges on a global constraint; its peers cannot use the
 global room or discover non-neighbours.
-Peers do not learn their evaluator IDs or the team size. The board shows only
+Peers do not learn their evaluator IDs. MirrorCode version 3 tells peers the
+total team size and number of other agents; N=1 explicitly works alone. The
+authored coordination tasks keep team size hidden. The board shows only
 names agents choose for themselves and permits global messages, name-addressed
 DMs, pagination, blocking waits and read receipts, equally in every emergent arm.
 This deliberately changes the anonymous/shared-files conditions in the old repo.
@@ -54,6 +56,11 @@ separately: neither guarantees improved final quality, and continued edits can
 regress the shared program. Budget exhaustion time does not establish the time
 at which a chosen quality was first reached. Intermediate testing scores and
 final authoritative grades are distinct measurements.
+
+Team-size disclosure changes the information available to peers. Preserve the
+earlier hidden-size attempts and label them separately from disclosed-size
+runs; comparisons changing both disclosure and stopping policy cannot isolate
+either effect.
 
 Checkpoint continuation is deliberately rejected until peer histories, native
 limits and the irreversible store can resume together. A fresh run always owns a

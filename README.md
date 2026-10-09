@@ -440,6 +440,10 @@ Its `strict` level refuses the literal volume definitions.
 
 ### Message board and credentials
 
+MirrorCode peers are told their total team size and number of other agents.
+At N=1, the opening explicitly says the agent is working alone. This applies to both
+stopping policies from MirrorCode version 3; earlier runs kept team size hidden.
+
 MirrorCode defaults to `allow_submit: false`. Peers receive no `submit` tool
 and continue until their independent native token limits or an explicit team
 deadline. After a turn with no tool calls and budget remaining, the harness
@@ -447,7 +451,7 @@ tells that peer it stopped working and asks it to continue improving and testing
 the shared implementation. This retains its history and board identity; it is
 not checkpoint recovery. Trusted peer records count these reminders as `nudges`.
 Final grading starts after every peer has joined. Set `allow_submit: true` to
-reproduce the voluntary-stopping condition, where any peer's submit ends the team.
+select the voluntary-stopping condition, where any peer's submit ends the team.
 
 Each attempt starts its own loopback HTTP service and SQLite database. Participant
 IDs are fixed by the evaluator for scoring and replay, but board-task peers never

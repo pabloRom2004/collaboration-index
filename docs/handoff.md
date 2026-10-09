@@ -5,7 +5,47 @@ This snapshot was written on **2026-10-07**. Read [AGENTS.md](../AGENTS.md) and
 relying on dated statements. This document records the prototype's starting
 point; it does not authorize new model calls or external actions.
 
-## Budget-driven MirrorCode rerun and completed baseline (2026-10-09)
+## Team-size disclosure and fresh Haiku replacements (2026-10-09)
+
+The user explicitly requested that MirrorCode peers know how many other agents
+are collaborating, then requested stopping the seven budget-driven attempts and
+freshly relaunching them. Version 3 states both the number of other agents and
+total team size. N=1 explicitly says it is working alone. Evaluator IDs remain
+private, and the authored coordination tasks retain their hidden-size prompts.
+No leader or fixed roles are introduced. The continuation reminder now says to
+coordinate with teammates when present.
+
+The seven version-2 attempts were stopped and their exact owned resources were
+reconciled to zero remaining pods. Byte-identical partial `.eval` snapshots,
+original configs, receipts and sanitized event metadata are preserved. These
+user-interrupted attempts are unscored and must not enter performance curves.
+The cancellation record is
+`run-artifacts/hawk-mirrorcode-haiku55-budget-driven-250m-20261009/team-size-restart-stop.json`.
+Some jobs needed teardown after the stop request; this does not establish that
+the known sample-interruption cleanup bug is fixed.
+
+Replacement artifacts live in
+`run-artifacts/hawk-mirrorcode-haiku55-team-aware-250m-20261009/`.
+Its manifest records the published runtime pin, immutable configuration hashes,
+fresh launch receipts and current status; `local-qa.json` records verification.
+Docker mock trajectories at N=1,2,64 received the correct disclosure, retained
+private histories and the same board across continuation reminders, reached
+their independent synthetic 300-token caps, and saved final 100% grades over
+all 208 authored `rev` cases. These are wrapper checks, not model-performance
+or resource-minimum measurements.
+Ruff lint/format, mypy, all 99 non-Docker tests, all 12 Docker tests and wheel
+build/content checks passed before publication and paid replacement launches.
+
+The replacements retain Haiku 5.5 only, N=1,2,4,8,16,32,64, one epoch each,
+250M planned total tokens per team, equal non-transferable peer caps, no submit,
+the existing resource formula and supplier/work-billing route. Every attempt
+starts with fresh peers and a fresh board; checkpoint continuation is unsupported.
+The existing heartbeat now follows the replacement folder. The completed
+voluntary-stop baseline is preserved. It hid team size, so comparisons with
+these replacements change both stopping policy and information; neither effect
+can be isolated. No six-model follow-up may launch before explicit user approval.
+
+## Historical budget-driven launch and completed baseline (2026-10-09)
 
 The user explicitly requested removal of the terminal submit tool and a reminder
 when a native peer stops making tool calls with budget remaining. MirrorCode
@@ -44,7 +84,7 @@ separately. These are one-epoch observations with hardware growing with N.
 
 Baseline receipts, immutable configs, hashes and visually verified PNG/PDF/SVG
 plots are in `run-artifacts/hawk-mirrorcode-haiku55-sweep-250m-20261009/`.
-The new budget-driven condition has separate artifacts under
+The now-interrupted version-2 budget-driven condition has separate artifacts under
 `run-artifacts/hawk-mirrorcode-haiku55-budget-driven-250m-20261009/`; read its
 manifest for current launch status and exact tested source. Authorized settings
 remain Haiku 5.5 only, N=1,2,4,8,16,32,64, one epoch each and 250M total planned

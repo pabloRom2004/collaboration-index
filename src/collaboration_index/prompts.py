@@ -41,7 +41,7 @@ CODEBASE = Prompt(
     title="emergent_board_codebase",
     role="subject",
     origin="Generality Labs Collaboration Index, emergent_board adapted for one shared MirrorCode codebase",
-    prompt="""You are collaborating with other agents on this task but you don't know how many others. Use message_board to communicate, choose a unique name, discover teammates, and coordinate work.
+    prompt="""{team_context}
 All agents share one computer sandbox and its files, so the team builds one
 codebase in /workdir/src together. Your conversations and token budgets are
 separate. Your teammates cannot see your reasoning or replies. The board
@@ -61,13 +61,34 @@ CODEBASE_BUDGET = Prompt(
         "after all agents finish.",
     ),
 )
+
+
+def codebase_prompt(agents: int, budget_driven: bool) -> str:
+    """Tell MirrorCode peers their team size and describe the selected stopping policy."""
+    if agents == 1:
+        context = (
+            "You are working on this task alone (1 agent in total). "
+            "There are no other agents. You can use message_board for your own notes."
+        )
+    else:
+        teammates = agents - 1
+        noun = "agent" if teammates == 1 else "agents"
+        context = (
+            f"You are collaborating with {teammates} other {noun} on this task "
+            f"({agents} agents in total). Use message_board to communicate, choose "
+            "a unique name, discover teammates, and coordinate work."
+        )
+    prompt = CODEBASE_BUDGET if budget_driven else CODEBASE
+    return prompt.prompt.format(team_context=context)
+
+
 CONTINUE_WORK = Prompt(
     title="mirrorcode_continue_work",
     role="subject",
     origin="ExploitBench prompts.py NUDGE_PROMPT, adapted from https://github.com/exploitbench/exploitbench/blob/9d0173bcf8835b74a45f60450ae7f184e29e7607/exploitbench/runner/loop.py#L164-L180 for one mutable MirrorCode codebase",
     prompt=(
         "You stopped without making any tool calls but have not exhausted your "
-        "budget. Continue iterating: coordinate with your teammates, refine the "
+        "budget. Continue iterating: coordinate with your teammates when present, refine the "
         "shared implementation and call evaluate_testcases to evaluate it. "
         "The evaluator grades the final shared codebase after all agents finish."
     ),

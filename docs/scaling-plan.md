@@ -39,11 +39,23 @@ stopping-policy questions and must not be pooled. Active-loop continuation keeps
 the peer's history, usage and board; checkpoint continuation remains unsupported.
 No six-model follow-up is authorized.
 
-All seven budget-driven Haiku attempts are now launched at runtime commit
+All seven hidden-size budget-driven Haiku attempts were launched at runtime commit
 `5dc9b9c54037aab303cb57935e6b18da2581eaa3`; real model/tool work and the absence
 of submit are verified for every peer. Testing and final grading continue under
 the existing five-minute heartbeat. The earlier voluntary-stop sweep has all
 seven verified final results and visually checked plots; see the dated handoff.
+
+The user subsequently requested that MirrorCode peers know their team size and
+explicitly authorized stopping these seven attempts and freshly relaunching
+them. Version 3 states the total team size and number of other agents, with a
+solo opening at N=1. The old attempts were interrupted and remain unscored;
+their raw snapshots, receipts and verified cleanup are retained. Replacement
+artifacts live under `run-artifacts/hawk-mirrorcode-haiku55-team-aware-250m-20261009/`.
+They keep the seven sizes, one epoch, budget-driven policy and 250M per team,
+with fresh boards and peer histories. The voluntary-stop baseline also hid
+team size, so comparing it with the replacements changes both information and
+stopping policy and cannot isolate either effect. The six-model review gate
+still applies.
 
 ## Questions
 

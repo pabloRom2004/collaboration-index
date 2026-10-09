@@ -32,8 +32,10 @@ impose a leader, fixed roles or a designated benchmark operator in the
 collaborative condition. With the sandbox on, agents know they share the computer
 and files; with it off, they get a prompt variant that mentions neither. Peers
 communicate through the common board and see only the names they register,
-never their evaluator IDs or the team size. Private spelling hands are an
-intentional task asymmetry, not operator-assigned roles.
+never their evaluator IDs. MirrorCode peers are told the total team size and
+number of other agents; the authored coordination tasks keep team size hidden.
+Private spelling hands are an intentional task asymmetry, not operator-assigned
+roles.
 
 Independent computers are a desired future topology ablation. They are not
 implemented here yet. Keep model, provider, task selection, seed, budget,
@@ -59,7 +61,8 @@ are different conditions.
   package in the `mirrorcode` extra. A pool assigns calls to separate scoring
   pipelines, one call per pipeline; excess calls queue, and a shared lock
   serializes workspace tar packing. Workspace edits remain unrestricted.
-  Version 2 defaults to `allow_submit=false`: peers receive no submit tool,
+  Version 3 discloses team size, including an explicit solo opening at N=1.
+  It defaults to `allow_submit=false`: peers receive no submit tool,
   and a turn without tool calls gets an explicit continuation reminder while
   budget remains. Native peer caps end independently; trusted records count
   `nudges`. `allow_submit=true` retains the voluntary-stop condition, where
