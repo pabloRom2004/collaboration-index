@@ -56,11 +56,43 @@ def route_scoring() -> None:
 
     async def read_tar_alone() -> bytes:
         """Pack the workspace one call at a time, since the tar has a fixed path."""
+
+        async def pack_workspace() -> bytes:
+            """Accept GNU tar's valid changing-file snapshot while preserving other errors."""
+            try:
+                return await read_tar()
+            except scorer.SandboxCommandError as error:
+                result = error.result
+                warnings = result.stderr.splitlines()
+                if not (
+                    error.cmd
+                    == ["tar", "-cf", "/tmp/workdir_src.tar", "-C", "/workdir/src", "."]
+                    and result.returncode == 1
+                    and warnings
+                    and all(
+                        line.startswith("tar: ")
+                        and line.endswith(": file changed as we read it")
+                        for line in warnings
+                    )
+                ):
+                    raise
+                # Workspace writes are intentionally unrestricted during testing.
+                # GNU tar exit 1 still produces an archive of the observed files.
+                workspace = scorer.sandbox(scorer.WORKSPACE_SERVICE_NAME)
+                try:
+                    return await workspace.read_file("/tmp/workdir_src.tar", text=False)
+                except scorer.OutputLimitExceededError as exc:
+                    raise scorer.AgentCodeCopyError(exc) from exc
+                finally:
+                    await workspace.exec(
+                        cmd=["rm", "-f", "/tmp/workdir_src.tar"], timeout=5
+                    )
+
         lock = TAR_LOCK.get()
         if lock is None:
-            return await read_tar()
+            return await pack_workspace()
         async with lock:
-            return await read_tar()
+            return await pack_workspace()
 
     scorer.sandbox = pipeline_sandbox
     scorer._read_workspace_tar = read_tar_alone

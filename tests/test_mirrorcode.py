@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import Awaitable
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -17,6 +18,7 @@ from inspect_ai.model import (
     ModelUsage,
     get_model,
 )
+from inspect_ai.util import ExecResult
 
 pytest.importorskip("mc")
 
@@ -24,6 +26,60 @@ from collaboration_index.mirrorcode import mirrorcode  # noqa: E402
 from collaboration_index.mirrorcode.task import offline_resolver_configmap  # noqa: E402
 
 SOLUTION = (Path(__file__).parent / "fixtures/mirrorcode_rev_main.txt").read_text()
+
+
+@pytest.mark.parametrize(
+    ("returncode", "stderr", "accept"),
+    [
+        (1, "tar: ./fixture.py: file changed as we read it\n", True),
+        (2, "tar: ./fixture.py: file changed as we read it\n", False),
+        (1, "tar: ./fixture.py: Cannot stat: No such file or directory\n", False),
+        (1, "tar: ./fixture.py: file changed as we read it\ntar: write error\n", False),
+    ],
+)
+def test_workspace_tar_accepts_only_changing_file_warning(
+    monkeypatch: pytest.MonkeyPatch, returncode: int, stderr: str, accept: bool
+) -> None:
+    """Recover a changing-file archive without masking missing files or real tar failures."""
+    import mc.scorer as scorer
+
+    from collaboration_index.mirrorcode.task import route_scoring
+
+    reads, cleanup = [], []
+
+    async def read_file(path: str, text: bool) -> bytes:
+        """Return the authored archive only for the expected binary read."""
+        reads.append((path, text))
+        return b"authored snapshot"
+
+    async def execute(cmd: list[str], timeout: int) -> ExecResult[str]:
+        """Record cleanup without executing any participant command."""
+        cleanup.append((cmd, timeout))
+        return ExecResult(True, 0, "", "")
+
+    workspace = SimpleNamespace(read_file=read_file, exec=execute)
+    error = scorer.SandboxCommandError(
+        workspace,
+        ["tar", "-cf", "/tmp/workdir_src.tar", "-C", "/workdir/src", "."],
+        ExecResult(False, returncode, "", stderr),
+    )
+
+    async def failed_pack() -> bytes:
+        """Reproduce the exact structured upstream workspace-pack failure."""
+        raise error
+
+    monkeypatch.setattr(scorer, "team_pipelines_installed", False, raising=False)
+    monkeypatch.setattr(scorer, "sandbox", lambda name: workspace)
+    monkeypatch.setattr(scorer, "_read_workspace_tar", failed_pack)
+    route_scoring()
+    if accept:
+        assert asyncio.run(scorer._read_workspace_tar()) == b"authored snapshot"
+        assert reads == [("/tmp/workdir_src.tar", False)]
+        assert cleanup == [(["rm", "-f", "/tmp/workdir_src.tar"], 5)]
+    else:
+        with pytest.raises(scorer.SandboxCommandError):
+            asyncio.run(scorer._read_workspace_tar())
+        assert reads == cleanup == []
 
 
 def test_offline_configmap_preserves_other_chart_content(tmp_path: Path) -> None:
