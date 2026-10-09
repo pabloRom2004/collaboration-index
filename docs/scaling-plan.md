@@ -57,6 +57,17 @@ team size, so comparing it with the replacements changes both information and
 stopping policy and cannot isolate either effect. The six-model review gate
 still applies.
 
+The latest authorization expands only this disclosed-size budget-driven Haiku
+condition to three planned attempts per team size. After an approximately
+three-hour infrastructure-health observation (not before 04:41:37 UTC on
+2026-10-09), run two additional fresh one-epoch attempts at each N. Each retains
+250M total team tokens. The two repeats run consecutively per size after the
+preceding final grade and cleanup are verified, keeping at most seven active
+teams. These are planned replicates regardless of valid score. The first
+cohort's `repeat-plan.json` and the dated handoff contain the exact schedule,
+prepared configs and authorization. Keep all three results and summarize mean
+and sample standard deviation; the six-model gate remains closed.
+
 ## Questions
 
 For a fixed total token budget, does adding agents to one shared box make a

@@ -5,6 +5,46 @@ This snapshot was written on **2026-10-07**. Read [AGENTS.md](../AGENTS.md) and
 relying on dated statements. This document records the prototype's starting
 point; it does not authorize new model calls or external actions.
 
+## Three Haiku replicates per team size (2026-10-09)
+
+The user now authorizes two additional fresh attempts at every team size after
+about three hours of healthy first-cohort evidence: N=1,2,4,8,16,32,64, giving
+three planned data points per size in the disclosed-size budget-driven condition.
+Each attempt keeps its own 250M total team allowance and equal native peer caps.
+This adds 14 attempts and 3.5B planned tokens, for 21 attempts and 5.25B total
+planned tokens; native response boundaries can overshoot. This is a new explicit
+Haiku authorization, not approval for the six-model follow-up.
+
+The earliest repeat launch is **2026-10-09 04:41:37 UTC** (05:41:37 BST), about
+three hours after the request. The first-cohort folder's `repeat-plan.json`
+records the schedule and immutable configs. Replicates 2 and 3 live in
+`run-artifacts/hawk-mirrorcode-haiku55-team-aware-r02-250m-20261009/` and
+`run-artifacts/hawk-mirrorcode-haiku55-team-aware-r03-250m-20261009/`.
+They reuse tested source `26edd056564d01cbf32d36880260fac9fd834046`, the same
+model, supplier, generation, compaction, resources and tools. Each is a separate
+one-epoch job with fresh peers, workspace and board.
+
+Keep one active attempt per team size, so the two repeats run consecutively
+for that size while preserving the currently tested seven-team concurrency.
+After the observation interval, refresh global infrastructure health and record
+numeric/file evidence in `repeat-health-check.json`. A new attempt additionally
+requires its same-size predecessor's authoritative 1,553-case final grade,
+embedded board, durable log and zero remaining owned pods. Healthy long-running
+predecessors continue; their repeats wait. Valid low scores do not block these
+preauthorized replications. Do not retry or select attempts based on score.
+All submit helpers enforce the time, fresh-health and predecessor gates before
+any paid submission.
+The 14 prepared configs matched the first cohort exactly apart from unique
+eval-set names, passed protected read-only Hawk/billing/supplier preflights,
+and their time gates were checked to reject the current observation period.
+No repeat was submitted during preparation; see `repeat-preparation-qa.json`.
+
+The existing heartbeat remains active through all 21 final results and cleanup,
+not just the first seven. Keep individual attempts visible and report mean and
+sample standard deviation across three completed replicates per N; never use
+best-of-three or a union. Preserve unscored failures separately. Three repeats
+of one task with hardware growing with N do not establish causal scaling laws.
+
 ## Team-size disclosure and fresh Haiku replacements (2026-10-09)
 
 The user explicitly requested that MirrorCode peers know how many other agents
