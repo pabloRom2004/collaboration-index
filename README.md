@@ -92,6 +92,7 @@ Registered task IDs are:
 | `collaboration_index/counting` | One shared ordered sequence |
 | `collaboration_index/spelling` | One shared sentence attempt |
 | `collaboration_index/colouring` | One hidden network to colour |
+| `collaboration_index/inferencebench` | One inference server optimized on a shared RunPod H100 |
 
 `--limit 1` selects a team sample, not one HLE question and not one peer. Use
 `question_limit` to reduce the exam. Calling the four task factories separately
@@ -254,6 +255,9 @@ runs; `hawk download` mid-run returns only finished samples. Download the logs
 into `logs/` and render them with `collaboration-replay`. The board journal is
 stored in the `.eval`, so a Hawk run replays without its artifact directory.
 
+See [shared-GPU InferenceBench](docs/inferencebench.md) for its optional runtime,
+workload configuration, controller requirements and final scoring contract.
+
 ### Configurations
 
 Each task owns a complete maintained configuration:
@@ -262,6 +266,7 @@ Each task owns a complete maintained configuration:
 - [Counting](src/collaboration_index/counting/run_configs/default.yaml)
 - [Spelling](src/collaboration_index/spelling/run_configs/default.yaml)
 - [Colouring](src/collaboration_index/colouring/run_configs/default.yaml)
+- [InferenceBench](src/collaboration_index/inferencebench/run_configs/default.yaml)
 
 Public Python defaults are read from these files. CLI overrides take precedence
 when using `--run-config`. Keep task arguments under `task.args`, subject

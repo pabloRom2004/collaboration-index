@@ -1,0 +1,67 @@
+task:
+  task: collaboration_index/inferencebench
+  args:
+    agents: 2
+    token_limit_per_agent: null
+    team_time_limit: 3600
+    agent: react
+    agent_args: {}
+    artifact_dir: run-artifacts/inferencebench-team
+    compaction_threshold: 0.75
+    context_window: null
+    gpu_config: null
+    gpu_management: inspect
+    scenarios: A
+    seed_pairs:
+    - - 21
+      - 1337
+    workload:
+      config_defaults: default
+      base_model: mistralai/Mistral-7B-Instruct-v0.3
+      max_model_len: 32768
+      baseline_dtype: float16
+      system_prompt: token_budget
+      strict_prompt: true
+      request_limit: 10
+      quality_samples: 500
+      quality_seed: 248
+      quality_reference_backend: vllm
+      quality_tau: 0.95
+      quality_concurrency: 4
+      quality_baseline_max_attempts: 2
+      server_wait_seconds: 900
+      request_timeout_seconds: 300
+    tool_timeout: 7200
+    web_search_args:
+      backend: duckduckgo
+      max_results: 10
+      timeout: 5
+    scorer:
+      name: collaboration_index.inferencebench.backend.scorers.inference_speedup
+      args:
+        grader_role: integrity
+        judge_prompt: original_judge
+        max_grader_attempts: 3
+        include_transcript: true
+        transcript_hint: true
+        preload_evidence: true
+        judge_shell: true
+
+generate_config:
+  temperature: null
+  max_tokens: null
+  seed: null
+  reasoning_effort: null
+  max_retries: 10
+  attempt_timeout: 900
+
+model_roles: {}
+
+eval_config:
+  epochs: 1
+  epochs_reducer:
+  - collaboration_index/complete_mean
+  token_limit: null
+  time_limit: null
+  max_samples: 1
+  score_on_error: false

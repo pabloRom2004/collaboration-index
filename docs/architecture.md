@@ -48,9 +48,11 @@ an interrupted sample or its board.
 
 | Location | Responsibility |
 | --- | --- |
-| `_registry.py` | Registers the five packaged Inspect tasks. |
-| `{hle,counting,spelling,colouring,mirrorcode}/task.py` | Explicit public interfaces and benchmark inputs. |
-| `{hle,counting,spelling,colouring,mirrorcode}/run_configs/default.yaml` | Maintained adjustable defaults. |
+| `_registry.py` | Registers the six packaged Inspect tasks. |
+| `{hle,counting,spelling,colouring,mirrorcode,inferencebench}/task.py` | Explicit public interfaces and benchmark inputs. |
+| `{hle,counting,spelling,colouring,mirrorcode,inferencebench}/run_configs/default.yaml` | Maintained adjustable defaults. |
+| `inferencebench/backend/` | Pinned upstream GPU provisioning, evaluator assets, baseline preparation and final scoring. |
+| `inferencebench/tools.py`, `inferencebench/state.py` | Shared foreground command queue and development measurements, separate from final grades. |
 | `task.py` | Common Task assembly, invariant setup, solver, scorer and sandbox. |
 | `harness.py` | Peer preparation, native execution, limits, cancellation and board lifecycle. |
 | `prompts.py` | Named collaborative/oracle prompt objects and provenance. |
@@ -200,7 +202,7 @@ For a different mechanic:
 6. Prove the path with authored native-agent mocks, sandbox checks and packaging
    tests before proposing paid runs.
 
-The current core has explicit branches for five mechanics. It is not a generic
+The current core has explicit branches for six mechanics. It is not a generic
 game plugin engine; add an abstraction only when multiple concrete tasks need it.
 Number-sequence ordering with private numbers is a plausible fourth task.
 Python line assembly additionally requires validated execution/scoring and pool

@@ -153,10 +153,11 @@ def replay_data(
         for key, value in result.items()
     }
     quality = result.get("quality")
+    measured = result.get("speedup") if kind == "inferencebench" else quality
     scored = (
-        quality is not None
-        and isinstance(quality, (int, float))
-        and math.isfinite(quality)
+        measured is not None
+        and isinstance(measured, (int, float))
+        and math.isfinite(measured)
         and not sample.error
     )
     return {
@@ -213,6 +214,7 @@ def replay_data(
             "expected_count": len(actors),
             "status": "scored" if scored else "unscored",
             "quality": quality if scored else None,
+            "speedup": measured if kind == "inferencebench" and scored else None,
             "collective_flags": sum(
                 g.get("correct") is True for g in store.get("TeamHistory:judgments", [])
             ),

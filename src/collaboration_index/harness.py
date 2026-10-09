@@ -18,6 +18,7 @@ from inspect_ai.model import (
     get_model,
 )
 from inspect_ai.solver import Generate, Solver, TaskState, solver
+from inspect_ai.tool import ToolDef
 from inspect_ai.util import sandbox, token_limit
 
 from collaboration_index.board.client import (
@@ -51,6 +52,15 @@ from collaboration_index.prompts import (
 from collaboration_index.state import Peer, TeamHistory, now
 
 
+def team_workspace(state: TaskState) -> Any:
+    """Resolve the benchmark's shared computer, including explicitly managed external GPUs."""
+    if state.store_as(TeamHistory).benchmark == "inferencebench":
+        from collaboration_index.inferencebench.resource import workspace
+
+        return workspace()
+    return sandbox()
+
+
 @solver
 def prepare_team(
     benchmark: str, agents: int, condition: str, artifact_dir: str
@@ -75,12 +85,12 @@ def prepare_team(
         if benchmark == "hle" and state.metadata["answer_judge"] == "hle_json_judge":
             get_model(role="grader", required=True)
         if state.metadata["sandbox_enabled"]:
-            hostname = await sandbox().exec(["cat", "/etc/hostname"])
+            hostname = await team_workspace(state).exec(["cat", "/etc/hostname"])
             if not hostname.success:
                 raise RuntimeError("Cannot identify the shared sandbox")
             state.store.set("shared_sandbox_hostname", hostname.stdout.strip())
             # peers with a shell can read this file, so it omits the team size
-            await sandbox().write_file(
+            await team_workspace(state).write_file(
                 "/workspace/team.json", json.dumps({"run_id": history.run_id})
             )
         if benchmark == "hle":
@@ -155,7 +165,7 @@ def team_agents(
             raise RuntimeError("Missing invariant team setup")
         actors = [peer.id for peer in history.peers]
         data = state.metadata["data"]
-        budget_driven = (
+        budget_driven = history.benchmark == "inferencebench" or (
             history.benchmark == "mirrorcode" and not state.metadata["allow_submit"]
         )
         game = TeamGame(history, data, actors)
@@ -188,8 +198,12 @@ def team_agents(
             async def peer(record: Peer, options: dict[str, str]) -> None:
                 """Run one private model history with trusted tools and own usage accounting."""
                 if state.metadata["sandbox_enabled"]:
-                    identity = await sandbox().exec(["cat", "/etc/hostname"])
-                    public = await sandbox().exec(["cat", "/workspace/team.json"])
+                    identity = await team_workspace(state).exec(
+                        ["cat", "/etc/hostname"]
+                    )
+                    public = await team_workspace(state).exec(
+                        ["cat", "/workspace/team.json"]
+                    )
                     if (
                         not identity.success
                         or identity.stdout.strip()
@@ -202,9 +216,9 @@ def team_agents(
                 limit = token_limit(token_limit_per_agent)
 
                 def token_update() -> str:
-                    """Show a MirrorCode peer its own budget, which upstream's resources tool reported."""
+                    """Show a workspace peer its own token usage and allowance."""
                     if (
-                        history.benchmark != "mirrorcode"
+                        history.benchmark not in {"mirrorcode", "inferencebench"}
                         or token_limit_per_agent is None
                     ):
                         return ""
@@ -252,7 +266,14 @@ def team_agents(
                         )
                     ):
                         record.nudges += 1
-                        nudge = CONTINUE_WORK.prompt
+                        if history.benchmark == "inferencebench":
+                            from collaboration_index.inferencebench.prompts import (
+                                CONTINUE,
+                            )
+
+                            nudge = CONTINUE.prompt
+                        else:
+                            nudge = CONTINUE_WORK.prompt
                     current.messages.append(await decision_update(nudge))
                     return current
 
@@ -269,9 +290,18 @@ def team_agents(
                         }[history.benchmark](game, record.id)
                     ]
                 )
-                if history.benchmark == "mirrorcode":
+                if history.benchmark in {"mirrorcode", "inferencebench"}:
                     # the shared workspace tools that the task's setup installed
                     tools += list(state.tools)
+                if history.benchmark == "inferencebench":
+                    from collaboration_index.inferencebench.tools import serialized_tool
+
+                    tools = [
+                        serialized_tool(item, game.lock, record.id)
+                        if ToolDef(item).name in {"bash", "python", "evaluate"}
+                        else item
+                        for item in tools
+                    ]
                 if history.benchmark == "hle":
                     tools.append(
                         read_file(
@@ -294,8 +324,14 @@ def team_agents(
                     )
                 elif history.condition == "collaborative":
                     tools.append(message_board(options))
-                    # MirrorCode discloses team size; evaluator IDs stay private.
-                    if history.benchmark == "mirrorcode":
+                    # Workspace tasks disclose team size; evaluator IDs stay private.
+                    if history.benchmark == "inferencebench":
+                        from collaboration_index.inferencebench.prompts import (
+                            workspace_prompt,
+                        )
+
+                        extra = workspace_prompt(len(actors))
+                    elif history.benchmark == "mirrorcode":
                         extra = codebase_prompt(len(actors), budget_driven)
                     else:
                         extra = (

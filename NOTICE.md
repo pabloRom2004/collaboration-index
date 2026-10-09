@@ -20,3 +20,10 @@ cache, and no model evaluation on it was launched.
 The collaboration prompt and batch submission interface are new, so results
 are not ordinary HLE leaderboard scores. Dataset license/access requirements
 remain those of the original publishers.
+
+InferenceBench runtime and assets are adapted from pabloRom2004/inferencebench-eval,
+commit 8241a435ebe1cbb7fe5355f3b2ee3b7a85be884b (Apache-2.0). The license and
+its bundled third-party notices are retained in the backend package. Import
+namespace changes are marked in modified files; the peer harness is new.
+See src/collaboration_index/inferencebench/upstream.json for original source hashes
+and docs/inferencebench.md for intentional differences.

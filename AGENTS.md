@@ -55,7 +55,21 @@ are different conditions.
   locked Inspect AI 0.3.277; package name `collaboration-index`;
   registered task namespace `collaboration_index`.
 - Task IDs: `hle_collaboration`, `counting`, `spelling`, `colouring`,
-  `mirrorcode` under that namespace.
+  `mirrorcode`, `inferencebench` under that namespace.
+- InferenceBench adapts public commit `8241a435ebe1cbb7fe5355f3b2ee3b7a85be884b`
+  of `pabloRom2004/inferencebench-eval`. Peers share one RunPod H100 and
+  `/home/agent/task`, with separate histories and budgets and the common board.
+  Foreground bash, Python and `evaluate` calls serialize; background processes
+  and file edits remain shared. There is no submit tool. Final upstream grading
+  restarts the pod after peer join and requires an explicit `integrity` role.
+  The optional runtime is the `inferencebench` extra. Upstream root/Internet
+  affordances are retained for engine installation. See
+  [docs/inferencebench.md](docs/inferencebench.md) for workload, provenance and
+  controller requirements. `gpu_management: controller` runs the controller on
+  Hawk with task-owned external RunPod tools and teardown. Standard Hawk mode
+  accepts it; strict Kubernetes isolation does not cover the external pod.
+  Local mock/Docker checks are established; the paid Haiku 5.5 four-peer smoke
+  is authorized and its real result must be verified separately.
 - MirrorCode peers share one upstream MirrorCode workspace and its bash,
   text editor and `evaluate_testcases` tools, imported from the pinned `mc`
   package in the `mirrorcode` extra. A pool assigns calls to separate scoring

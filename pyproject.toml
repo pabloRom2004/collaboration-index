@@ -24,6 +24,14 @@ mirrorcode = [
   "mc @ git+https://github.com/epoch-research/MirrorCode@5c9d7b00b0c6d7609003e33896cd41d28f092fcb ; python_version >= '3.13'",
 ]
 
+inferencebench = [
+  "asyncssh>=2.24.0",
+  "ddgs>=9.16.0",
+  "fsspec>=2023.1.0",
+  "inspect-sandboxes==0.5.0",
+  "modal==1.5.5",
+]
+
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=1", "ruff>=0.13", "mypy>=1.18", "types-PyYAML"]
 
@@ -46,6 +54,7 @@ packages = ["src/collaboration_index"]
 
 [tool.ruff]
 target-version = "py312"
+extend-exclude = ["src/collaboration_index/inferencebench/backend"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP"]
@@ -64,3 +73,8 @@ python_version = "3.12"
 check_untyped_defs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "collaboration_index.inferencebench.backend.*"
+follow_imports = "skip"
+ignore_errors = true

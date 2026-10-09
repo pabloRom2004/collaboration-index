@@ -1,0 +1,460 @@
+"""Thin remote adapter around the pinned upstream evaluator; this file contains no replacement benchmark logic."""
+
+import argparse
+import hashlib
+import json
+import math
+import os
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from contextlib import contextmanager, nullcontext
+from dataclasses import replace
+from pathlib import Path
+
+ROOT = Path("/opt/inferencebench")
+TASK = Path("/home/agent/task")
+ARTIFACTS = Path("/tmp/inferencebench")
+REFERENCE_BIN = Path("/opt/reference/bin")
+# Login shells (Inspect's bash tool) source this, overriding the image's static defaults.
+PROFILE = Path("/etc/profile.d/inferencebench.sh")
+sys.path.insert(0, str(ROOT / "src/eval"))
+
+
+def environment(options):
+    """Set the original evaluator's explicit environment inputs for this sample."""
+    return {
+        "HF_HUB_CACHE": str(Path(os.environ["HF_HOME"]) / "hub"),
+        "INFERENCE_BENCH_BASE_MODEL": options["base_model"],
+        "INFERENCE_BENCH_MAX_MODEL_LEN": str(options["max_model_len"]),
+        "INFERENCE_BENCH_ALLOW_HF_DOWNLOAD": "1",
+        "INFERENCE_BENCH_DATASET_SEED": str(options["dev_seed"]),
+        "INFERENCE_BENCH_QUALITY_SEED": str(options["quality_seed"]),
+        "INFERENCE_BENCH_QUALITY_MMLUPRO_N": str(options["quality_samples"]),
+        "INFERENCE_BENCH_QUALITY_TAU": str(options["quality_tau"]),
+        "INFERENCE_BENCH_QUALITY_CONCURRENCY": str(options["quality_concurrency"]),
+        "INFERENCE_BENCH_QUALITY_MMLUPRO_SAMPLES_FILE": str(
+            ARTIFACTS / "quality-samples.jsonl"
+        ),
+        "INFERENCE_BENCH_QUALITY_BASELINE_REGISTRY": str(ARTIFACTS / "quality.json"),
+        "INFERENCE_BENCH_SERVER_WAIT_S": str(options["server_wait_seconds"]),
+        "INFERENCE_BENCH_REQUEST_TIMEOUT_S": str(options["request_timeout_seconds"]),
+    }
+
+
+def evaluate(options, seed, output, quality):
+    """Run the unmodified upstream speed evaluator and optionally its quality gate."""
+    from inference import runner
+
+    args = runner.build_parser().parse_args(
+        ["--model", options["base_model"], "--seed", str(seed)]
+    )
+    args.request_limit = options["request_limit"]
+    args.requests_file = str(ARTIFACTS / "heldout-requests.jsonl")
+    folder = ARTIFACTS / output
+    folder.mkdir(parents=True, exist_ok=True)
+    metrics = runner.run_speed_eval(TASK, args, folder)
+
+    if quality:
+        metrics["quality_check"] = runner.run_quality_eval(
+            args.server_url,
+            metrics["model_id"],
+            args.request_timeout_s,
+            folder,
+            options["quality_tau"],
+        )
+
+    (ARTIFACTS / (output + ".json")).write_text(json.dumps(metrics))
+    return metrics
+
+
+def wait_ready(server, seconds):
+    """Stop readiness polling when the launcher exits instead of waiting out a dead server's allowance."""
+    deadline = time.monotonic() + seconds
+    while server.poll() is None and time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(
+                "http://127.0.0.1:8000/v1/models", timeout=1
+            ) as response:
+                if response.status == 200:
+                    return True
+        except (OSError, urllib.error.URLError):
+            pass
+        time.sleep(1)
+    return False
+
+
+def prepare_requests(options, config, name):
+    """Run the original seeded sampler, restoring the boundary token its decode normalization can drop."""
+    from inference import runner
+
+    tokenizer = runner._get_tokenizer(options["base_model"])
+    # Upstream aborts when a head-truncated prompt lands below the sampled minimum; mirror its bounds.
+    speed = config.get("synthetic", {})
+    output_len = int(speed.get("output_len", int(config.get("max_new_tokens", 256))))
+    target = int(speed.get("input_len", 1024))
+    cap = runner._compute_max_input_tokens(options["max_model_len"], output_len)
+    if cap is not None:
+        target = min(target, cap)
+    minimum = max(0, math.ceil(target * runner._range_ratio(speed.get("range_ratio", 0.8))))
+    original = runner._truncate_messages
+    repairs = []
+
+    def truncate(messages, tokenizer, maximum, *, keep="tail"):
+        """Re-truncate with the missing token when head truncation falls below the sampled range."""
+        source = [dict(message) for message in messages]
+        result = original(messages, tokenizer, maximum, keep=keep)
+        actual = runner._count_chat_tokens(result, tokenizer)
+        if keep == "head" and actual < minimum:
+            repaired = original(source, tokenizer, maximum + minimum - actual, keep=keep)
+            count = runner._count_chat_tokens(repaired, tokenizer)
+            if minimum <= count <= maximum:
+                repairs.append({
+                    "target_input_token_count": maximum,
+                    "original_input_token_count": actual,
+                    "repaired_input_token_count": count,
+                })
+                return repaired
+        return result
+
+    runner._truncate_messages = truncate
+    try:
+        requests = runner._prepare_requests(
+            config, options["request_limit"], tokenizer, options["max_model_len"]
+        )[0]
+    finally:
+        runner._truncate_messages = original
+    return requests, repairs
+
+
+def prepare(options):
+    """Cache datasets, measure the Transformers speed and quality baselines, and install the original empty launcher before timing starts."""
+    from huggingface_hub import snapshot_download
+    from inference import (
+        baseline_eval,
+        cache_samples,
+        precompute_baseline,
+        quality_gate,
+        runner,
+    )
+
+    # Cache the original datasets and model before benchmarking.
+    snapshot = snapshot_download(
+        options["base_model"],
+        ignore_patterns=["*.pt", "*.bin", "original/*"],
+    )
+    ARTIFACTS.mkdir(exist_ok=True)
+    for name in ["scenario.json", "mission.txt", "benchmark.txt"]:
+        shutil.copy(ROOT / "src/eval/tasks" / options["directory"] / name, TASK / name)
+    for seed in {options["dev_seed"], options["eval_seed"]}:
+        path = (
+            ROOT
+            / f"src/eval/inference/baselines/samples/longbench_v2/{seed}_503/samples.jsonl"
+        )
+        if not path.exists():
+            cache_samples.cache_longbench_v2(path, seed, 503)
+    specs, _, _ = quality_gate.get_quality_specs()
+    spec = specs[0]
+    cache_samples.cache_mmlu_pro(spec.samples_file, spec.seed, spec.limit)
+
+    config = runner.load_scenario_config(TASK)
+    repairs = {}
+    cached = bool(options.get("cached_speed_baseline"))
+    if cached and not all((ARTIFACTS / name).is_file() for name in ["baseline.json", "heldout-requests.jsonl"]):
+        raise RuntimeError("Shared speed baseline files were not transferred to the sandbox")
+    transformers_reference = options["quality_reference_backend"] == "transformers"
+    with baseline_server(options) if (not cached or transformers_reference) else nullcontext():
+        if not cached:
+            config["dataset_seed"] = options["eval_seed"]
+            requests, repairs["heldout"] = prepare_requests(options, config, "heldout")
+            precompute_baseline._write_requests_jsonl(
+                ARTIFACTS / "heldout-requests.jsonl", requests
+            )
+            metrics = baseline_eval._run_baseline(
+                "http://127.0.0.1:8000",
+                requests,
+                options["base_model"],
+                ARTIFACTS / "baseline-generations.jsonl",
+                TASK,
+                options["request_timeout_seconds"],
+                concurrency_override=1,
+            )
+            (ARTIFACTS / "baseline.json").write_text(json.dumps(metrics))
+            if any(
+                profile["success_count"] == 0
+                for profile in metrics["profiles"].values()
+            ):
+                raise RuntimeError(
+                    "Transformers baseline returned no successful requests"
+                )
+
+        if transformers_reference:
+            prepare_quality_baseline(options, spec)
+
+    reference_version = None
+    if options["quality_reference_backend"] == "vllm":
+        with reference_server(options) as reference_version:
+            prepare_quality_baseline(options, spec)
+
+    # Give the agent a separate development request set.
+    config["dataset_seed"] = options["dev_seed"]
+    dev_requests, repairs["dev"] = prepare_requests(options, config, "dev")
+    precompute_baseline._write_requests_jsonl(TASK / "requests.jsonl", dev_requests)
+    # Record resolved weights and the exact evaluated inputs without claiming historical data pins.
+    provenance = {
+        "downloaded_model_revision": Path(snapshot).name,
+        "input_sha256": {},
+        "quality_reference": {
+            "backend": options["quality_reference_backend"],
+            "vllm_version": reference_version,
+        },
+        "speed_baseline": "cached" if cached else "measured",
+        "truncation_repairs": repairs,
+    }
+    for path in [
+        TASK / "requests.jsonl",
+        ARTIFACTS / "heldout-requests.jsonl",
+        spec.samples_file,
+    ]:
+        provenance["input_sha256"][str(path)] = hashlib.sha256(
+            path.read_bytes()
+        ).hexdigest()
+    (ARTIFACTS / "provenance.json").write_text(json.dumps(provenance, indent=2))
+    install_workspace(options)
+
+
+@contextmanager
+def serve(command, log_name, description, options):
+    """Run one local server on port 8000 and release the GPU when its measurement ends."""
+    with (ARTIFACTS / log_name).open("w") as log:
+        server = subprocess.Popen(
+            command, stdout=log, stderr=subprocess.STDOUT, start_new_session=True
+        )
+        try:
+            if not wait_ready(server, options["server_wait_seconds"]):
+                raise RuntimeError(
+                    f"{description} failed to start: " + (ARTIFACTS / log_name).read_text()
+                )
+            yield
+        finally:
+            if server.poll() is None:
+                os.killpg(server.pid, signal.SIGTERM)
+                try:
+                    server.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    os.killpg(server.pid, signal.SIGKILL)
+                    server.wait()
+
+
+@contextmanager
+def baseline_server(options):
+    """Run the original Transformers server for the speed baseline and the original quality reference."""
+    command = [
+        "python3",
+        str(ROOT / "src/eval/inference/servers/transformers_openai_server.py"),
+        "--model",
+        options["base_model"],
+        "--port",
+        "8000",
+        "--dtype",
+        options["baseline_dtype"],
+        "--max-model-len",
+        str(options["max_model_len"]),
+    ]
+    with serve(command, "baseline-server.log", "Transformers baseline", options):
+        yield
+
+
+@contextmanager
+def reference_server(options):
+    """Serve the same checkpoint at the baseline precision through the pinned vLLM environment for a faster quality reference."""
+    version = subprocess.check_output(
+        [str(REFERENCE_BIN / "python"), "-c", "import vllm; print(vllm.__version__)"], text=True
+    ).strip()
+    command = [
+        str(REFERENCE_BIN / "vllm"),
+        "serve",
+        options["base_model"],
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
+        "--dtype",
+        options["baseline_dtype"],
+        "--max-model-len",
+        str(options["max_model_len"]),
+    ]
+    with serve(command, "reference-server.log", "vLLM reference", options):
+        yield version
+
+
+def prepare_quality_baseline(options, spec):
+    """Require a complete, usable quality reference before starting agent optimization."""
+    from inference import precompute_quality_baseline
+
+    out = ARTIFACTS / "quality-baseline"
+    out.mkdir(exist_ok=True)
+    accuracy, log_path, _ = precompute_quality_baseline._run_dataset(
+        spec,
+        "http://127.0.0.1:8000",
+        options["base_model"],
+        options["request_timeout_seconds"],
+        options["quality_concurrency"],
+        out,
+    )
+    results = [json.loads(line) for line in log_path.read_text().splitlines()]
+    if len(results) != spec.limit or not any(row["success"] for row in results):
+        raise RuntimeError("Transformers quality baseline did not complete every request")
+    if not all(row["success"] for row in results):
+        results = retry_quality_reference(options, spec, results, out)
+        if all(row["success"] for row in results):
+            accuracy = precompute_quality_baseline._accuracy(results)
+    if not all(row["success"] for row in results):
+        raise RuntimeError("Transformers quality baseline did not complete every request")
+    (out / "resolved_generations.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in results)
+    )
+    # The upstream relative-quality gate is undefined for a zero reference.
+    if not math.isfinite(accuracy) or not 0 < accuracy <= 1:
+        raise RuntimeError(f"Transformers quality baseline has unusable accuracy: {accuracy}")
+
+    registry = {
+        "datasets": {
+            "mmlu_pro": [{"seed": spec.seed, "n": spec.limit, "accuracy": accuracy}]
+        }
+    }
+    (ARTIFACTS / "quality.json").write_text(json.dumps(registry))
+
+
+def retry_quality_reference(options, spec, results, out):
+    """Retry only failed reference requests in isolation, retaining every original attempt."""
+    from inference import precompute_quality_baseline
+
+    if options["quality_baseline_max_attempts"] == 1:
+        return results
+    samples = [json.loads(line) for line in spec.samples_file.read_text().splitlines()]
+    by_id = {str(row["sample_id"]): row for row in samples}
+    if len(by_id) != len(samples) or len({row["sample_id"] for row in results}) != spec.limit:
+        raise RuntimeError("Transformers quality baseline has duplicate sample IDs")
+    results = list(results)
+    for attempt in range(2, options["quality_baseline_max_attempts"] + 1):
+        for index, previous in enumerate(results):
+            if previous["success"]:
+                continue
+            retry_dir = out / f"attempt-{attempt}" / str(index)
+            retry_dir.mkdir(parents=True)
+            sample_file = retry_dir / "samples.jsonl"
+            sample_file.write_text(json.dumps(by_id[previous["sample_id"]]) + "\n")
+            retry_spec = replace(spec, samples_file=sample_file, limit=1)
+            _, log_path, _ = precompute_quality_baseline._run_dataset(
+                retry_spec, "http://127.0.0.1:8000", options["base_model"],
+                options["request_timeout_seconds"], 1, retry_dir,
+            )
+            retried = [json.loads(line) for line in log_path.read_text().splitlines()]
+            if len(retried) != 1 or retried[0]["sample_id"] != previous["sample_id"]:
+                raise RuntimeError("Transformers quality baseline retry returned mismatched requests")
+            results[index] = {**retried[0], "request_index": previous["request_index"]}
+    return results
+
+
+def install_workspace(options):
+    """Install the original task launchers and a development evaluator with overridable environment defaults."""
+    context = ROOT / "src/eval/tasks/_shared/task_context"
+    for name in ["start_server.sh", "test_server.sh"]:
+        shutil.copy(context / name, TASK / name)
+        (TASK / name).chmod(0o755)
+
+    # Point the empty launcher's fallback and every login shell at the configured model.
+    launcher = TASK / "start_server.sh"
+    launcher.write_text(launcher.read_text().replace(
+        "${INFERENCE_BENCH_BASE_MODEL:-mistralai/Mistral-7B-Instruct-v0.3}",
+        "${INFERENCE_BENCH_BASE_MODEL:-" + options["base_model"] + "}",
+    ))
+    PROFILE.parent.mkdir(parents=True, exist_ok=True)
+    PROFILE.write_text(
+        f"export INFERENCE_BENCH_BASE_MODEL={shlex.quote(options['base_model'])}\n"
+        f"export INFERENCE_BENCH_MAX_MODEL_LEN={options['max_model_len']}\n"
+    )
+
+    # Development tests read the prepared development requests, like upstream's precomputed files.
+    env = environment(options)
+    env["INFERENCE_BENCH_REQUESTS_FILE"] = str(TASK / "requests.jsonl")
+    wrapper = "#!/opt/evaluator/bin/python\nimport os, sys\nfrom pathlib import Path\n"
+    wrapper += f"for key, value in {env!r}.items(): os.environ.setdefault(key, value)\nsys.path.insert(0, {str(ROOT / 'src/eval')!r})\n"
+    wrapper += "from inference.runner import build_parser, run_evaluation\nrun_evaluation(Path(__file__).parent, build_parser().parse_args())\n"
+    (TASK / "evaluate.py").write_text(wrapper)
+    (TASK / "evaluate.py").chmod(0o755)
+
+
+def final(options):
+    """Relaunch the submitted server under upstream supervision and produce fresh held-out measurements."""
+    for name in ["scenario.json", "mission.txt", "benchmark.txt"]:
+        shutil.copy(ROOT / "src/eval/tasks" / options["directory"] / name, TASK / name)
+
+    # Score a fresh launch against the restored held-out requests.
+    with (ARTIFACTS / "final-server.log").open("w") as log:
+        server = subprocess.Popen(
+            [
+                "bash",
+                "/opt/inference_eval/bin/launch_supervised_server.sh",
+                str(TASK / "start_server.sh"),
+            ],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        try:
+            if not wait_ready(server, options["server_wait_seconds"]):
+                (ARTIFACTS / "final.json").write_text(
+                    json.dumps(
+                        {
+                            "invalid_submission": "Server did not become ready after a clean restart"
+                        }
+                    )
+                )
+                return
+            try:
+                metrics = evaluate(options, options["eval_seed"], "final", True)
+            except TimeoutError as error:
+                # The upstream readiness timeout names the server that disappeared.
+                if server.poll() is None or not str(error).startswith(
+                    "Timed out waiting for server at "
+                ):
+                    raise
+                metrics = {
+                    "evaluator_error": repr(error),
+                    "launcher_returncode": server.returncode,
+                }
+            if server.poll() is not None:
+                metrics["invalid_submission"] = (
+                    "Canonical launcher exited during final evaluation"
+                )
+                (ARTIFACTS / "final.json").write_text(json.dumps(metrics))
+        finally:
+            if server.poll() is None:
+                os.killpg(server.pid, signal.SIGTERM)
+                try:
+                    server.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    os.killpg(server.pid, signal.SIGKILL)
+                    server.wait()
+
+
+def main():
+    """Dispatch a trusted preparation or final-scoring operation from explicit JSON options."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("operation", choices=["prepare", "final"])
+    parser.add_argument("options")
+    args = parser.parse_args()
+    options = json.loads(Path(args.options).read_text())
+    os.environ.update(environment(options))
+    {"prepare": prepare, "final": final}[args.operation](options)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,78 @@
+task:
+  task: inferencebench/inference_bench
+  args:
+    config_defaults: original
+    gpu_provider: modal
+    gpu_config: null
+    # null runs A–D; use A or [A, C] to select scenarios.
+    scenarios: null
+    # [development, evaluation] seeds; three pairs preserve the original runs per scenario.
+    seed_pairs: [[21, 1337], [248, 428], [999, 777]]
+    base_model: mistralai/Mistral-7B-Instruct-v0.3
+    max_model_len: 32768
+    # Precision of the Transformers speed baseline and the reference server; use bfloat16 for bf16-native models.
+    baseline_dtype: float16
+    # Optimizing agent's context window; null uses Inspect's model metadata.
+    context_length: null
+    agent_seconds: 7200
+    system_prompt: original
+    # The paper's Table 2 used false; the site's dagger-marked rows used the strict prompt.
+    strict_prompt: true
+    request_limit: null
+    quality_samples: 500
+    quality_seed: 248
+    quality_reference_backend: transformers
+    quality_tau: 0.95
+    quality_concurrency: 4
+    quality_baseline_max_attempts: 2
+    server_wait_seconds: 900
+    request_timeout_seconds: 300
+    scorer:
+      name: inferencebench.scorers.inference_speedup
+      args:
+        grader_role: integrity
+        judge_prompt: original_judge
+        max_grader_attempts: 3
+        # The transcript is exported but, as in the released harness, never mentioned.
+        include_transcript: true
+        transcript_hint: false
+        preload_evidence: true
+        judge_shell: true
+
+solver:
+  # Switch harness below, or use --solver inferencebench/original_agent -S harness=codex_cli -S version=auto.
+  # Inspect SWE names include claude_code, codex_cli, opencode, and gemini_cli.
+  # Set version for the selected CLI; this wrapper retains the two-hour continuation loop.
+  solver: inferencebench/original_agent
+  args:
+    harness: claude_code
+    version: 2.1.114
+    continue_until_deadline: true
+    env:
+      BASH_MAX_TIMEOUT_MS: "36000000"
+
+generate_config:
+  temperature: null
+  max_tokens: null
+  seed: null
+  reasoning_effort: null
+  max_retries: 10
+  attempt_timeout: 900
+
+model_roles:
+  integrity:
+    model: openrouter/anthropic/claude-sonnet-4.6
+    config:
+      temperature: null
+      max_tokens: null
+      max_retries: 10
+      attempt_timeout: 900
+
+eval_config:
+  limit: null
+  # Repeats each scenario–seed sample; 1 keeps three runs per scenario.
+  epochs: 1
+  epochs_reducer: [inferencebench/complete_mean]
+  token_limit: null
+  time_limit: null
+  max_samples: 1

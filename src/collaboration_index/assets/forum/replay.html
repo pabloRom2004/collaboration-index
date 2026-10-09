@@ -486,7 +486,7 @@ function renderTeam(snapshot){
     const collective=dataset.collective,state=capabilitiesAt(collective,currentTime),final=currentTime>=finished(collective),status=final?collective.result.status:'pending';
     box.dataset.status=status;
     const metrics=team.metrics||{},accepted=(dataset.submissions||[]).filter(entry=>ms(entry.time)<=currentTime).length;
-    const text=status==='unscored'?'Unavailable':status==='scored'?Number(100*team.quality).toFixed(1)+'% quality':accepted+' accepted';
+    const text=status==='unscored'?'Unavailable':status==='scored'?(team.speedup!=null?Number(team.speedup).toFixed(2)+'× inference speedup':Number(100*team.quality).toFixed(1)+'% quality'):accepted+' accepted';
     box.append(node('span','Team '+text),node('span',team.expected_count+' '+(team.expected_count===1?'agent':'agents')));
     if(final){box.append(node('span',Number(metrics.elapsed_seconds||0).toFixed(2)+'s · '+(metrics.tokens||0)+' tokens'),node('span',(metrics.message_count||0)+' messages'));}
     $('collective-score').textContent='Team result: '+text;return;

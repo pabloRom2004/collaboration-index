@@ -669,3 +669,56 @@ suitable initial instruction is:
 Start with the free smoke if a code/environment change needs confirmation. Use
 bounded diagnostics for a stall and verify cleanup before retrying; do not infer
 useful model work from `running` alone or spend hours polling unchanged state.
+
+## 2026-10-09 InferenceBench shared-GPU port
+
+Added `collaboration_index/inferencebench` from the requested public
+`pabloRom2004/inferencebench-eval` commit
+`8241a435ebe1cbb7fe5355f3b2ee3b7a85be884b`, preserving upstream evaluator assets,
+RunPod bootstrap/restart/cleanup, workload defaults and final integrity/quality
+scoring. This is distinct from the newer adjacent local InferenceBench checkout.
+The destination remains on Inspect 0.3.277. Original source hashes and licenses
+are retained under `src/collaboration_index/inferencebench/`; see
+`docs/inferencebench.md` for the full configuration and scoring contract.
+
+The adapter uses the existing native peer harness, one board, one shared H100,
+separate histories and per-peer limits. Foreground bash, Python and `evaluate`
+calls serialize under the sample-local lock. Background processes and file edits
+remain shared; upstream root/Internet access is retained. No submit tool is
+exposed. Final upstream grading runs after peer join. Development measurements
+and call statuses are trusted records of feedback, separate from the final score.
+Malformed/missing development JSON is reported as a recoverable tool error.
+Unavailable integrity verdicts remain unavailable across epoch means and replay.
+
+Verified with the `inferencebench` extra installed: Ruff/format, mypy (51 files),
+initial 111 default tests and 13 Docker tests including 64-peer MirrorCode,
+then 116 default tests including controller-mode lifecycle and concurrent-sample
+mocks, plus the changed InferenceBench Docker check. The wheel contains 38 InferenceBench files. All 27
+original source hashes match after reversing documented adaptations. The
+four-peer mock `.eval` and replay under
+`run-artifacts/inferencebench-import-20261009/` use synthetic GPU measurements.
+
+The user authorized Haiku 5.5 with four 100K peer allowances, GPT-6.1 Sol through
+Generality Middleman, and a temporary shared H100 deleted after saving results.
+They explicitly chose Hawk as controller and RunPod as GPU. The adapter now
+supports `gpu_management: controller`: no native Inspect sandbox, external GPU
+commands through task-owned SSH tools. The real Hawk 3.4.0 patcher accepts its
+standard mode and rejects strict isolation. Kubernetes sandbox isolation does
+not apply to the external pod. Setup failure, grading failure, missing-role
+preallocation failure, sample isolation and idempotent teardown have authored
+mock checks. No travelling-Pro or Air controller is needed.
+
+The credential-free Hawk eval-set lives in
+`run-artifacts/inferencebench-import-20261009/hawk-haiku55-4x100k.eval-set.yaml`.
+The subject uses the verified OpenRouter work key pinned to Anthropic; the
+integrity role uses OpenAI's Generality Middleman route with a separate Hawk
+credential. Both use their full 128K output limit. Subject effective context is
+1M and native compaction is 750K. Planned team allowance is 400K, subject to native
+response-boundary overshoot. No aggregate sample cap or checkpoint resume is set.
+
+Read the task-scoped launch receipt before retrying. Local native/Docker/mock
+checks establish integration, not real-GPU performance. Preserve unrelated
+RunPod pods, Hawk jobs and the protected memory-only operator. Publish only this
+port's paths as a tagged snapshot for Hawk; keep remote main unchanged and
+preserve the unrelated handoff edits. Real model work, development/grading
+measurements, `.eval` and exact RunPod teardown must be checked after the smoke.
