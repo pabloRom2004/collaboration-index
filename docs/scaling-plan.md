@@ -17,7 +17,17 @@ in 825.00 s from launch to final log, using 33.16M actual tokens; N=64 scored
 submit. Final scoring covered all 1,553 cases, and the board journals are
 embedded. See [handoff.md](handoff.md#mailauth-scoring-repair-and-shared-workspace-smokes-2026-10-08)
 and the local `run-artifacts/hawk-mirrorcode-haiku55-smokes-20261008/smoke-results.md`.
-The larger sweep remains at the evidence/resource-policy review phase.
+The six-model sweep remains at the evidence/resource-policy review phase.
+
+On 2026-10-09 the user authorized an overnight Haiku-only sweep at all seven
+team sizes, **one epoch each**, using the existing **250M total allowance per
+team** plan. All seven are submitted, and real model/tool activity is verified
+for each. Their independent Hawk controllers use the same source and resource
+formula as the successful smokes. Receipts, current status and plotting helpers
+are under `run-artifacts/hawk-mirrorcode-haiku55-sweep-250m-20261009/`.
+The monitor collects final logs and plots before the next review. **No other
+model may launch until the user explicitly approves it tomorrow.** This
+authorization does not expand the later six-model study to paid preflights.
 
 ## Questions
 

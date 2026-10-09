@@ -359,6 +359,55 @@ Results and configuration receipts are under
 has not started. That folder's `smoke-results.md` is the readable comparison,
 and `results.json` retains sanitized timing and numeric score events.
 
+### Overnight Haiku-only Mailauth sweep (2026-10-09)
+
+After reviewing the smokes, the user authorized N=1,2,4,8,16,32,64 with one
+epoch each, autonomous overnight collection and plots. The prior 250M total
+team allowance applies: peer caps are 250M, 125M, 62.5M, 31.25M, 15.625M,
+7.8125M and 3.90625M respectively. Every team uses `77f2937`, the same
+Mailauth/Python task, native ReAct, Anthropic-only OpenRouter work route,
+generation/compaction settings, workspace scaling formula and scoring pool
+formula as the completed smokes. Each is an independent Hawk eval-set and
+runner with a fresh board; no checkpoint continuation was enabled.
+
+| Peers | Owned Hawk evaluation |
+| --- | --- |
+| 1 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mc-h55-250m-n01-1009-v1-asetz5j4ojxmgql7) |
+| 2 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mc-h55-250m-n02-1009-v1-4x5nmrs2c7w9ky7o) |
+| 4 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mc-h55-250m-n04-1009-v1-cbpzui5ks4ejbc1o) |
+| 8 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mc-h55-250m-n08-1009-v1-y0p4x4auhhq7hwg1) |
+| 16 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mc-h55-250m-n16-1009-v1-0mov2vlqfeg23hiy) |
+| 32 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mc-h55-250m-n32-1009-v1-hozp7at0nou2eljt) |
+| 64 | [eval-set](https://viewer.hawk.hawk.generalitylabs.ai/eval-set/mc-h55-250m-n64-1009-v1-wkreq3hjjntlp4ng) |
+
+At 2026-10-09 00:00:42 UTC all seven had actual token usage and tool activity.
+The live sweep had 13 completed testing calls and zero reference errors.
+This is launch-health evidence, not a final result. Configs, receipts, protected
+operator requests, metadata reductions and plotting helpers live under
+`run-artifacts/hawk-mirrorcode-haiku55-sweep-250m-20261009/`.
+`monitor_once.py` performs one bounded collection, final-log reduction, plot
+update and `progress.md` refresh. Use the repo `.venv` to invoke it; it uses
+its own verified Matplotlib environment without changing the project lockfile.
+The plotter was rendered and checked against the completed 32M smoke data,
+kept separately from this sweep. Pending/unscored attempts are not plotted
+as zeros. Final plots will show scores, attempt duration and actual token use.
+
+The existing automation `mirrorcode-haiku-smoke-monitoring` was updated to
+"MirrorCode Haiku overnight sweep", active every five minutes. It remains
+quiet without actionable changes, checks final grading/board history/durable
+logs, and pauses after all seven results and cleanup are verified. The remote
+Hawk controllers survive laptop sleep. Local monitoring, fixes and plots need
+the Mac and app available; the Mac was on battery at handoff, so this was
+explicitly explained to the user. Scope permits compatible tested failure
+repairs and fresh retries of failed configurations, preserving original
+attempts and avoiding duplicate live work; normally completed low scores stand.
+
+The user explicitly narrowed tonight to Haiku only. **Do not launch any of the
+six-model follow-up runs until explicit approval tomorrow after reviewing the
+Haiku results and plots.** One epoch per N cannot estimate variance, hardware
+grows with N, and actual usage can overshoot native allowances. Keep those
+limits in the comparison; do not call the result a causal scaling law.
+
 ## 16-agent counting model sweep (2026-10-08)
 
 Nine models counted to 32 with 16 agents, a three-hour team deadline, xhigh
