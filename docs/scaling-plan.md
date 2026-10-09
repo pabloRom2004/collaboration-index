@@ -39,6 +39,12 @@ stopping-policy questions and must not be pooled. Active-loop continuation keeps
 the peer's history, usage and board; checkpoint continuation remains unsupported.
 No six-model follow-up is authorized.
 
+All seven budget-driven Haiku attempts are now launched at runtime commit
+`5dc9b9c54037aab303cb57935e6b18da2581eaa3`; real model/tool work and the absence
+of submit are verified for every peer. Testing and final grading continue under
+the existing five-minute heartbeat. The earlier voluntary-stop sweep has all
+seven verified final results and visually checked plots; see the dated handoff.
+
 ## Questions
 
 For a fixed total token budget, does adding agents to one shared box make a

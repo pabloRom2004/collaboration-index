@@ -54,6 +54,16 @@ Pablo explicitly approves after review. The existing heartbeat monitors both
 conditions via the protected memory-only Hawk operator; never use Keychain.
 The Hawk controllers are remote; local monitoring needs the Mac and app available.
 
+The fresh condition is published at runtime source
+`5dc9b9c54037aab303cb57935e6b18da2581eaa3`. N=64 launched at 00:55:55 UTC;
+the other six launched at 01:03:36–01:03:54 UTC on 2026-10-09. At 01:08:19 UTC,
+all 127 peers across all seven attempts had real model and tool activity. Each
+model tool set omitted submit. N=32 completed one testing call without a testing
+or reference error; final grades for the new condition remain pending. Exact
+IDs, immutable config hashes and current measurements are in the new manifest,
+`launch-summary.json` and `progress.md`. The five-minute heartbeat is active and
+reuses the completed baseline results rather than polling its finished jobs.
+
 ## User intent
 
 Build `collaboration-index` as a reusable home for collaboration evaluations.
