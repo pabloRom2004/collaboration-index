@@ -37,6 +37,9 @@ The requested smoke uses Haiku 5.5 through the official Anthropic OpenRouter
 endpoint and GPT-6.1 Sol through Generality Middleman. Routing, full output
 limits and work credentials are launch settings; the task selects no model or
 reasoning effort. Native compaction is configured at 75% of the verified context.
+`context_window` and `grader_context_window` accept verified effective windows
+for the peers and integrity judge respectively. The requested judge's 1.05M
+window gives a 787,500-token threshold; Haiku's 1M window gives 750,000.
 
 ## Configuration and environment
 
@@ -60,6 +63,9 @@ Controller mode checks the explicit judge before allocation, binds each resource
 to one sample, and joins peers before final grading. Setup failures and task
 cleanup shield deletion of the owned pod; native mode retains Inspect's sandbox
 cleanup. A durable store receipt records the external resource ID and teardown.
+All controller receipts, baselines and submission artifacts live below the
+configured `artifact_dir`; use an absolute writable path such as
+`/tmp/run-artifacts/inferencebench` on Hawk, whose working directory is read-only.
 
 Peers retain upstream root access and Internet access for installing inference
 engines. Operator/provider credentials stay on the controller. Peers use bash,
@@ -100,9 +106,11 @@ The runtime, evaluator assets and licenses are under
 SHA-256 hashes are in
 [upstream.json](../src/collaboration_index/inferencebench/upstream.json).
 Python imports are scoped to the destination package. The backend's GPU selector
-also accepts the explicitly managed sample resource. The upstream task and
-subject harness are replaced by the adapter; the destination keeps its locked
-Inspect 0.3.277 instead of the source port's 0.3.263 dependency. The public
+also accepts the explicitly managed sample resource. Artifact paths are
+redirected below the configured writable directory. The upstream task and
+subject harness are replaced by the adapter, and native judge compaction follows
+the configured 75% policy. The destination uses its locked Inspect 0.3.277 instead
+of the source port's 0.3.263 dependency. The public
 snapshot is deliberately distinct from the newer local InferenceBench checkout.
 
 Scripted local fixtures exercise the native four-peer lifecycle, shared files,

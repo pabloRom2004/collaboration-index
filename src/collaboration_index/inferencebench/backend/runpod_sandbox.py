@@ -1,4 +1,4 @@
-# Modified from the pinned Apache-2.0 source: imports use this package namespace.
+# Modified from the pinned Apache-2.0 source: scoped imports and writable resource receipts.
 import asyncio
 import json
 import os
@@ -262,6 +262,8 @@ class RunPodSandbox(SandboxEnvironment):
     async def sample_init(cls, task_name, config, metadata):
         """Create one pod per sample and release it if provisioning or SSH setup fails."""
         env = cls(cls._configuration(config))
+        if metadata.get("artifacts_root"):
+            env.folder = Path(metadata["artifacts_root"]) / "runpod" / env.name
         env._record("creating")
         payload = {
             **env.config["pod"],

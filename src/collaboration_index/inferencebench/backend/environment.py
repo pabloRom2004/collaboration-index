@@ -1,4 +1,4 @@
-# Modified from the pinned Apache-2.0 source: scoped imports and external GPU selection.
+# Modified from the pinned Apache-2.0 source: scoped imports, external GPU selection and writable artifacts.
 import hashlib
 import json
 import os
@@ -49,7 +49,9 @@ def speed_baseline_folder(identity: dict[str, Any]) -> Path:
     """Place each shared baseline in a folder named by its workload and a digest of the full identity."""
     digest = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()[:12]
     model = re.sub(r"[^A-Za-z0-9_.-]+", "_", identity["base_model"])
-    return BASELINE_CACHE / f"{identity['scenario']}-seed{identity['eval_seed']}-{model}-{digest}"
+    root = store().get("inferencebench_artifacts_root")
+    cache = Path(root) / "baselines" if root else BASELINE_CACHE
+    return cache / f"{identity['scenario']}-seed{identity['eval_seed']}-{model}-{digest}"
 
 
 def cached_speed_baseline(identity: dict[str, Any]) -> Path | None:
@@ -173,7 +175,7 @@ def prepare_environment() -> Solver:
             }))
         env = gpu_environment()
         folder = (
-            Path("run-artifacts")
+            Path(state.metadata.get("artifacts_root", "run-artifacts"))
             / "inferencebench"
             / f"{state.sample_id}-epoch-{state.epoch}-{time.time_ns()}"
         )

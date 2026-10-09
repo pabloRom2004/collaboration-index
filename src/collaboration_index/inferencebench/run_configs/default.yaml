@@ -9,6 +9,7 @@ task:
     artifact_dir: run-artifacts/inferencebench-team
     compaction_threshold: 0.75
     context_window: null
+    grader_context_window: null
     gpu_config: null
     gpu_management: inspect
     scenarios: A

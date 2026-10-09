@@ -1,4 +1,4 @@
-# Modified from the pinned Apache-2.0 source: imports use this package namespace.
+# Modified from the pinned Apache-2.0 source: scoped imports and configured judge compaction.
 import importlib
 import json
 import math
@@ -7,7 +7,7 @@ from typing import Any
 
 import anyio
 from inspect_ai.agent import AgentState, react
-from inspect_ai.model import ChatMessageUser, GenerateConfig, get_model, model_roles
+from inspect_ai.model import ChatMessageUser, CompactionAuto, GenerateConfig, get_model, model_roles
 from inspect_ai.scorer import Score, Scorer, scorer
 from inspect_ai.tool import Tool, tool
 from inspect_ai.util import store
@@ -196,7 +196,8 @@ async def judge_submission(
         )
     )
     tools = [inspect_submission()] + ([run_shell()] if judge_shell else [])
-    judge = react(model=model, prompt=None, tools=tools, submit=False)
+    judge = react(model=model, prompt=None, tools=tools, submit=False,
+                  compaction=CompactionAuto(threshold=state.metadata.get("integrity_compaction_threshold", 0.75)))
 
     result = ""
     for attempt_number in range(1, max_grader_attempts + 1):

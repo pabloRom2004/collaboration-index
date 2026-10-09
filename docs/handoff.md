@@ -722,3 +722,25 @@ RunPod pods, Hawk jobs and the protected memory-only operator. Publish only this
 port's paths as a tagged snapshot for Hawk; keep remote main unchanged and
 preserve the unrelated handoff edits. Real model work, development/grading
 measurements, `.eval` and exact RunPod teardown must be checked after the smoke.
+
+The first Hawk attempt hit a redundant top-level `max_samples` collision with
+Hawk's infra config before any sample. The second retained a failed `.eval`:
+its read-only runner working directory prevented the original relative resource
+receipt path. Neither allocated a GPU or called a model. Their diagnostics and
+receipts are saved under the import's `attempt-1-setup-failure` and
+`attempt-2-readonly-failure` directories; failed runner resources were removed.
+The adapter now routes pod receipts, baseline caches and grading artifacts below
+`artifact_dir`, including bootstrap-failure receipts, and has a four-peer mock
+round trip through real provider initialization from a read-only working directory.
+On Hawk use an absolute writable `/tmp/run-artifacts/...` path. Hawk's deployed
+3.7.2 credential-refresh hook was separately tested with authored keys: it leaves
+external OpenRouter work credentials untouched and refreshes the Middleman judge
+credential. The retry therefore retains default Hawk refresh settings.
+
+The source repair also configures the integrity judge's native compaction at the
+same 75% policy: verified 1.05M context gives 787,500 tokens. Mock scoring asserts
+that the judge factory consumes that threshold. Updated local QA is 117 default
+tests, the InferenceBench Docker round trip, Ruff/format, mypy and wheel checks.
+Original hashes still match after reversing the documented namespace, resource,
+artifact-path and judge-compaction adaptations. Retest the real GPU path from the
+new pinned snapshot; the two preallocation failures are not benchmark scores.

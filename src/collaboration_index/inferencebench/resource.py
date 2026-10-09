@@ -1,5 +1,6 @@
 """Own sample-scoped external GPU resources independently of Inspect sandbox patching."""
 
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -34,6 +35,10 @@ async def allocate(state: TaskState) -> None:
     if state.store.get(RESOURCE_KEY) is not None:
         raise RuntimeError("External GPU checkpoint continuation is unsupported")
     identity = uuid4().hex
+    receipts = Path(state.metadata["artifacts_root"]) / "runpod"
+    receipts.mkdir(parents=True, exist_ok=True)
+    # The artifact hook can retain provider receipts even if bootstrap fails.
+    state.store.set("artifacts", str(receipts))
     # The provider cleans up an accepted allocation if initialization fails.
     environments = await RunPodSandbox.sample_init(
         "collaboration_index/inferencebench",

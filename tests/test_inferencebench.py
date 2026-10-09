@@ -297,10 +297,18 @@ def test_controller_gpu_lifecycle(
     """Exercise remote peer tools and cleanup across success, setup failure and grading failure."""
     from collaboration_index.inferencebench import resource
     from collaboration_index.inferencebench.backend import environment
+    from collaboration_index.inferencebench.backend import scorers as backend_scorers
     from collaboration_index.inferencebench.backend.runpod_sandbox import RunPodSandbox
 
     allocated: list[FixtureSandbox] = []
     original_exec = FixtureSandbox.exec
+    original_react = backend_scorers.react
+    judge_thresholds = []
+
+    def judge_agent(**kwargs: Any) -> Any:
+        """Verify the bound judge harness consumes the configured compaction threshold."""
+        judge_thresholds.append(kwargs["compaction"].threshold)
+        return original_react(**kwargs)
 
     async def allocate(cls: Any, *args: Any) -> dict[str, FixtureSandbox]:
         """Simulate exactly one external allocation without an Inspect sandbox context."""
@@ -318,6 +326,7 @@ def test_controller_gpu_lifecycle(
 
     monkeypatch.setattr(RunPodSandbox, "sample_init", classmethod(allocate))
     monkeypatch.setattr(FixtureSandbox, "exec", execute)
+    monkeypatch.setattr(backend_scorers, "react", judge_agent)
     monkeypatch.setattr(environment, "BASELINE_CACHE", tmp_path / "baselines")
     monkeypatch.setenv("HAWK_JOB_ID", "authored-fixture-hawk")
     task = inferencebench(
@@ -325,6 +334,7 @@ def test_controller_gpu_lifecycle(
         token_limit_per_agent=240,
         artifact_dir=str(tmp_path),
         gpu_management="controller",
+        grader_context_window=1050000,
     )
     judge = get_model(
         "mockllm/judge",
@@ -362,6 +372,7 @@ def test_controller_gpu_lifecycle(
     assert len(sample.store["InferenceHistory:checks"]) == 4
     assert sample.store[resource.RESOURCE_KEY] is None
     assert sample.store["external_gpu_lifecycle"]["status"] == "terminated"
+    assert judge_thresholds == [787500]
 
 
 def test_concurrent_external_samples_are_isolated(
@@ -435,6 +446,107 @@ def test_concurrent_external_samples_are_isolated(
         sample.scores["inference_team_speedup"].value["speedup"] == 2
         for sample in log.samples
     )
+
+
+def test_hawk_readonly_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Run real pod initialization and final grading with all artifacts outside a read-only working directory."""
+    from collaboration_index.inferencebench.backend.runpod_sandbox import RunPodSandbox
+
+    cwd = tmp_path / "readonly"
+    cwd.mkdir()
+    cwd.chmod(0o555)
+    root = tmp_path / "run-artifacts" / "team"
+    fixture = FixtureSandbox()
+    calls = []
+
+    async def request(self: Any, method: str, path: str, **kwargs: Any) -> Any:
+        """Simulate only owned pod creation and deletion with the real provider lifecycle."""
+        calls.append((method, path))
+        return {"id": "authored-fixture-pod"} if method == "POST" else None
+
+    async def ready(self: Any, previous_boot: Any) -> None:
+        """Replace SSH bootstrap with an already ready authored filesystem."""
+        return None
+
+    async def execute(self: Any, cmd: list[str], **kwargs: Any) -> ExecResult[str]:
+        """Forward trusted and participant fixture commands through the simulated remote transport."""
+        return await fixture.exec(cmd, **kwargs)
+
+    async def read(self: Any, *args: Any, **kwargs: Any) -> Any:
+        """Read only the authored remote filesystem."""
+        return await fixture.read_file(*args, **kwargs)
+
+    async def write(self: Any, *args: Any, **kwargs: Any) -> None:
+        """Write only the authored remote filesystem."""
+        await fixture.write_file(*args, **kwargs)
+
+    async def upload(self: Any, *args: Any, **kwargs: Any) -> None:
+        """Upload trusted fixture inputs while keeping controller files in their configured directory."""
+        await fixture.upload(*args, **kwargs)
+
+    async def download(self: Any, *args: Any, **kwargs: Any) -> None:
+        """Retain authored measurements and submission archives."""
+        await fixture.download(*args, **kwargs)
+
+    async def restart(self: Any, config: Any) -> Any:
+        """Simulate the single scoring restart after peer join."""
+        await fixture.restart(config)
+        return self
+
+    monkeypatch.chdir(cwd)
+    monkeypatch.setenv("RUNPOD_API_KEY", "authored-fixture-key")
+    monkeypatch.setenv("HAWK_JOB_ID", "authored-fixture-hawk")
+    for name, method in {
+        "_request": request,
+        "_wait_ready": ready,
+        "exec": execute,
+        "read_file": read,
+        "write_file": write,
+        "upload": upload,
+        "download": download,
+        "restart": restart,
+    }.items():
+        monkeypatch.setattr(RunPodSandbox, name, method)
+    task = inferencebench(
+        agents=4,
+        token_limit_per_agent=240,
+        artifact_dir=str(root),
+        gpu_management="controller",
+    )
+    judge = get_model(
+        "mockllm/judge",
+        custom_outputs=[
+            ModelOutput.from_content(
+                "mockllm/judge", "No contamination detected\nOnly allowed use detected"
+            )
+        ],
+    )
+    [log] = inspect_eval(
+        task,
+        model=fixture_model(),
+        model_roles={"integrity": judge},
+        log_dir=str(LOGS),
+        display="none",
+    )
+    assert log.status == "success", log.error
+    assert not (cwd / "run-artifacts").exists()
+    receipts = list((root / "runpod").glob("*/pod.json"))
+    assert (
+        len(receipts) == 1
+        and json.loads(receipts[0].read_text())["status"] == "terminated"
+    )
+    assert sum(method == "POST" for method, path in calls) == 1
+    assert all(
+        path == "/pods/authored-fixture-pod"
+        for method, path in calls
+        if method == "DELETE"
+    )
+    sample = log.samples[0]
+    assert Path(sample.store["artifacts"]).is_relative_to(root)
+    assert (Path(sample.store["artifacts"]) / "submission.tar.gz").is_file()
+    assert sample.scores["inference_team_speedup"].value["speedup"] == 2
 
 
 @pytest.mark.parametrize("failure", ["command", "missing", "malformed", "non_object"])

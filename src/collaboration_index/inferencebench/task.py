@@ -84,6 +84,9 @@ def prepare_inference_team(
         """Measure trusted baselines once, initialize the board state and install shared tools."""
         get_model(role=grader_role, required=True)
         state.store_as(InferenceHistory)
+        state.store.set(
+            "inferencebench_artifacts_root", state.metadata["artifacts_root"]
+        )
         if external:
             await allocate(state)
         try:
@@ -154,6 +157,7 @@ def inferencebench(
     artifact_dir: str = ARGS["artifact_dir"],
     compaction_threshold: float = ARGS["compaction_threshold"],
     context_window: int | None = ARGS["context_window"],
+    grader_context_window: int | None = ARGS["grader_context_window"],
     gpu_config: str | None = ARGS["gpu_config"],
     gpu_management: str = ARGS["gpu_management"],
     scenarios: str | list[str] | None = ARGS["scenarios"],
@@ -178,6 +182,8 @@ def inferencebench(
         raise ValueError("tool_timeout must be a positive integer")
     if gpu_management not in {"inspect", "controller"}:
         raise ValueError("gpu_management must be inspect or controller")
+    if grader_context_window is not None and grader_context_window < 1:
+        raise ValueError("grader_context_window must be a positive token count")
     validate_workload(workload)
     options = copy.deepcopy(workload)
     options.update(
@@ -195,6 +201,10 @@ def inferencebench(
             "benchmark_title": "InferenceBench",
             "team_size_disclosed": True,
             "gpu_management": gpu_management,
+            "artifacts_root": str(Path(artifact_dir).expanduser().resolve()),
+            "integrity_compaction_threshold": compaction_threshold
+            if grader_context_window is None
+            else int(grader_context_window * compaction_threshold),
         }
     return Task(
         dataset=dataset,
@@ -234,6 +244,7 @@ def inferencebench(
             if token_limit_per_agent is None
             else agents * token_limit_per_agent,
             "context_window": context_window,
+            "grader_context_window": grader_context_window,
             "source_commit": "8241a435ebe1cbb7fe5355f3b2ee3b7a85be884b",
             "gpu_management": gpu_management,
             "team_size_disclosed": True,

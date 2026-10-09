@@ -30,5 +30,5 @@
     "run_configs/original.yaml": "0a2be3695a33b3ac7ec57cefb4127c8f242e813cb4d126d4e6ffbe64a527cb32",
     "run_configs/default.yaml": "723374bc9ef33e326f41b1f5d7c1f43a454eeb74f92bb3049039171329078281"
   },
-  "adaptation": "Python imports use collaboration_index.inferencebench.backend; environment.gpu_environment also resolves an explicitly controller-managed sample GPU; subject harness and task are replaced by the team adapter."
+  "adaptation": "Python imports use collaboration_index.inferencebench.backend; environment.gpu_environment resolves an explicitly controller-managed sample GPU; preparation, baseline-cache and RunPod receipt paths use the configured writable artifact directory; subject harness and task are replaced by the team adapter. The integrity judge receives native compaction at the configured fraction or verified absolute context threshold."
 }
