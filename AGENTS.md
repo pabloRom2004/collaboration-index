@@ -59,9 +59,13 @@ are different conditions.
   package in the `mirrorcode` extra. A pool assigns calls to separate scoring
   pipelines, one call per pipeline; excess calls queue, and a shared lock
   serializes workspace tar packing. Workspace edits remain unrestricted.
-  Any peer's `submit` marks the attempt ended; peers finish their current turn
-  before stopping, and upstream's scorer grades `/workdir/src` after peer join.
-  Submission does not immediately freeze the files. Its sandbox configuration
+  Version 2 defaults to `allow_submit=false`: peers receive no submit tool,
+  and a turn without tool calls gets an explicit continuation reminder while
+  budget remains. Native peer caps end independently; trusted records count
+  `nudges`. `allow_submit=true` retains the voluntary-stop condition, where
+  any peer's `submit` ends the attempt after current turns finish. Upstream's
+  scorer grades `/workdir/src` after peer join. Submission in that condition
+  does not immediately freeze the files. Its sandbox configuration
   uses upstream-generated Docker Compose files, and its scorer writes sidecar
   files beside the log,
   so log to `run-artifacts/<run>/` and move the `.eval` into `logs/`.
@@ -148,7 +152,7 @@ message: elapsed seconds, remaining seconds and the deadline in minutes. Peers
 keep working until the task ends or the deadline passes, rather than stopping
 on a turn without a tool call. Keep this in any new task or agent factory.
 MirrorCode is the exception the user asked for: it has no deadline by default,
-so peers run until their token budgets or a submit end the attempt. Its update
+so peers run until their token budgets (or submit when explicitly enabled). Its update
 replaces the time line with the peer's own token usage and limit, following
 upstream's `resources` tool, which the task removes.
 

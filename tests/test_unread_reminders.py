@@ -279,6 +279,7 @@ def test_mirrorcode_uses_the_same_decision_notifications(tmp_path: Path) -> None
     from collaboration_index.mirrorcode import mirrorcode
 
     task = mirrorcode(
+        allow_submit=True,
         agents=2,
         token_limit_per_agent=10000,
         team_time_limit=600,

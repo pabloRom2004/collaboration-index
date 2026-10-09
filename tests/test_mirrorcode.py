@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 import yaml
 from inspect_ai import eval as inspect_eval
+from inspect_ai.log import read_eval_log
 from inspect_ai.model import (
     ChatMessageTool,
     ChatMessageUser,
@@ -68,6 +69,13 @@ def test_task_hides_resources_and_team_size() -> None:
     task = mirrorcode(agents=3, token_limit_per_agent=1000)
     sample = task.dataset[0]
     assert "resources" not in str(sample.input)
+    assert "`submit`" not in str(sample.input)
+    assert sample.metadata["allow_submit"] is False
+    assert task.metadata["allow_submit"] is False
+    voluntary = mirrorcode(token_limit_per_agent=1000, allow_submit=True)
+    assert "call the `submit` tool" in str(voluntary.dataset[0].input)
+    with pytest.raises(ValueError, match="boolean"):
+        mirrorcode(token_limit_per_agent=1000, allow_submit="yes")
     assert "/workdir/src/" in str(sample.input)
     assert sample.target == ["rev", "Python"]
     assert task.metadata["planned_team_token_budget"] == 3000
@@ -229,6 +237,7 @@ def test_mailauth_scores_with_unresponsive_dns(
 ) -> None:
     """Produce tool feedback and a final grade despite an initially unresponsive resolver."""
     task = mirrorcode(
+        allow_submit=True,
         agents=2,
         target="mailauth",
         token_limit_per_agent=10000,
@@ -268,6 +277,7 @@ def test_mailauth_scores_with_unresponsive_dns(
 def test_mailauth_scores_with_readonly_resolver(tmp_path: Path) -> None:
     """Grade through a read-only resolver mount matching Hawk's startup contract."""
     task = mirrorcode(
+        allow_submit=True,
         agents=2,
         target="mailauth",
         token_limit_per_agent=10000,
@@ -310,6 +320,7 @@ def test_two_peers_share_one_workspace_and_submit(
 ) -> None:
     """Score one shared codebase after simultaneous evaluations on one or two pipelines."""
     task = mirrorcode(
+        allow_submit=True,
         agents=2,
         token_limit_per_agent=10000,
         artifact_dir=str(tmp_path),
@@ -337,7 +348,10 @@ def test_two_peers_share_one_workspace_and_submit(
 def test_sixty_four_peers_share_one_workspace(tmp_path: Path) -> None:
     """Run the largest supported team through the board, scoring and submit in one box."""
     task = mirrorcode(
-        agents=64, token_limit_per_agent=10000, artifact_dir=str(tmp_path)
+        allow_submit=True,
+        agents=64,
+        token_limit_per_agent=10000,
+        artifact_dir=str(tmp_path),
     )
     [log] = inspect_eval(
         task, model=team_fixture(), log_dir=str(tmp_path), display="none"
@@ -444,11 +458,124 @@ def busy_team_fixture() -> Any:
     )
 
 
+def budget_team_fixture() -> Any:
+    """Stop every peer once, resume useful work, and exhaust independent native limits."""
+    turns: dict[str, int] = {}
+    board_run: set[str] = set()
+
+    async def reply(
+        messages: list[Any], tools: list[Any], choice: Any, config: Any
+    ) -> ModelOutput:
+        """Verify continuation keeps private histories and resumes without a submit affordance."""
+        opening = next(m for m in messages if (m.metadata or {}).get("team_actor"))
+        actor = opening.metadata["team_actor"]
+        board_run.add(opening.metadata["team_run"])
+        assert len(board_run) == 1
+        names = {tool.name for tool in tools}
+        assert "submit" not in names and "resources" not in names
+        assert {"bash", "text_editor", "evaluate_testcases", "message_board"} <= names
+        assert "There is no submit tool" in opening.text
+        assert not any("call the `submit` tool" in m.text for m in messages)
+        done = [m for m in messages if isinstance(m, ChatMessageTool)]
+        assert not any(m.error for m in done)
+        step = turns.get(actor, 0)
+        turns[actor] = step + 1
+        function, arguments = "", {}
+        if step == 0:
+            function, arguments = (
+                "message_board",
+                {"action": "register", "name": f"Budget {actor}"},
+            )
+        elif step == 1:
+            assert len(done) == 1
+        elif step == 2:
+            update = [m for m in messages if isinstance(m, ChatMessageUser)][-1]
+            assert "You stopped without making any tool calls" in update.text
+            assert "Token update" in update.text and "unread messages" in update.text
+            # The registration response remains in this peer's history after its pause.
+            assert len(done) == 1
+            function, arguments = (
+                "message_board",
+                {"action": "send", "message": "Resumed fixture work."},
+            )
+        elif actor == "agent_0" and step == 3:
+            function, arguments = (
+                "bash",
+                {"cmd": "mkdir -p src/rev && touch src/rev/__init__.py"},
+            )
+        elif actor == "agent_0" and step == 4:
+            function, arguments = (
+                "text_editor",
+                {
+                    "command": "create",
+                    "path": "/workdir/src/rev/__main__.py",
+                    "file_text": SOLUTION,
+                },
+            )
+        elif actor == "agent_0" and step == 5:
+            function = "evaluate_testcases"
+        else:
+            function, arguments = "message_board", {"action": "read"}
+        output = (
+            ModelOutput.for_tool_call("mockllm/model", function, arguments)
+            if function
+            else ModelOutput.from_content("mockllm/model", "I stopped working.")
+        )
+        # Other peers finish first, while the writer keeps working with its remaining cap.
+        output.usage = ModelUsage(
+            input_tokens=20 if actor == "agent_0" else 50,
+            output_tokens=10,
+            total_tokens=30 if actor == "agent_0" else 60,
+        )
+        return output
+
+    return get_model(
+        "mockllm/model", custom_outputs=reply, config=GenerateConfig(max_connections=64)
+    )
+
+
+@pytest.mark.docker
+@pytest.mark.parametrize("agents", [2, 64])
+def test_budget_team_resumes_and_grades_after_peer_limits(
+    tmp_path: Path, agents: int
+) -> None:
+    """Persist a final grade and board after resumed peers independently reach their caps."""
+    task = mirrorcode(
+        agents=agents, token_limit_per_agent=300, artifact_dir=str(tmp_path)
+    )
+    [log] = inspect_eval(
+        task, model=budget_team_fixture(), log_dir=str(tmp_path), display="none"
+    )
+    log = read_eval_log(log.location, resolve_attachments=True)
+    assert log.status == "success", log.error
+    sample = log.samples[0]
+    assert sample.error is None
+    assert sample.store["TeamHistory:end_reason"] == "peers_finished"
+    assert sample.store["TeamHistory:objective_completed"] is None
+    assert sample.store["TeamHistory:submissions"] == []
+    peers = sample.store["TeamHistory:peers"]
+    assert len(peers) == agents
+    assert all(p["status"] == "limited" and p["tokens"] == 300 for p in peers)
+    assert all(p["nudges"] == 1 and p["tool_calls"] >= 3 for p in peers)
+    assert peers[0]["completed"] > max(p["completed"] for p in peers[1:])
+    assert len({p["sandbox_hostname"] for p in peers}) == 1
+    assert sample.scores["mirrorcode_scorer"].value["all"] == 1.0
+    journal = sample.store["BoardHistory:journal"]
+    assert sum(e["kind"] == "register" for e in journal) == agents
+    assert sum(e["kind"] == "message" for e in journal) == agents
+    tools = [e for e in sample.events if e.event == "tool"]
+    assert not any(e.function == "submit" for e in tools)
+    assert sum(e.function == "evaluate_testcases" for e in tools) == 1
+
+
 @pytest.mark.docker
 def test_busy_sixty_four_peers_and_all_scoring_pipelines(tmp_path: Path) -> None:
     """Keep all peers active while eight grading pipelines serve nine overlapping calls."""
     task = mirrorcode(
-        agents=64, token_limit_per_agent=10000, artifact_dir=str(tmp_path)
+        allow_submit=True,
+        agents=64,
+        token_limit_per_agent=10000,
+        artifact_dir=str(tmp_path),
     )
     [log] = inspect_eval(
         task, model=busy_team_fixture(), log_dir=str(tmp_path), display="none"

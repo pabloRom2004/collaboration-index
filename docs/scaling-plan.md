@@ -29,6 +29,16 @@ The monitor collects final logs and plots before the next review. **No other
 model may launch until the user explicitly approves it tomorrow.** This
 authorization does not expand the later six-model study to paid preflights.
 
+The user then explicitly authorized a fresh Haiku rerun with no submit tool and
+an ExploitBench-style reminder when a peer stops calling tools with budget left.
+The new condition keeps all seven team sizes, one epoch and the same 250M
+aggregate allowance. Its artifacts live separately under
+`run-artifacts/hawk-mirrorcode-haiku55-budget-driven-250m-20261009/`.
+Preserve the earlier voluntary-stop attempts; these conditions answer different
+stopping-policy questions and must not be pooled. Active-loop continuation keeps
+the peer's history, usage and board; checkpoint continuation remains unsupported.
+No six-model follow-up is authorized.
+
 ## Questions
 
 For a fixed total token budget, does adding agents to one shared box make a
@@ -44,7 +54,7 @@ models, also in one shared box.
 | Target | `mailauth` in Python; one target reused for every run |
 | Team sizes | 1, 2, 4, 8, 16, 32, 64 |
 | Budget | Immediate smokes: 32M total allowance each, giving 1M per peer at N=32 and 500K at N=64; planned comparison: 250M total per attempt, divided into equal, non-transferable peer caps |
-| Deadline | None; a run ends when an agent submits or every budget is spent |
+| Deadline | None; the new budget-driven condition ends after every peer reaches its cap; the preserved voluntary-stop condition also permits any peer to submit |
 | Agent | Native Inspect `react`, as now |
 | Topology | Every agent in the same MirrorCode workspace container |
 | Communication | The existing message board |

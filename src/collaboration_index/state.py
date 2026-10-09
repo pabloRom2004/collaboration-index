@@ -35,6 +35,7 @@ class Peer(BaseModel):
     output_tokens: int = 0
     turns: int = 0
     tool_calls: int = 0
+    nudges: int = 0
 
 
 class Judgment(BaseModel):

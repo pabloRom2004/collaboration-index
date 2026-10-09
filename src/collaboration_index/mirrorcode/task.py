@@ -26,6 +26,7 @@ ARGS = CONFIG["task"]["args"]
 # MirrorCode's resources tool reports sample limits, while each peer's token
 # budget is its own subagent limit, so the tool and this line are removed
 RESOURCES_LINE = "You can call the `resources` tool to check resource limits (like time or tokens).\n"
+SUBMIT_LINE = "When you have completed the task, call the `submit` tool. "
 
 
 SCORING_SERVICES = (
@@ -217,6 +218,7 @@ def mirrorcode(
     docs: bool = ARGS["docs"],
     include_source: bool = ARGS["include_source"],
     reference_binary: bool = ARGS["reference_binary"],
+    allow_submit: bool = ARGS["allow_submit"],
     memory_per_agent_mb: int = ARGS["memory_per_agent_mb"],
     cpus_per_agent: float = ARGS["cpus_per_agent"],
     agents_per_scoring_pipeline: int = ARGS["agents_per_scoring_pipeline"],
@@ -228,6 +230,8 @@ def mirrorcode(
 
     if type(agents) is not int or not 1 <= agents <= 64:
         raise ValueError("MirrorCode team sizes must be between 1 and 64")
+    if type(allow_submit) is not bool:
+        raise ValueError("allow_submit must be a boolean")
     if token_limit_per_agent is not None and token_limit_per_agent < 1:
         raise ValueError(
             "token_limit_per_agent must be positive, or null for no per-peer budget"
@@ -255,6 +259,10 @@ def mirrorcode(
     if not isinstance(sample.input, str) or RESOURCES_LINE not in sample.input:
         raise RuntimeError("MirrorCode's task description no longer matches")
     sample.input = sample.input.replace(RESOURCES_LINE, "")
+    if not allow_submit:
+        if sample.input.count(SUBMIT_LINE) != 1:
+            raise RuntimeError("MirrorCode's submit instruction no longer matches")
+        sample.input = sample.input.replace(SUBMIT_LINE, "")
     if (
         not isinstance(sample.sandbox, SandboxEnvironmentSpec)
         or not sample.sandbox.config
@@ -277,6 +285,7 @@ def mirrorcode(
         "sandbox_enabled": True,
         "answer_judge": "mirrorcode_scorer",
         "benchmark_title": "MirrorCode",
+        "allow_submit": allow_submit,
     }
     return Task(
         dataset=[sample],
@@ -296,14 +305,15 @@ def mirrorcode(
         config=GenerateConfig(**CONFIG["generate_config"]),
         # MirrorCode's metrics read every epoch's score rather than a reduced mean
         epochs=Epochs(CONFIG["eval_config"]["epochs"], reducer=[]),
-        version=1,
+        version=2,
         name="mirrorcode",
         display_name="MirrorCode",
         metadata={
+            "allow_submit": allow_submit,
             "team_sample": True,
             "condition": "collaborative",
             "agents": agents,
-            "benchmark_variant": "collaboration_index_v1",
+            "benchmark_variant": "collaboration_index_v2",
             "token_limit_per_agent": token_limit_per_agent,
             "planned_team_token_budget": None
             if token_limit_per_agent is None

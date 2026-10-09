@@ -45,6 +45,16 @@ Subject tokens include input, output and any provider-reported reasoning counted
 as output; grading costs are excluded. Tool calls are retained as counts alongside
 the durable board journal. Native token limits are checked at response boundaries.
 
+MirrorCode reports final codebase quality and launch-to-final-log duration,
+including setup and grading. Its budget-driven condition removes submit and
+continues every peer to its native cap, with explicit reminders after no-tool
+turns. The earlier voluntary-stop condition lets any peer end the team and
+can leave allowance unused. Preserve and compare these stopping policies
+separately: neither guarantees improved final quality, and continued edits can
+regress the shared program. Budget exhaustion time does not establish the time
+at which a chosen quality was first reached. Intermediate testing scores and
+final authoritative grades are distinct measurements.
+
 Checkpoint continuation is deliberately rejected until peer histories, native
 limits and the irreversible store can resume together. A fresh run always owns a
 fresh board. Hawk deployment, real-provider concurrency and command-heavy sandbox

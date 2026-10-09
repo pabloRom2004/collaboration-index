@@ -5,6 +5,55 @@ This snapshot was written on **2026-10-07**. Read [AGENTS.md](../AGENTS.md) and
 relying on dated statements. This document records the prototype's starting
 point; it does not authorize new model calls or external actions.
 
+## Budget-driven MirrorCode rerun and completed baseline (2026-10-09)
+
+The user explicitly requested removal of the terminal submit tool and a reminder
+when a native peer stops making tool calls with budget remaining. MirrorCode
+version 2 defaults to `allow_submit=false`; it removes upstream's submit
+instruction, retains each private history and board identity, and counts
+ExploitBench-derived no-tool continuation reminders in `Peer.nudges`. Every
+peer ends independently at its native cap. The final shared codebase is graded
+after all peers join. `allow_submit=true` retains the prior stopping policy for
+explicit controls. This does not implement checkpoint continuation.
+
+Two- and 64-peer Docker mock trajectories resumed after no-tool turns, used the
+same board, reached their individual 300-token synthetic caps, and saved final
+100% grades across all 208 authored `rev` cases. Other peers finished before the
+writer, which continued to edit and test. These establish wrapper behavior, not
+model capability or resource minima. Ruff lint/format, mypy, 99 non-Docker
+tests, all 11 Docker checks and wheel asset checks passed. One legacy notification
+fixture needed an explicit voluntary-stop flag; its focused rerun passed after
+the other ten Docker checks. Verification and fixture hashes are recorded in `run-artifacts/hawk-mirrorcode-haiku55-budget-driven-250m-20261009/local-qa.json`.
+
+The earlier voluntary-stop Haiku sweep is complete at runtime source
+`77f2937d7d76c67f65560501fb0b2af718cab2cf`. Every attempt has a verified durable
+`.eval`, embedded board history, all 1,553 Mailauth cases and zero testing or
+reference errors; owned active pods are zero. End-to-end durations below include
+setup and finalization. Recoverable participant tool errors are recorded
+separately. These are one-epoch observations with hardware growing with N.
+
+| Agents | Final all | Visible | Hidden | End to end | Actual tokens |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 92.21% | 93.65% | 90.46% | 52.36 min | 27,400,846 |
+| 2 | 98.78% | 99.88% | 97.44% | 27.76 min | 28,687,797 |
+| 4 | 94.33% | 96.94% | 91.17% | 34.31 min | 50,081,687 |
+| 8 | 96.39% | 99.53% | 92.59% | 52.87 min | 62,738,508 |
+| 16 | 97.49% | 99.29% | 95.30% | 29.33 min | 150,035,725 |
+| 32 | 96.14% | 99.06% | 92.59% | 40.64 min | 107,702,599 |
+| 64 | 74.63% | 71.09% | 78.92% | 25.97 min | 103,586,238 |
+
+Baseline receipts, immutable configs, hashes and visually verified PNG/PDF/SVG
+plots are in `run-artifacts/hawk-mirrorcode-haiku55-sweep-250m-20261009/`.
+The new budget-driven condition has separate artifacts under
+`run-artifacts/hawk-mirrorcode-haiku55-budget-driven-250m-20261009/`; read its
+manifest for current launch status and exact tested source. Authorized settings
+remain Haiku 5.5 only, N=1,2,4,8,16,32,64, one epoch each and 250M total planned
+allowance per team, equally divided into non-transferable caps. Preserve both
+conditions and do not pool scores. No six-model follow-up is authorized until
+Pablo explicitly approves after review. The existing heartbeat monitors both
+conditions via the protected memory-only Hawk operator; never use Keychain.
+The Hawk controllers are remote; local monitoring needs the Mac and app available.
+
 ## User intent
 
 Build `collaboration-index` as a reusable home for collaboration evaluations.

@@ -40,9 +40,11 @@ from collaboration_index.game import (
 )
 from collaboration_index.prompts import (
     CODEBASE,
+    CODEBASE_BUDGET,
     COLLABORATE,
     COLLABORATE_NO_SANDBOX,
     COLOURING,
+    CONTINUE_WORK,
     ORACLE,
     TIME_UPDATE,
     TOKEN_UPDATE,
@@ -154,6 +156,9 @@ def team_agents(
             raise RuntimeError("Missing invariant team setup")
         actors = [peer.id for peer in history.peers]
         data = state.metadata["data"]
+        budget_driven = (
+            history.benchmark == "mirrorcode" and not state.metadata["allow_submit"]
+        )
         game = TeamGame(history, data, actors)
         async with local_board(
             Path(history.artifact_dir), history.run_id, actors
@@ -212,7 +217,7 @@ def team_agents(
                         limit=token_limit_per_agent,
                     )
 
-                async def decision_update() -> ChatMessageUser:
+                async def decision_update(nudge: str = "") -> ChatMessageUser:
                     """Combine the team clock, the peer's token budget and non-destructive unread counts."""
                     unread = await unread_reminder(
                         options if history.condition == "collaborative" else None,
@@ -221,7 +226,7 @@ def team_agents(
                     # one block per part: Inspect's Anthropic prompt caching marks the
                     # penultimate block of the last message, so a single text block
                     # would leave every turn's history uncached
-                    parts = (time_update(), token_update(), unread)
+                    parts = (nudge, time_update(), token_update(), unread)
                     return ChatMessageUser(
                         content=[ContentText(text=part) for part in parts if part]
                     )
@@ -238,18 +243,33 @@ def team_agents(
                     # turn happens to carry no tool call
                     if history.end_reason is not None:
                         return False
-                    current.messages.append(await decision_update())
+                    nudge = ""
+                    if (
+                        budget_driven
+                        and not output.message.tool_calls
+                        and (
+                            token_limit_per_agent is None
+                            or limit.usage < token_limit_per_agent
+                        )
+                    ):
+                        record.nudges += 1
+                        nudge = CONTINUE_WORK.prompt
+                    current.messages.append(await decision_update(nudge))
                     return current
 
-                tools = [
-                    {
-                        "hle": submit_answer,
-                        "counting": submit_number,
-                        "spelling": submit_letter,
-                        "colouring": set_colour,
-                        "mirrorcode": submit_codebase,
-                    }[history.benchmark](game, record.id)
-                ]
+                tools = (
+                    []
+                    if budget_driven
+                    else [
+                        {
+                            "hle": submit_answer,
+                            "counting": submit_number,
+                            "spelling": submit_letter,
+                            "colouring": set_colour,
+                            "mirrorcode": submit_codebase,
+                        }[history.benchmark](game, record.id)
+                    ]
+                )
                 if history.benchmark == "mirrorcode":
                     # the shared workspace tools that the task's setup installed
                     tools += list(state.tools)
@@ -277,7 +297,9 @@ def team_agents(
                     tools.append(message_board(options))
                     # agents see neither their evaluator ID nor the team size
                     extra = (
-                        CODEBASE
+                        CODEBASE_BUDGET
+                        if budget_driven
+                        else CODEBASE
                         if history.benchmark == "mirrorcode"
                         else COLLABORATE
                         if state.metadata["sandbox_enabled"]

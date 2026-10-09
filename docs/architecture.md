@@ -37,6 +37,15 @@ motivated the shared-state design but is not imported here.
 
 ## Source map
 
+MirrorCode version 2 defaults to budget-driven termination (`allow_submit=false`).
+It omits the terminal submission tool and its upstream instruction. Native peer
+limits retain each private history and end peers independently; a no-tool turn
+with budget left receives an ExploitBench-derived continuation reminder. The
+typed peer record counts reminders. Final scoring runs after all peers join,
+using the final shared workspace. `allow_submit=true` retains the earlier
+voluntary-stop contract for explicit comparisons. This does not support restoring
+an interrupted sample or its board.
+
 | Location | Responsibility |
 | --- | --- |
 | `_registry.py` | Registers the five packaged Inspect tasks. |

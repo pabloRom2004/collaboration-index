@@ -50,6 +50,28 @@ information from teammates. The team is measured on solution quality, elapsed
 solving time and total tokens consumed. Any agent's submit ends the task for
 every agent.""",
 )
+CODEBASE_BUDGET = Prompt(
+    title="emergent_board_codebase_budget",
+    role="subject",
+    origin="Generality Labs Collaboration Index, emergent_board_codebase adapted for budget-driven MirrorCode",
+    prompt=CODEBASE.prompt.replace(
+        "Any agent's submit ends the task for\nevery agent.",
+        "There is no submit tool. Keep improving and testing the shared codebase\n"
+        "while your budget remains. The evaluator grades the final shared codebase\n"
+        "after all agents finish.",
+    ),
+)
+CONTINUE_WORK = Prompt(
+    title="mirrorcode_continue_work",
+    role="subject",
+    origin="ExploitBench prompts.py NUDGE_PROMPT, adapted from https://github.com/exploitbench/exploitbench/blob/9d0173bcf8835b74a45f60450ae7f184e29e7607/exploitbench/runner/loop.py#L164-L180 for one mutable MirrorCode codebase",
+    prompt=(
+        "You stopped without making any tool calls but have not exhausted your "
+        "budget. Continue iterating: coordinate with your teammates, refine the "
+        "shared implementation and call evaluate_testcases to evaluate it. "
+        "The evaluator grades the final shared codebase after all agents finish."
+    ),
+)
 ORACLE = Prompt(
     title="oracle_allocation",
     role="subject",
@@ -124,6 +146,8 @@ PROMPTS = {
         COLLABORATE,
         COLLABORATE_NO_SANDBOX,
         CODEBASE,
+        CODEBASE_BUDGET,
+        CONTINUE_WORK,
         ORACLE,
         COLOURING,
         TIME_UPDATE,
