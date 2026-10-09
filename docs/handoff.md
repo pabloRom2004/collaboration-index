@@ -744,3 +744,33 @@ tests, the InferenceBench Docker round trip, Ruff/format, mypy and wheel checks.
 Original hashes still match after reversing the documented namespace, resource,
 artifact-path and judge-compaction adaptations. Retest the real GPU path from the
 new pinned snapshot; the two preallocation failures are not benchmark scores.
+
+The repaired smoke completed successfully on Hawk at 2026-10-09 15:37 UTC:
+`ci-inference-haiku55-4x10-qekps8uyfx4yo95p`, source
+`7676d860d52dfd94b77c175f934d8d0d545c64e8`, tag
+`codex/inferencebench-hawk-20261009-fix`. Remote main remains unchanged at
+`55271d5ac26ca62579f686c16347674257df1dfd`. Its graded log is
+`logs/2026-10-09T14-52-42-00-00_inferencebench_5xQ2ChAFUAsZRuFNffBxj6.eval`.
+All four Haiku peers shared one hostname, registered on the board and completed
+22 bash calls with no tool errors. Eight messages were sent. Peer token usage was
+100,396 / 114,680 / 113,057 / 104,994 (433,127 total), each ending at its native
+budget boundary. The team interval was 540.4 seconds; preparation and grading
+are outside that interval. No development `evaluate` call occurred.
+
+Final upstream grading restarted the same H100, which served HTTP 400 for all
+ten held-out speed requests and all 500 quality requests. Quality accuracy was
+0.00 versus a 0.31 reference, so the authoritative grade is the original 1x
+fallback, not a measured candidate speedup. The configured GPT-6.1 Sol integrity
+judge was skipped because quality failed. Its real successful-quality path is
+not established by this smoke. Numeric metadata is in `real-smoke-result.json`;
+do not inspect participant commands, transcripts or board bodies by default.
+
+Hawk retained the submission archive, evaluator, baseline and grading artifacts
+before cleanup. The store records owned H100 `h75uos37w9p0f8` as terminated;
+a separate RunPod inventory check confirms its absence and preserves unrelated
+stopped pod `sha51wy77banf0`. RunPod's console was also verified signed in under
+Generality Chrome Profile 3, as requested. Hawk's runner completed normally.
+Supporting files are below `run-artifacts/inferencebench-import-20261009/`;
+use its artifact manifest and cleanup receipt before future actions. Hawk CPU/RAM
+peaks were unavailable, so this run does not establish resource minima or scaling
+capacity. Do not automatically retry this completed graded attempt.

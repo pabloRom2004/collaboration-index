@@ -68,8 +68,12 @@ are different conditions.
   controller requirements. `gpu_management: controller` runs the controller on
   Hawk with task-owned external RunPod tools and teardown. Standard Hawk mode
   accepts it; strict Kubernetes isolation does not cover the external pod.
-  Local mock/Docker checks are established; the paid Haiku 5.5 four-peer smoke
-  is authorized and its real result must be verified separately.
+  The Haiku 5.5 four-peer Hawk smoke completed on 2026-10-09: all peers
+  worked, shared the board/workspace, and exhausted their 100K allowances
+  (433,127 total tokens including native boundary overshoot). Final grading
+  assigned the original 1x fallback after the quality gate failed; the integrity
+  judge was configured but not called. The owned H100 was terminated and the
+  graded `.eval` and submission artifacts were saved. See the dated handoff.
 - MirrorCode peers share one upstream MirrorCode workspace and its bash,
   text editor and `evaluate_testcases` tools, imported from the pinned `mc`
   package in the `mirrorcode` extra. A pool assigns calls to separate scoring

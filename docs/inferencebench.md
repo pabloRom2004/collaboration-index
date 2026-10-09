@@ -117,3 +117,28 @@ Scripted local fixtures exercise the native four-peer lifecycle, shared files,
 queueing, development feedback, original scoring control flow and durable log
 serialization. Their model tokens, GPU and measurements are synthetic and do
 not establish real-GPU reliability or benchmark performance.
+
+## Verified four-peer smoke
+
+On 2026-10-09, Hawk job `ci-inference-haiku55-4x10-qekps8uyfx4yo95p`
+completed from destination commit `7676d860d52dfd94b77c175f934d8d0d545c64e8`.
+Four Haiku 5.5 peers used the same workspace, registered on the board, sent eight
+messages and completed 22 foreground bash calls without tool errors. Each ended
+on its native 100K allowance; recorded usage was 100,396, 114,680, 113,057 and
+104,994 tokens. The team ran for 540 seconds after preparation. This verifies
+real model work and collaboration, alongside the local mock and Docker checks.
+
+Final grading restarted the same H100. The candidate server returned HTTP 400
+for all ten held-out speed requests and all 500 quality requests. The original
+quality gate failed (0.00 candidate accuracy versus 0.31 reference), assigning
+its 1x fallback. This is a valid graded attempt, without a measured candidate
+speedup. GPT-6.1 Sol was bound to the integrity role but was not called because
+quality failed first; that real judge path remains unverified by this smoke.
+No peer used the development `evaluate` tool.
+
+The `.eval` is retained in root `logs/`; configuration, numeric diagnostics,
+checksums and downloaded Hawk artifacts are under
+`run-artifacts/inferencebench-import-20261009/`. The owned H100
+`h75uos37w9p0f8` was deleted after remote artifact preservation, independently
+verified absent from the work account. The unrelated stopped pod was preserved.
+Hawk resource peaks were unavailable; these allocations are not measured minima.
