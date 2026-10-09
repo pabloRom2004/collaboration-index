@@ -363,6 +363,12 @@ Create the output directory first if necessary. For repeated epochs, add
 team attempt. The renderer verifies run and actor identities; a journal from
 another attempt must fail rather than produce a plausible mixed replay.
 
+The visualiser source is `src/collaboration_index/assets/forum/replay.html`,
+rendered by `src/collaboration_index/replay.py`. Provider SVGs and their registry
+live in `src/collaboration_index/assets/forum/logos/` and are embedded into the
+portable HTML. Model families select their developer mark even through an
+OpenRouter or compatible API route. Regenerate older replays to update logos.
+
 The visualiser exports board events, trusted submissions, statuses and team
 measurements. It does not export private model histories or fabricate individual
 benchmark grades. HLE correctness appears after final grading. Saved replays

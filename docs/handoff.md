@@ -783,3 +783,23 @@ that authorization. Share the task folder at
 <https://github.com/pabloRom2004/collaboration-index/tree/main/src/collaboration_index/inferencebench>
 and its guide at
 <https://github.com/pabloRom2004/collaboration-index/blob/main/docs/inferencebench.md>.
+
+## 2026-10-09 Shared visualiser provider logos
+
+The shared frontend remains `src/collaboration_index/assets/forum/replay.html`;
+`src/collaboration_index/replay.py` embeds its board data and provider SVG marks.
+Logo assets and `providers.json` are under `assets/forum/logos/`, vendored from
+Lobe Icons static SVG 1.95.1 with its MIT license retained. Fifteen model developer
+marks are available: OpenAI, Anthropic/Claude, Google/Gemini, DeepSeek, Z.ai/GLM,
+xAI/Grok, Meta/Llama, Mistral, Alibaba/Qwen, Moonshot/Kimi, MiniMax, Cohere, Amazon,
+Perplexity and NVIDIA. Model family matching precedes route matching, so a
+compatible API or OpenRouter route retains the model developer's mark. Unknown
+models use the neutral AI text label. Generated HTML is self-contained; regenerate
+an older replay to add the current marks.
+
+Ruff/format, mypy, JavaScript parsing, seventeen representative model-route checks,
+the two focused viewer tests and wheel asset/license checks passed. The real
+Haiku InferenceBench replay was regenerated and its four Claude logo nodes
+verified. An authored fifteen-provider fixture exercised the actual frontend;
+a separate embedded-mark gallery confirmed the SVGs render. Checks and screenshots
+are retained in `run-artifacts/visualiser-provider-logos-20261009/`.

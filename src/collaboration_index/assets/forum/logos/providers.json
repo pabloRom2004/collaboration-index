@@ -1,0 +1,17 @@
+{
+  "OpenAI": "openai.svg",
+  "Anthropic": "claude-color.svg",
+  "Google": "gemini-color.svg",
+  "DeepSeek": "deepseek-color.svg",
+  "Z.ai": "zai.svg",
+  "xAI": "xai.svg",
+  "Meta": "meta-color.svg",
+  "Mistral": "mistral-color.svg",
+  "Alibaba": "qwen-color.svg",
+  "Moonshot": "kimi.svg",
+  "MiniMax": "minimax-color.svg",
+  "Cohere": "cohere-color.svg",
+  "Amazon": "aws-color.svg",
+  "Perplexity": "perplexity-color.svg",
+  "NVIDIA": "nvidia-color.svg"
+}

@@ -1,6 +1,7 @@
 """Adapt trusted team state to the shared board replay without exporting private model histories."""
 
 import argparse
+import base64
 import json
 import math
 from datetime import datetime
@@ -231,14 +232,29 @@ def render(
     epoch: int | None = None,
     hawk_viewer: str | None = None,
 ) -> None:
-    """Write a portable replay using the common frontend and safely embedded journal data."""
+    """Write a portable replay with embedded provider marks and validated journal data."""
     template = (Path(__file__).parent / "assets/forum/replay.html").read_text()
+    logos = Path(__file__).parent / "assets/forum/logos"
+    icons = {
+        brand: "data:image/svg+xml;base64,"
+        + base64.b64encode((logos / filename).read_bytes()).decode("ascii")
+        for brand, filename in json.loads(
+            (logos / "providers.json").read_text()
+        ).items()
+    }
     data = json.dumps(
         replay_data(log_path, journal_path, sample_id, epoch, hawk_viewer),
         ensure_ascii=False,
         allow_nan=False,
     ).replace("<", "\\u003c")
-    output.write_text(template.replace("__BOARD_EVENTS__", data))
+    output.write_text(
+        template.replace("__BOARD_EVENTS__", data)
+        .replace("__PROVIDER_LOGOS__", json.dumps(icons))
+        .replace(
+            "__PROVIDER_LOGO_LICENSE__",
+            json.dumps((logos / "LICENSE.txt").read_text()).replace("<", "\\u003c"),
+        )
+    )
 
 
 def main() -> None:

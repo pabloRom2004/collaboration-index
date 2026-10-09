@@ -27,3 +27,9 @@ its bundled third-party notices are retained in the backend package. Import
 namespace changes are marked in modified files; the peer harness is new.
 See src/collaboration_index/inferencebench/upstream.json for original source hashes
 and docs/inferencebench.md for intentional differences.
+
+Replay provider marks are vendored from `@lobehub/icons-static-svg` version
+1.95.1 ([Lobe Icons](https://github.com/lobehub/lobe-icons), MIT). The license,
+SVG assets and brand registry are retained in
+`src/collaboration_index/assets/forum/logos/`. These marks identify model
+families/developers, separately from the inference transport.
