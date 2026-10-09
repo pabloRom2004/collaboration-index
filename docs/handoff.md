@@ -774,3 +774,12 @@ Supporting files are below `run-artifacts/inferencebench-import-20261009/`;
 use its artifact manifest and cleanup receipt before future actions. Hawk CPU/RAM
 peaks were unavailable, so this run does not establish resource minima or scaling
 capacity. Do not automatically retry this completed graded attempt.
+
+Pablo explicitly authorized publication to `main` on 2026-10-09 after the smoke.
+The port and verified smoke documentation were pushed to the public repository
+(first publication head `bc519b22e12a5f2d6adc2a1df8cfefdaceb1f2d2`). The earlier
+statements about unchanged remote main describe the tagged smoke launch, before
+that authorization. Share the task folder at
+<https://github.com/pabloRom2004/collaboration-index/tree/main/src/collaboration_index/inferencebench>
+and its guide at
+<https://github.com/pabloRom2004/collaboration-index/blob/main/docs/inferencebench.md>.
