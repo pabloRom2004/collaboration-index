@@ -38,23 +38,24 @@ legitimate Inspect model name is `openai/openai/gpt-5.6-sol`.
 
 Immutable plans and guarded helpers are under
 `run-artifacts/hawk-mirrorcode-six-model-checkpointed-ruff-250m-20261010/`.
-Fresh v2 configs pin checkpoint/image release
-`2ab240e594e0109d6d8436ad2a0edd1d29285967` and the three original registry
-manifest digests. All 125 earlier tag-based configs are preserved as
-superseded unlaunched revisions after protected preflights detected tag drift.
-The original Sol baseline remains on
-`55271d5` without checkpoints. Current Hawk N2 Ruff and native-compaction restore
-proofs have resumed finals and zero owned pods, as does N64 representative
-restore QA. Finished-peer ordinary continuation and the distinct native
-scorer-failure branch also have verified resumed finals and physical cleanup.
-All five actual-Hawk checkpoint QA arms are complete. After four backend final proofs,
-each of six separate native N64 model smokes runs
-with 100K per peer. A valid low score passes infrastructure QA. Its full batch
-starts after the fifth native scorer-failure restore proof and its own exact
-grading, caps, identity, checkpoint, cleanup and plot checks.
-All six digest-pinned N64 model smokes are accepted exactly once as of
-2026-10-10 13:44 UTC; OWN receipts and config hashes are in central
-`launch-reconciliation.json`. No new full attempt has launched yet.
+The six accepted revision-2 smokes pin checkpoint/image release
+`2ab240e594e0109d6d8436ad2a0edd1d29285967` and the original three registry
+manifest digests. All six have authoritative 822-case finals, 64 real-work
+native-limited peers, verified checkpoints/boards/identities, zero testing/reference
+errors and owned pods, with inspected plots. Opus 5.5 also completed a SAME-ID
+continuation after an unplanned host-backup failure without repeating model work.
+Preserve its original failed physical archive separately.
+
+The 119 unlaunched full attempts have fresh revision-3 configs pinned to scoped
+host-backup repair `8da8680a15c647b15baae3eb2a80355343ca5cbf`. Only source and
+ownership names change; routes, budget, images and resources remain matched.
+Every previous unsubmitted config byte is retained. All five original actual-Hawk
+checkpoint QA arms are verified and cleaned. The new backup-pressure Hawk arm
+`mc-cpbackup-sol-n02-1010--c22ldkq1rfe4ez0o` is accepted once and pending;
+its deliberate failure, same-ID restore, final grading and physical cleanup must
+verify the repair before full dispatch. The technical readiness condition does
+not require another permission request. The original Sol baseline remains on
+`55271d5` without checkpoints and with separate failed unscored slots.
 Hawk admission controls queuing; no additional one-active-per-size gate applies.
 
 Resources retain the existing Ruff formula: an 8-CPU/32-GiB controller, a shared

@@ -194,6 +194,15 @@ class TeamCheckpoints:
             raise ValueError(
                 "Checkpoint does not contain every private peer and its usage"
             )
+        from collaboration_index.checkpoint_backup import install_host_backup
+
+        install_host_backup(cp)
+        state.metadata["checkpoint_host_backup"] = {
+            "restic_version": "0.19.1",
+            "frozen_restore_exports": True,
+            "adapter_inspect_version": "0.3.277",
+            "cache_enabled": False,
+        }
         self.current: dict[str, AgentState] = {}
         self.meters: dict[str, Any] = {}
         self.prior = dict(self.snapshot.usages)

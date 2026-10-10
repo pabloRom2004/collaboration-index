@@ -80,3 +80,15 @@ owned container/board cleanup. Tag-only configs are preserved as unlaunched revi
 when tag drift is found; existing accepted jobs remain immutable. A metadata
 image reference is not an observed pod image ID, so report unavailable actual
 image IDs separately.
+
+A reachable native host-backup race was reproduced when restic traversed a live
+transcript SQLite spool. The scoped adapter in `checkpoint_backup.py` freezes
+only validated regular restore JSON exports, uses official SHA-pinned restic
+0.19.1 with `--no-cache`, and accepts only a complete successful backup.
+Native checkpoint commit and restore remain unchanged; missing or invalid
+required exports and authentication/integrity failures remain fatal. The adapter
+is guarded to verified Inspect 0.3.277 and replaces one entered checkpointer's
+host-backup method, without changing global dependency files or the resolver.
+Local pressure, finished-peer and native scoring-only Docker restoration passed.
+Its additional actual-provider Hawk failure/restore arm is pending as of
+2026-10-10 14:18 UTC; full dispatch waits for that concrete proof.
