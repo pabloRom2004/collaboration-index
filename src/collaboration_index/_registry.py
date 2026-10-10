@@ -5,6 +5,7 @@ from collaboration_index.checkpoint_provider_compaction_qa import (
 )
 from collaboration_index.checkpoint_finished_qa import checkpoint_finished_qa
 from collaboration_index.checkpoint_qa import checkpoint_ruff_qa
+from collaboration_index.checkpoint_scoring_qa import checkpoint_scoring_qa
 from collaboration_index.colouring import colouring
 from collaboration_index.counting import counting
 from collaboration_index.hle import hle_collaboration
@@ -16,6 +17,7 @@ __all__ = [
     "checkpoint_finished_qa",
     "checkpoint_provider_compaction_qa",
     "checkpoint_ruff_qa",
+    "checkpoint_scoring_qa",
     "colouring",
     "counting",
     "hle_collaboration",
