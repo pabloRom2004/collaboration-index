@@ -16,8 +16,12 @@ Pablo reduced the study on 2026-10-10 to **one repeat at each team size**, while
 preserving Sol attempts already running. This supersedes the earlier three-repeat
 and 119-scored-slot target. All 119 initial accepted identities/configs remain
 historical evidence; 73 extra attempts received stop requests (56 non-Sol extras
-and 17 queued Sol extras). Exact physical teardown/archive verification is in
-progress. The current selection retains 46 new attempts with original configured
+and 17 queued Sol extras). All 73 stops are reconciled and exact owned resource
+cleanup is verified: zero active pods for every cancelled identity. All 51
+available native archives/snapshots remain hashed and preserved, including 35
+partial unscored logs; 22 attempts had no native log created. Partial usage and
+unlogged provider billing remain unavailable. The current selection retains
+46 new attempts with original configured
 allowances totaling 11.5B tokens, plus unchanged old Sol work. Cancelled consumed
 work is retained separately and has already incurred spending.
 Old failed Sol N2/N64 slot replacements remain unlaunched. Cancelled receipts
@@ -66,7 +70,9 @@ capacity queuing. The technical readiness condition does not require another
 permission request. One Opus 4.6 r02 N4 attempt failed unscored before its first
 checkpoint during grading file cleanup, using 2,998,865 recorded tokens. Its
 failure is retained separately; no replacement has been submitted and its owned
-cleanup is still being reconciled. Other accepted configs/jobs stay immutable. The original Sol baseline remains on
+cleanup is verified. The scoped missing-file cleanup repair is published as
+`3508a41`, with real Docker grading and 158 default tests passed. Accepted jobs
+remain pinned to their original source. The original Sol baseline remains on
 `55271d5` without checkpoints and with separate failed unscored slots.
 Hawk admission controls queuing; no additional one-active-per-size gate applies.
 
