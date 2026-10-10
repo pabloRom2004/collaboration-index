@@ -35,6 +35,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="validate the plan and protected session without submitting",
     )
+    parser.add_argument(
+        "--resume-pending",
+        action="store_true",
+        help="resume one reconciled pending receipt after confirming no job exists",
+    )
     return parser.parse_args()
 
 
@@ -45,6 +50,19 @@ async def owned_job_exists(token: str, label: str) -> bool:
     ) as api:
         jobs = await api.get_jobs(mine=True, limit=500)
     return any(str(job.get("job_id", "")).startswith(label) for job in jobs)
+
+
+def submit_with_hawk_cli(config_path: Path) -> str:
+    """Invoke Hawk's synchronous CLI outside the asynchronous preflight loop."""
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured), contextlib.redirect_stderr(captured):
+        eval_set_id = cli.main(
+            args=["eval-set", "run", str(config_path), "--skip-confirm"],
+            standalone_mode=False,
+        )
+    if not isinstance(eval_set_id, str) or not eval_set_id:
+        raise RuntimeError("Hawk did not return a Cyber Eval identifier")
+    return eval_set_id
 
 
 async def main() -> None:
@@ -61,17 +79,37 @@ async def main() -> None:
 
     if receipt_path.exists():
         receipt = json.loads(receipt_path.read_text())
-        print(
+        if receipt.get("state") != "submission_pending":
+            print(
+                json.dumps(
+                    {
+                        "label": "Cyber Eval",
+                        "state": receipt.get("state", "unknown"),
+                        "viewer_url": receipt.get("viewer_url"),
+                        "new_submission": False,
+                    }
+                )
+            )
+            return
+        if not args.resume_pending:
+            raise RuntimeError(
+                "Reconcile the pending Cyber Eval receipt before retrying"
+            )
+        if await owned_job_exists(token, str(config["name"])):
+            raise RuntimeError(
+                "The pending Cyber Eval receipt already has an owned job"
+            )
+        receipt_path.write_text(
             json.dumps(
                 {
-                    "label": "Cyber Eval",
-                    "state": receipt.get("state", "unknown"),
-                    "viewer_url": receipt.get("viewer_url"),
-                    "new_submission": False,
-                }
+                    **receipt,
+                    "state": "submission_retrying",
+                    "reconciled_at": datetime.now(UTC).isoformat(),
+                },
+                indent=2,
             )
+            + "\n"
         )
-        return
 
     if await owned_job_exists(token, str(config["name"])):
         raise RuntimeError("Reconcile the existing Cyber Eval job before submitting")
@@ -94,14 +132,7 @@ async def main() -> None:
         "intent_at": datetime.now(UTC).isoformat(),
     }
     receipt_path.write_text(json.dumps(initial, indent=2) + "\n")
-    captured = io.StringIO()
-    with contextlib.redirect_stdout(captured), contextlib.redirect_stderr(captured):
-        eval_set_id = cli.main(
-            args=["eval-set", "run", str(config_path), "--skip-confirm"],
-            standalone_mode=False,
-        )
-    if not isinstance(eval_set_id, str) or not eval_set_id:
-        raise RuntimeError("Hawk did not return a Cyber Eval identifier")
+    eval_set_id = await asyncio.to_thread(submit_with_hawk_cli, config_path)
     receipt = {
         **initial,
         "state": "submitted",
