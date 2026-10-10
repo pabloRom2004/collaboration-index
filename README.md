@@ -1,12 +1,14 @@
 # Collaboration Index
 
 Collaboration Index is an Inspect AI research prototype for measuring how well
-multiple copies of a model coordinate. It currently contains four tasks:
+multiple copies of a model coordinate. It currently contains seven tasks:
 [Humanity's Last Exam](https://huggingface.co/datasets/cais/hle) answered as a
 team, ordered counting, spelling using private character hands, and graph
-colouring where each agent is a network node that can only DM its neighbours.
-Counting, spelling and colouring adapt tasks from Multi-Agent-Bench. Communication
-and replay reuse the authenticated message board developed in ExploitBench.
+colouring where each agent is a network node that can only DM its neighbours,
+MirrorCode shared-code development, InferenceBench server optimization, and
+ExploitBench. Counting, spelling and colouring adapt tasks from
+Multi-Agent-Bench. Communication and replay reuse the authenticated message
+board developed in ExploitBench.
 
 The initial question is whether a team can divide work, share information and
 sequence actions efficiently without a prescribed leader or delegation
@@ -92,12 +94,20 @@ Registered task IDs are:
 | `collaboration_index/counting` | One shared ordered sequence |
 | `collaboration_index/spelling` | One shared sentence attempt |
 | `collaboration_index/colouring` | One hidden network to colour |
+| `collaboration_index/mirrorcode` | One shared upstream coding workspace |
 | `collaboration_index/inferencebench` | One inference server optimized on a shared RunPod H100 |
+| `collaboration_index/exploitbench` | One deterministic capability ladder in a shared CPU sandbox |
 
 `--limit 1` selects a team sample, not one HLE question and not one peer. Use
-`question_limit` to reduce the exam. Calling the four task factories separately
-creates four task logs; the N peers within each task do not get N `.eval` files.
+`question_limit` to reduce the exam. Calling task factories separately creates
+separate task logs; the N peers within each task do not get N `.eval` files.
 Repeated epochs remain repeated team attempts, with fresh boards and stores.
+
+ExploitBench uses one network-isolated CPU sandbox per team sample. Its image
+provides the challenge-specific MCP tools and deterministic grader; no GPU or
+LLM judge is used. See [the ExploitBench task guide](docs/exploitbench.md) for
+the pinned source, safety boundary, shared-tool behavior, and Hawk launch
+requirements.
 
 Real model runs require an explicitly selected subject model and verified
 provider credentials. With `token_limit_per_agent` left null, peers have no
@@ -266,7 +276,9 @@ Each task owns a complete maintained configuration:
 - [Counting](src/collaboration_index/counting/run_configs/default.yaml)
 - [Spelling](src/collaboration_index/spelling/run_configs/default.yaml)
 - [Colouring](src/collaboration_index/colouring/run_configs/default.yaml)
+- [MirrorCode](src/collaboration_index/mirrorcode/run_configs/default.yaml)
 - [InferenceBench](src/collaboration_index/inferencebench/run_configs/default.yaml)
+- [ExploitBench](src/collaboration_index/exploitbench/run_configs/default.yaml)
 
 Public Python defaults are read from these files. CLI overrides take precedence
 when using `--run-config`. Keep task arguments under `task.args`, subject

@@ -61,6 +61,11 @@ def team_workspace(state: TaskState) -> Any:
     return sandbox()
 
 
+def team_workspace_path(history: TeamHistory) -> str:
+    """Return the participant-visible workspace path for the selected benchmark."""
+    return "/rlenv/workspace" if history.benchmark == "exploitbench" else "/workspace"
+
+
 @solver
 def prepare_team(
     benchmark: str, agents: int, condition: str, artifact_dir: str
@@ -91,7 +96,8 @@ def prepare_team(
             state.store.set("shared_sandbox_hostname", hostname.stdout.strip())
             # peers with a shell can read this file, so it omits the team size
             await team_workspace(state).write_file(
-                "/workspace/team.json", json.dumps({"run_id": history.run_id})
+                f"{team_workspace_path(history)}/team.json",
+                json.dumps({"run_id": history.run_id}),
             )
         if benchmark == "hle":
             import hashlib
@@ -165,7 +171,7 @@ def team_agents(
             raise RuntimeError("Missing invariant team setup")
         actors = [peer.id for peer in history.peers]
         data = state.metadata["data"]
-        budget_driven = history.benchmark == "inferencebench" or (
+        budget_driven = history.benchmark in {"inferencebench", "exploitbench"} or (
             history.benchmark == "mirrorcode" and not state.metadata["allow_submit"]
         )
         game = TeamGame(history, data, actors)
@@ -202,7 +208,7 @@ def team_agents(
                         ["cat", "/etc/hostname"]
                     )
                     public = await team_workspace(state).exec(
-                        ["cat", "/workspace/team.json"]
+                        ["cat", f"{team_workspace_path(history)}/team.json"]
                     )
                     if (
                         not identity.success
@@ -218,7 +224,8 @@ def team_agents(
                 def token_update() -> str:
                     """Show a workspace peer its own token usage and allowance."""
                     if (
-                        history.benchmark not in {"mirrorcode", "inferencebench"}
+                        history.benchmark
+                        not in {"mirrorcode", "inferencebench", "exploitbench"}
                         or token_limit_per_agent is None
                     ):
                         return ""
@@ -290,7 +297,11 @@ def team_agents(
                         }[history.benchmark](game, record.id)
                     ]
                 )
-                if history.benchmark in {"mirrorcode", "inferencebench"}:
+                if history.benchmark in {
+                    "mirrorcode",
+                    "inferencebench",
+                    "exploitbench",
+                }:
                     # the shared workspace tools that the task's setup installed
                     tools += list(state.tools)
                 if history.benchmark == "inferencebench":
@@ -301,6 +312,12 @@ def team_agents(
                         if ToolDef(item).name in {"bash", "python", "evaluate"}
                         else item
                         for item in tools
+                    ]
+                if history.benchmark == "exploitbench":
+                    from collaboration_index.exploitbench.tools import peer_tool
+
+                    tools = [
+                        peer_tool(item, state, record.id, game.lock) for item in tools
                     ]
                 if history.benchmark == "hle":
                     tools.append(
@@ -325,7 +342,13 @@ def team_agents(
                 elif history.condition == "collaborative":
                     tools.append(message_board(options))
                     # Workspace tasks disclose team size; evaluator IDs stay private.
-                    if history.benchmark == "inferencebench":
+                    if history.benchmark == "exploitbench":
+                        from collaboration_index.exploitbench.prompts import (
+                            workspace_prompt,
+                        )
+
+                        extra = workspace_prompt(len(actors))
+                    elif history.benchmark == "inferencebench":
                         from collaboration_index.inferencebench.prompts import (
                             workspace_prompt,
                         )

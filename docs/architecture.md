@@ -31,9 +31,10 @@ flowchart TD
 The agents are described as sharing a computer because they verify and use the
 same container and input files. These toy tasks do not expose arbitrary shell
 execution. Native tools call controller Python; the board client makes HTTP
-requests to a separate controller-side service. There is no MCP transport or
-MCP lifecycle to harden in this repository yet. The earlier ExploitBench broker
-motivated the shared-state design but is not imported here.
+requests to a separate controller-side service. ExploitBench additionally keeps
+one image-provided MCP connection alive for the team solver. Its trusted wrapper
+caches one setup response and serializes grade requests while ordinary image
+tools and shared files remain concurrent.
 
 ## Source map
 
@@ -48,11 +49,13 @@ an interrupted sample or its board.
 
 | Location | Responsibility |
 | --- | --- |
-| `_registry.py` | Registers the six packaged Inspect tasks. |
-| `{hle,counting,spelling,colouring,mirrorcode,inferencebench}/task.py` | Explicit public interfaces and benchmark inputs. |
-| `{hle,counting,spelling,colouring,mirrorcode,inferencebench}/run_configs/default.yaml` | Maintained adjustable defaults. |
+| `_registry.py` | Registers the seven packaged Inspect tasks. |
+| `{hle,counting,spelling,colouring,mirrorcode,inferencebench,exploitbench}/task.py` | Explicit public interfaces and benchmark inputs. |
+| `{hle,counting,spelling,colouring,mirrorcode,inferencebench,exploitbench}/run_configs/default.yaml` | Maintained adjustable defaults. |
 | `inferencebench/backend/` | Pinned upstream GPU provisioning, evaluator assets, baseline preparation and final scoring. |
 | `inferencebench/tools.py`, `inferencebench/state.py` | Shared foreground command queue and development measurements, separate from final grades. |
+| `exploitbench/backend/` | Pinned upstream manifest, prompts, deterministic grader and provenance. |
+| `exploitbench/tools.py`, `exploitbench/state.py` | Cached setup, fixed-actor grading queue and durable grade metadata. |
 | `task.py` | Common Task assembly, invariant setup, solver, scorer and sandbox. |
 | `harness.py` | Peer preparation, native execution, limits, cancellation and board lifecycle. |
 | `prompts.py` | Named collaborative/oracle prompt objects and provenance. |
