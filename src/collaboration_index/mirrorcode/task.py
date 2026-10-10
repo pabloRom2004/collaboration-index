@@ -28,6 +28,7 @@ from inspect_ai.util import (
 )
 
 from collaboration_index.harness import prepare_team, team_agents
+from collaboration_index.mirrorcode.cleanup import install_cleanup_repair
 from collaboration_index.task import defaults
 
 CONFIG = defaults("mirrorcode")
@@ -252,6 +253,8 @@ def shared_workspace(docs: bool, include_source: bool, pipelines: int) -> Solver
                 )
         # evaluate_testcases reuses fixed tar and source paths in the scoring
         # containers, so two calls may only run at once on different pipelines
+        state.metadata["grading_cleanup_script_sha256"] = install_cleanup_repair()
+        state.metadata["grading_cleanup_missing_paths_only"] = True
         route_scoring()
         free: asyncio.Queue[int] = asyncio.Queue()
         for index in range(pipelines):

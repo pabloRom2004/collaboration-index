@@ -12,21 +12,25 @@ superseded within that scope; no repeated permission request is needed.
 Each independent attempt has one epoch, a fresh board/workspace/private histories,
 version 3 with team size disclosed, no submit tool and a 250M planned team token
 allowance split equally into native peer caps. Sizes are N=1,2,4,8,16,32,64.
-Five new models have three attempts at each size; GPT-6.1 Sol has two new
-independent repeats per size, alongside its preserved original baseline.
-That is 119 new full attempts and 29.75B planned tokens. Native boundary
-overshoot and checkpoint rollback work can increase actual physical usage.
-Old failed Sol N2/N64 slot replacements are separate and remain unlaunched;
-old cancelled Sol repeat folders stay cancelled. New repeats have fresh folders.
+Pablo reduced the study on 2026-10-10 to **one repeat at each team size**, while
+preserving Sol attempts already running. This supersedes the earlier three-repeat
+and 119-scored-slot target. All 119 initial accepted identities/configs remain
+historical evidence; 73 extra attempts received stop requests (56 non-Sol extras
+and 17 queued Sol extras). Exact physical teardown/archive verification is in
+progress. The current selection retains 46 new attempts with original configured
+allowances totaling 11.5B tokens, plus unchanged old Sol work. Cancelled consumed
+work is retained separately and has already incurred spending.
+Old failed Sol N2/N64 slot replacements remain unlaunched. Cancelled receipts
+cannot auto-resume, and accepted retained source/configs are immutable.
 
-| Model | Exact route / supplier | Effective context | Full output | Native effort | New full attempts |
+| Model | Exact route / supplier | Effective context | Full output | Native effort | Retained new attempts |
 | --- | --- | ---: | ---: | --- | ---: |
-| Claude Opus 4.6 | OpenRouter, `anthropic` only | 1,000,000 | 128,000 | max | 21 |
-| Claude Opus 5.5 | OpenRouter, `anthropic` only | 1,000,000 | 128,000 | xhigh | 21 |
-| GPT-5.6 Sol | Generality work Middleman Responses, API ID `openai/gpt-5.6-sol` | 1,050,000 | 128,000 | xhigh | 21 |
-| GPT-6.1 Sol | Generality work Middleman Responses, API ID `gpt-6.1-sol` | 1,050,000 | 128,000 | xhigh | 14 |
-| Kimi K3 | OpenRouter, `moonshotai/mxfp4` only, Moonshot AI supplier | 1,048,576 | 943,718 | max | 21 |
-| GLM 5.3 | OpenRouter, `z-ai/fp8` only, Z.AI supplier | 1,048,576 | 131,072 | max | 21 |
+| Claude Opus 4.6 | OpenRouter, `anthropic` only | 1,000,000 | 128,000 | max | 7 |
+| Claude Opus 5.5 | OpenRouter, `anthropic` only | 1,000,000 | 128,000 | xhigh | 7 |
+| GPT-5.6 Sol | Generality work Middleman Responses, API ID `openai/gpt-5.6-sol` | 1,050,000 | 128,000 | xhigh | 10 (7 first-pass + 3 already-running extras) |
+| GPT-6.1 Sol | Generality work Middleman Responses, API ID `gpt-6.1-sol` | 1,050,000 | 128,000 | xhigh | 8 already-running extras, old baseline separate |
+| Kimi K3 | OpenRouter, `moonshotai/mxfp4` only, Moonshot AI supplier | 1,048,576 | 943,718 | max | 7 |
+| GLM 5.3 | OpenRouter, `z-ai/fp8` only, Z.AI supplier | 1,048,576 | 131,072 | max | 7 |
 
 Compaction is .75 of each verified effective context: 750,000; 787,500; or
 786,432 tokens respectively. Every new effective model config uses
@@ -46,7 +50,7 @@ errors and owned pods, with inspected plots. Opus 5.5 also completed a SAME-ID
 continuation after an unplanned host-backup failure without repeating model work.
 Preserve its original failed physical archive separately.
 
-The 119 unlaunched full attempts have fresh revision-3 configs pinned to scoped
+The 119 initially accepted full attempts have revision-3 configs pinned to scoped
 host-backup repair `8da8680a15c647b15baae3eb2a80355343ca5cbf`. Only source and
 ownership names change; routes, budget, images and resources remain matched.
 Every previous unsubmitted config byte is retained. All five original actual-Hawk
@@ -54,10 +58,15 @@ checkpoint QA arms are verified and cleaned. The new backup-pressure Hawk arm
 `mc-cpbackup-sol-n02-1010--c22ldkq1rfe4ez0o` has now passed its deliberate
 failure and same-ID fresh-controller/sandbox restore, with 42,939 cumulative
 tokens, all 822 final cases, 1,702 authored concurrent spool writes without
-write errors and zero active owned pods. All six fresh protected model preflights passed and all 119 full launch requests
-were dispatched exactly once. Reconcile each pending OWN response and accepted
-receipt; never duplicate a pending or accepted config. The technical readiness condition does
-not require another permission request. The original Sol baseline remains on
+write errors and zero active owned pods. All six fresh protected model preflights
+passed. All 119 full attempts were accepted exactly once by 14:42:06 UTC;
+119 unique OWN responses, receipts and config hashes are reconciled, with no
+pending launch outcomes. Startup monitoring follows normal Hawk admission and
+capacity queuing. The technical readiness condition does not require another
+permission request. One Opus 4.6 r02 N4 attempt failed unscored before its first
+checkpoint during grading file cleanup, using 2,998,865 recorded tokens. Its
+failure is retained separately; no replacement has been submitted and its owned
+cleanup is still being reconciled. Other accepted configs/jobs stay immutable. The original Sol baseline remains on
 `55271d5` without checkpoints and with separate failed unscored slots.
 Hawk admission controls queuing; no additional one-active-per-size gate applies.
 
@@ -68,8 +77,9 @@ and current actual Hawk checkpoint measurements justify reuse, but do not prove
 real-model minima, cluster capacity or worst-case checkpoint storage. Current
 Hawk resource metrics may be unavailable; preserve null instead of zero.
 
-Retain every individual result. Aggregate only three verified finals at the same
-model/N with mean and sample SD; incomplete aggregates remain unavailable.
+Retain every individual result. Current single repeats are individual points
+without sample SD. Any three-final mean for preserved Sol extras additionally
+requires matched source/checkpoint conditions; incomplete aggregates are unavailable.
 Report all/visible/hidden grades, launch-to-final-log time including queue/setup/
 grading, peer duration and actual tokens. Preserve every unscored physical
 failure, checkpoint rollback and config/source change separately. One task,
