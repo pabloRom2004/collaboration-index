@@ -52,6 +52,9 @@ each of six separate native N64 model smokes runs
 with 100K per peer. A valid low score passes infrastructure QA. Its full batch
 starts after the fifth native scorer-failure restore proof and its own exact
 grading, caps, identity, checkpoint, cleanup and plot checks.
+All six digest-pinned N64 model smokes are accepted exactly once as of
+2026-10-10 13:44 UTC; OWN receipts and config hashes are in central
+`launch-reconciliation.json`. No new full attempt has launched yet.
 Hawk admission controls queuing; no additional one-active-per-size gate applies.
 
 Resources retain the existing Ruff formula: an 8-CPU/32-GiB controller, a shared
