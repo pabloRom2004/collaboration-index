@@ -4,7 +4,6 @@ import asyncio
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -376,7 +375,7 @@ def test_inspect_recovers_from_full_and_busy_tool_errors(tmp_path, monkeypatch):
         model=get_model("mockllm/model", custom_outputs=output, memoize=False),
         display="none",
         score=False,
-        log_dir=str(Path(__file__).parents[1] / "logs"),
+        log_dir=str(tmp_path / "logs"),
     )
     assert log.status == "success" and log.samples[0].error is None
     assert {"Message board full", "Board busy; try again later"} <= set(errors)

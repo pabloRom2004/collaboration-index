@@ -76,6 +76,14 @@ remain pinned to their original source. The original Sol baseline remains on
 `55271d5` without checkpoints and with separate failed unscored slots.
 Hawk admission controls queuing; no additional one-active-per-size gate applies.
 
+Retained Opus 4.6 r01 N64 also failed unscored after 73,249,450 recorded tokens,
+before its first committed checkpoint. Its preserved native error masked the
+original cause with a secondary barrier abort; zero active owned pods and the
+exact raw/flat hash are verified. No continuation or fresh replacement was
+launched. Keep this terminal failed slot explicit without scoring it as zero.
+A local native Docker diagnostics repair preserves the first failure; accepted
+jobs remain on `8da8680` and retain their original budgets.
+
 Resources retain the existing Ruff formula: an 8-CPU/32-GiB controller, a shared
 workspace growing with N, one grading pipeline per eight peers and upstream
 2-GiB scoring-container bounds. Prior Docker grading-concurrency measurements

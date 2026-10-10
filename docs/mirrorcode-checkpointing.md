@@ -49,6 +49,14 @@ them because rolled-back work was already paid for. Preserve physical-attempt
 usage and failures separately. The 300 model-request retries and 900-second
 attempt timeout reduce transient failures but do not guarantee success.
 
+The barrier retains the first peer or snapshot failure when other peers abort in
+response. Native Inspect logs therefore keep the original exception as the cause
+of a secondary checkpoint-abort error. Local native Ruff Docker reproduced and
+verified this diagnostic behavior. Already accepted jobs keep their original
+source; a failed attempt with no committed checkpoint still cannot be restored.
+The retained Opus 4.6 N64 failure on source `8da8680` demonstrates that checkpoint
+configuration alone does not guarantee a recoverable state before the first commit.
+
 Archive checkpoints copy the captured filesystem rather than incrementally
 backing it up. The local small-fixture checks do not establish storage capacity,
 checkpoint overhead or resource minima for 64 busy peers. Before scaling on Hawk, verify durable restore, real-provider compatibility

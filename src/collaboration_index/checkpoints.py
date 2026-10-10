@@ -120,9 +120,10 @@ class TeamBarrier:
             await self._commit_if_ready()
 
     async def abort(self, failure: BaseException) -> None:
-        """Release every waiter when a peer or infrastructure operation fails."""
+        """Release every waiter while retaining the first peer or infrastructure failure."""
         async with self.condition:
-            self.failure = failure
+            if self.failure is None:
+                self.failure = failure
             self.condition.notify_all()
 
     async def _commit_if_ready(self) -> None:

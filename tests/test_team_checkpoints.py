@@ -98,6 +98,44 @@ async def test_solo_and_all_finished_boundaries_do_not_wait():
     assert saves == [True] and barrier.live == set()
 
 
+@pytest.mark.asyncio
+async def test_secondary_peer_abort_preserves_first_failure():
+    """Keep the original peer exception when released siblings also abort the barrier."""
+
+    async def save():
+        """Reject an incorrectly committed partial team state."""
+        pytest.fail("An aborted team must not checkpoint")
+
+    barrier = TeamBarrier({"one", "two"}, 1, save)
+    barrier.last -= 2
+    first = asyncio.create_task(barrier.boundary("one"))
+    await asyncio.sleep(0)
+    original = OSError("authored original provider failure")
+    await barrier.abort(original)
+    await barrier.abort(RuntimeError("secondary checkpoint abort"))
+    with pytest.raises(RuntimeError, match="aborted") as caught:
+        await asyncio.wait_for(first, 1)
+    assert caught.value.__cause__ is original
+    assert barrier.failure is original
+
+
+@pytest.mark.asyncio
+async def test_peer_abort_preserves_checkpoint_storage_failure():
+    """Retain a failed snapshot's cause when later peer cleanup reports an abort."""
+    original = OSError("authored checkpoint storage failure")
+
+    async def save():
+        """Raise the authored first failure at the coordinated snapshot."""
+        raise original
+
+    barrier = TeamBarrier({"one"}, 1, save)
+    barrier.last -= 2
+    with pytest.raises(OSError):
+        await barrier.boundary("one")
+    await barrier.abort(RuntimeError("secondary peer abort"))
+    assert barrier.failure is original
+
+
 def test_resume_refuses_missing_private_peer_state():
     """Reject an incomplete checkpoint instead of restarting a peer with a fresh budget."""
     from types import SimpleNamespace

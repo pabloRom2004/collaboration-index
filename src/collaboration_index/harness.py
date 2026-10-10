@@ -441,12 +441,10 @@ def team_agents(
                 except asyncio.CancelledError:
                     record.status = "cancelled"
                     raise
-                except Exception:
+                except Exception as error:
                     record.status = "error"
                     if owner is not None:
-                        await owner.barrier.abort(
-                            RuntimeError("A peer failed before a consistent checkpoint")
-                        )
+                        await owner.barrier.abort(error)
                     raise
                 finally:
                     record.tokens = prior + int(limit.usage)
