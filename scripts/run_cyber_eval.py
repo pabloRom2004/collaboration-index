@@ -2,9 +2,7 @@
 
 import argparse
 import asyncio
-import contextlib
 import hashlib
-import io
 import json
 import os
 from datetime import UTC, datetime
@@ -12,7 +10,6 @@ from pathlib import Path
 
 import keyring
 import yaml
-from hawk.cli.cli import cli
 from hawk.cli.util.auth import ensure_logged_in
 from hawk.client import HawkClient
 from hawk.core.types import EvalSetConfig
@@ -52,26 +49,26 @@ async def owned_job_exists(token: str, label: str) -> bool:
     return any(str(job.get("job_id", "")).startswith(label) for job in jobs)
 
 
-def submit_with_hawk_cli(config_path: Path) -> str:
-    """Invoke Hawk's CLI with the work secret scoped to this one submission."""
+def work_provider_key() -> str:
+    """Load the designated work key without writing it to files or output."""
     work_key_path = Path.home() / ".config" / "openrouter" / "work-api-key"
     work_key = work_key_path.read_text().strip()
     if not work_key:
         raise RuntimeError("The configured OpenRouter work key is empty")
-    previous_key = os.environ.get("OPENROUTER_API_KEY")
-    os.environ["OPENROUTER_API_KEY"] = work_key
-    captured = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(captured), contextlib.redirect_stderr(captured):
-            eval_set_id = cli.main(
-                args=["eval-set", "run", str(config_path), "--skip-confirm"],
-                standalone_mode=False,
-            )
-    finally:
-        if previous_key is None:
-            os.environ.pop("OPENROUTER_API_KEY", None)
-        else:
-            os.environ["OPENROUTER_API_KEY"] = previous_key
+    return work_key
+
+
+async def submit_with_hawk_api(
+    token: str, config: dict[str, object], work_key: str
+) -> str:
+    """Submit one validated config through Hawk's authenticated client API."""
+    async with HawkClient(
+        api_url="https://api.hawk.hawk.generalitylabs.ai", token=token, timeout=45
+    ) as api:
+        eval_set_id = await api.create_eval_set(
+            eval_set_config=config,
+            secrets={"OPENROUTER_API_KEY": work_key},
+        )
     if not isinstance(eval_set_id, str) or not eval_set_id:
         raise RuntimeError("Hawk did not return a Cyber Eval identifier")
     return eval_set_id
@@ -144,7 +141,7 @@ async def main() -> None:
         "intent_at": datetime.now(UTC).isoformat(),
     }
     receipt_path.write_text(json.dumps(initial, indent=2) + "\n")
-    eval_set_id = await asyncio.to_thread(submit_with_hawk_cli, config_path)
+    eval_set_id = await submit_with_hawk_api(token, config, work_provider_key())
     receipt = {
         **initial,
         "state": "submitted",
