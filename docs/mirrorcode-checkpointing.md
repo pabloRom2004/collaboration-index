@@ -90,5 +90,8 @@ required exports and authentication/integrity failures remain fatal. The adapter
 is guarded to verified Inspect 0.3.277 and replaces one entered checkpointer's
 host-backup method, without changing global dependency files or the resolver.
 Local pressure, finished-peer and native scoring-only Docker restoration passed.
-Its additional actual-provider Hawk failure/restore arm is pending as of
-2026-10-10 14:18 UTC; full dispatch waits for that concrete proof.
+Its additional actual-provider Hawk failure/restore arm has a verified resumed
+final and zero owned pods as of 2026-10-10 14:29 UTC, with exact state/caps,
+42,939 cumulative tokens, 822-case grading and 1,702 authored concurrent spool
+writes without write errors. Full launch readiness is derived from that preserved
+initial/final proof and exact source/config/log hashes.

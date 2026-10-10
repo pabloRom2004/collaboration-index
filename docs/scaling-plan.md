@@ -51,9 +51,12 @@ host-backup repair `8da8680a15c647b15baae3eb2a80355343ca5cbf`. Only source and
 ownership names change; routes, budget, images and resources remain matched.
 Every previous unsubmitted config byte is retained. All five original actual-Hawk
 checkpoint QA arms are verified and cleaned. The new backup-pressure Hawk arm
-`mc-cpbackup-sol-n02-1010--c22ldkq1rfe4ez0o` is accepted once and pending;
-its deliberate failure, same-ID restore, final grading and physical cleanup must
-verify the repair before full dispatch. The technical readiness condition does
+`mc-cpbackup-sol-n02-1010--c22ldkq1rfe4ez0o` has now passed its deliberate
+failure and same-ID fresh-controller/sandbox restore, with 42,939 cumulative
+tokens, all 822 final cases, 1,702 authored concurrent spool writes without
+write errors and zero active owned pods. All six fresh protected model preflights passed and all 119 full launch requests
+were dispatched exactly once. Reconcile each pending OWN response and accepted
+receipt; never duplicate a pending or accepted config. The technical readiness condition does
 not require another permission request. The original Sol baseline remains on
 `55271d5` without checkpoints and with separate failed unscored slots.
 Hawk admission controls queuing; no additional one-active-per-size gate applies.
