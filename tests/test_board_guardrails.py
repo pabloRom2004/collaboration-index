@@ -605,3 +605,103 @@ async def test_client_total_attempt_deadline_matches_retry_cache_window(monkeypa
             client.call({"request_id": "stable", "action": "read"}), timeout=0.1
         )
     assert len(seen) == 2 and seen[0] == seen[1]
+
+
+def test_inspect_recovers_after_board_transport_exhaustion(tmp_path, monkeypatch):
+    """Preserve a committed send and continue Inspect after all reply deliveries fail."""
+    database, _ = make_board(tmp_path)
+    inner = httpx.ASGITransport(app=create_app(database, token_hash("observer")))
+    lost_ids = []
+    monkeypatch.setenv("BOARD_GUARDRAIL_TEST", "a-token")
+    monkeypatch.setitem(LIMITS, "retry_seconds", 0)
+
+    async def respond(request):
+        """Commit a harmless send through the real board but lose every transport reply."""
+        body = json.loads(request.content)
+        response = await inner.handle_async_request(request)
+        if body["action"] == "send":
+            lost_ids.append(body["request_id"])
+            raise httpx.ReadError("Synthetic lost reply")
+        return response
+
+    operations = iter(
+        [
+            {"action": "send", "message": "harmless lost reply fixture"},
+            {"action": "read"},
+        ]
+    )
+    errors = []
+
+    def output(messages, tools, tool_choice, config):
+        """Read the board after the ambiguous send instead of blindly sending again."""
+        errors.extend(m.error.message for m in messages if m.role == "tool" and m.error)
+        args = next(operations, None)
+        return (
+            ModelOutput.for_tool_call("mockllm/model", "message_board", args)
+            if args
+            else ModelOutput.from_content("mockllm/model", "Complete")
+        )
+
+    options = {
+        "url": "http://testserver",
+        "run_id": "test",
+        "agent_id": "a",
+        "token_env": "BOARD_GUARDRAIL_TEST",
+    }
+    task = Task(
+        dataset=[Sample(input="Exercise harmless board transport recovery")],
+        solver=[
+            use_tools(message_board(options, httpx.MockTransport(respond))),
+            generate(),
+        ],
+    )
+    [log] = inspect_eval(
+        task,
+        model=get_model("mockllm/model", custom_outputs=output, memoize=False),
+        display="none",
+        score=False,
+        log_dir=str(tmp_path / "logs"),
+    )
+    assert log.status == "success" and log.samples[0].error is None
+    assert len(lost_ids) == LIMITS["request_attempts"] and len(set(lost_ids)) == 1
+    assert any("may have completed" in error for error in errors)
+    page = call(database, "a", "read")
+    assert len(page["messages"]) == 1
+    calls = log.samples[0].store["BoardHistory:calls"]
+    assert calls[0]["completed"] is False and calls[-1]["completed"] is True
+
+
+@pytest.mark.parametrize("failure", ["unauthorized", "identity", "json", "result"])
+async def test_board_identity_and_protocol_failures_remain_fatal(monkeypatch, failure):
+    """Keep authentication and untrusted response failures outside recoverable transport errors."""
+    from collaboration_index.board.client import BoardConnectionError
+
+    monkeypatch.setenv("BOARD_GUARDRAIL_TEST", "a-token")
+
+    async def respond(request):
+        """Return one harmless malformed authentication or protocol fixture."""
+        if failure == "unauthorized":
+            return httpx.Response(401)
+        if failure == "json":
+            return httpx.Response(200, content=b"invalid")
+        return httpx.Response(
+            200,
+            json={
+                "run_id": "other" if failure == "identity" else "test",
+                "agent_id": "a",
+                "result": [] if failure == "result" else {},
+            },
+        )
+
+    client = BoardClient(
+        {
+            "url": "http://testserver",
+            "run_id": "test",
+            "agent_id": "a",
+            "token_env": "BOARD_GUARDRAIL_TEST",
+        },
+        httpx.MockTransport(respond),
+    )
+    with pytest.raises(BoardConnectionError) as error:
+        await client.call({"request_id": "fixture", "action": "read"})
+    assert not isinstance(error.value, ToolError)

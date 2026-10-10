@@ -43,6 +43,10 @@ class BoardConnectionError(RuntimeError):
     """Fail visibly when board infrastructure cannot record a request."""
 
 
+class BoardTransportError(ToolError, BoardConnectionError):
+    """Return ambiguous transport failures to the model without hiding identity failures."""
+
+
 class BoardClient:
     """Send a credential-scoped request with a stable ID across transport retries."""
 
@@ -164,8 +168,9 @@ class BoardClient:
                     return dict(result["result"])
                 except (TimeoutError, httpx.TransportError, httpx.HTTPStatusError):
                     if attempt + 1 == attempts:
-                        raise BoardConnectionError(
-                            "Board request failed after bounded retries"
+                        raise BoardTransportError(
+                            "Board request failed after bounded retries; it may have "
+                            "completed. Read the board before repeating a write."
                         ) from None
                     await asyncio.sleep(LIMITS["retry_seconds"])
         raise AssertionError("Request attempts must be positive")

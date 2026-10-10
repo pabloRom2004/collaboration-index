@@ -21,11 +21,24 @@ from collaboration_index.board.service import service_environment
 
 @asynccontextmanager
 async def local_board(
-    directory: Path, run_id: str, actors: list[str]
+    directory: Path,
+    run_id: str,
+    actors: list[str],
+    checkpoint: dict[str, str | int] | None = None,
 ) -> AsyncIterator[list[dict[str, str]]]:
     """Provision hashed credentials, supervise an unprivileged service, and export its journal."""
     directory.mkdir(parents=True, exist_ok=True)
     tokens = {actor: secrets.token_urlsafe(32) for actor in actors}
+    if checkpoint is not None:
+        from collaboration_index.board.checkpoint import restore_board
+
+        restore_board(
+            checkpoint,
+            directory / "board.sqlite",
+            run_id,
+            tokens,
+            LIMITS["storage_bytes"],
+        )
     observer = secrets.token_urlsafe(32)
     credential_file = directory / "board-credential-hashes.json"
     credential_file.write_text(
