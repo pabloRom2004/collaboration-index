@@ -8,14 +8,21 @@ import tempfile
 from contextvars import ContextVar
 from importlib.resources import files
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 from inspect_ai import Epochs, Task, task
 from inspect_ai.model import GenerateConfig
 from inspect_ai.solver import Generate, Solver, TaskState, chain, solver
 from inspect_ai.tool import Tool, ToolDef, ToolResult
-from inspect_ai.util import SandboxEnvironmentSpec, sandbox
+from inspect_ai.util import (
+    ArchiveSnapshots,
+    CheckpointConfig,
+    Manual,
+    SandboxEnvironmentSpec,
+    SandboxSnapshotConfig,
+    sandbox,
+)
 
 from collaboration_index.harness import prepare_team, team_agents
 from collaboration_index.task import defaults
@@ -254,6 +261,8 @@ def mirrorcode(
     memory_per_agent_mb: int = ARGS["memory_per_agent_mb"],
     cpus_per_agent: float = ARGS["cpus_per_agent"],
     agents_per_scoring_pipeline: int = ARGS["agents_per_scoring_pipeline"],
+    checkpoint_enabled: bool = ARGS["checkpoint_enabled"],
+    checkpoint_interval_seconds: float = ARGS["checkpoint_interval_seconds"],
 ) -> Task:
     """Build one team attempt at reimplementing a MirrorCode target in one shared workspace."""
     from mc import AgentImplementationLanguage, TargetProgram
@@ -273,6 +282,16 @@ def mirrorcode(
     if type(agents_per_scoring_pipeline) is not int or agents_per_scoring_pipeline < 1:
         raise ValueError("agents_per_scoring_pipeline must be a positive integer")
     pipelines = math.ceil(agents / agents_per_scoring_pipeline)
+    if checkpoint_enabled and (
+        agent != "react" or team_time_limit is not None or allow_submit
+    ):
+        raise ValueError(
+            "MirrorCode checkpointing requires native react, token budgets, no submit tool and no deadline"
+        )
+    if checkpoint_interval_seconds <= 0 or not math.isfinite(
+        checkpoint_interval_seconds
+    ):
+        raise ValueError("checkpoint_interval_seconds must be finite and positive")
     languages = {item.value.lower(): item for item in AgentImplementationLanguage}
     if language not in languages:
         raise ValueError("language must be one of: " + ", ".join(languages))
@@ -333,9 +352,31 @@ def mirrorcode(
             agent_args,
             compaction_threshold,
             context_window,
+            checkpoint_interval_seconds if checkpoint_enabled else None,
         ),
         scorer=mirrorcode_scorer(visible_case_ablation=0.0),
         config=GenerateConfig(**CONFIG["generate_config"]),
+        checkpoint=CheckpointConfig(
+            trigger=Manual(),
+            sandbox_paths=cast(
+                dict[str, list[str] | SandboxSnapshotConfig],
+                {
+                    "default": SandboxSnapshotConfig(
+                        paths=["/workdir", "/workspace", "/root", "/home/coder"],
+                        strategy=ArchiveSnapshots(),
+                    )
+                }
+                | {
+                    name if index == 0 else f"{name}-{index}": []
+                    for index in range(pipelines)
+                    for name in SCORING_SERVICES
+                },
+            ),
+            retention="retain",
+            max_consecutive_failures=0,
+        )
+        if checkpoint_enabled
+        else None,
         # MirrorCode's metrics read every epoch's score rather than a reduced mean
         epochs=Epochs(CONFIG["eval_config"]["epochs"], reducer=[]),
         version=3,
@@ -356,5 +397,6 @@ def mirrorcode(
             "mirrorcode_target": target,
             "mirrorcode_language": language,
             "scoring_pipelines": pipelines,
+            "checkpoint_enabled": checkpoint_enabled,
         },
     )

@@ -19,7 +19,7 @@ from inspect_ai.model import (
 )
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from inspect_ai.tool import ToolDef
-from inspect_ai.util import sandbox, token_limit
+from inspect_ai.util import checkpointer, sandbox, token_limit
 
 from collaboration_index.board.client import (
     BoardClient,
@@ -123,6 +123,7 @@ def team_agents(
     agent_args: dict[str, Any],
     compaction_threshold: float,
     context_window: int | None = None,
+    checkpoint_interval: float | None = None,
 ) -> Solver:
     """Build fixed-identity tools and run prepared peers with independent token limits."""
     # MirrorCode teams run without a deadline; every other task sets one
@@ -161,6 +162,9 @@ def team_agents(
     async def execute(state: TaskState, generate: Generate) -> TaskState:
         """Authenticate a fresh board, synchronize inference, and join peers before final scoring."""
         history = state.store_as(TeamHistory)
+        from collaboration_index.checkpoints import OWNER
+
+        owner = OWNER.get()
         if not history.initialized:
             raise RuntimeError("Missing invariant team setup")
         actors = [peer.id for peer in history.peers]
@@ -170,7 +174,12 @@ def team_agents(
         )
         game = TeamGame(history, data, actors)
         async with local_board(
-            Path(history.artifact_dir), history.run_id, actors
+            Path(history.artifact_dir),
+            history.run_id,
+            actors,
+            owner.snapshot.board
+            if owner is not None and owner.cp.attempt != "initial"
+            else None,
         ) as participants:
             for options in participants:
                 roster = await BoardClient(options).call(
@@ -213,7 +222,27 @@ def team_agents(
                     ):
                         raise RuntimeError("A peer does not share the team's sandbox")
                     record.sandbox_hostname = identity.stdout.strip()
-                limit = token_limit(token_limit_per_agent)
+                prior = owner.prior.get(record.id, 0) if owner is not None else 0
+                if owner is not None and record.status in {"limited", "completed"}:
+                    ready.put_nowait(None)
+                    await release.wait()
+                    await owner.barrier.finished(record.id)
+                    return
+                remaining = (
+                    None
+                    if token_limit_per_agent is None
+                    else token_limit_per_agent - prior
+                )
+                if remaining is not None and remaining <= 0:
+                    owner.retain_finished(record.id, threshold)
+                    record.status = "limited"
+                    ready.put_nowait(None)
+                    await release.wait()
+                    await owner.barrier.finished(record.id)
+                    return
+                limit = token_limit(remaining)
+                if owner is not None:
+                    owner.meters[record.id] = limit
 
                 def token_update() -> str:
                     """Show a workspace peer its own token usage and allowance."""
@@ -222,7 +251,7 @@ def team_agents(
                         or token_limit_per_agent is None
                     ):
                         return ""
-                    used = int(limit.usage)
+                    used = prior + int(limit.usage)
                     return TOKEN_UPDATE.prompt.format(
                         used=used,
                         fraction=used / token_limit_per_agent,
@@ -247,6 +276,7 @@ def team_agents(
                 async def on_continue(current: AgentState) -> bool | AgentState:
                     """Count the turn, then stop at the team's end or refresh clock and unread counts."""
                     record.turns += 1
+                    record.tokens = prior + int(limit.usage)
                     output = current.output
                     record.tool_calls += len(output.message.tool_calls or [])
                     if output.usage:
@@ -262,7 +292,7 @@ def team_agents(
                         and not output.message.tool_calls
                         and (
                             token_limit_per_agent is None
-                            or limit.usage < token_limit_per_agent
+                            or prior + limit.usage < token_limit_per_agent
                         )
                     ):
                         record.nudges += 1
@@ -360,12 +390,21 @@ def team_agents(
                         metadata={"team_run": history.run_id, "team_actor": record.id},
                     )
                 ]
+                checkpoint_args = dict(agent_args)
+                if owner is not None:
+                    checkpoint_args["model"] = owner.generation(
+                        record.id,
+                        threshold,
+                        checkpoint_args.pop("retry_refusals", None),
+                    )
                 runner = factory(
                     tools=tools,
                     submit=False,
                     on_continue=on_continue,
-                    compaction=CompactionAuto(threshold=threshold),
-                    **dict(agent_args),
+                    compaction=CompactionAuto(threshold=threshold)
+                    if owner is None
+                    else None,
+                    **checkpoint_args,
                 )
                 ready.put_nowait(None)
                 try:
@@ -381,10 +420,16 @@ def team_agents(
                     raise
                 except Exception:
                     record.status = "error"
+                    if owner is not None:
+                        await owner.barrier.abort(
+                            RuntimeError("A peer failed before a consistent checkpoint")
+                        )
                     raise
                 finally:
-                    record.tokens = int(limit.usage)
+                    record.tokens = prior + int(limit.usage)
                     record.completed = now()
+                if owner is not None:
+                    await owner.barrier.finished(record.id)
 
             async def run_team() -> None:
                 """Prepare every peer, release together, then apply a deadline only to solving work."""
@@ -409,9 +454,52 @@ def team_agents(
             await run_team()
             history.end_reason = history.end_reason or "peers_finished"
             history.completed = now()
+            if owner is not None:
+                await owner.save(hold=True)
         state.output = ModelOutput.from_content(
             "", "Team attempt ended; scoring uses trusted submission state."
         )
         return state
 
-    return execute
+    if checkpoint_interval is None:
+        return execute
+
+    async def checkpointed(state: TaskState, generate: Generate) -> TaskState:
+        """Restore the entire team before recreating its authenticated board and private peers."""
+        from collaboration_index.checkpoints import OWNER, TeamCheckpoints
+
+        owner = None
+        artifact_parent = Path(state.store_as(TeamHistory).artifact_dir).parent
+        try:
+            async with checkpointer() as cp:
+                history = state.store_as(TeamHistory)
+                if cp.attempt != "initial":
+                    directory = artifact_parent / (
+                        history.run_id + "-resume-" + uuid4().hex
+                    )
+                    directory.mkdir(parents=True, exist_ok=False)
+                    history.artifact_dir = str(directory)
+                    identity = await team_workspace(state).exec(
+                        ["cat", "/etc/hostname"]
+                    )
+                    if not identity.success:
+                        raise RuntimeError(
+                            "Cannot identify the restored shared sandbox"
+                        )
+                    state.store.set("shared_sandbox_hostname", identity.stdout.strip())
+                    await team_workspace(state).write_file(
+                        "/workspace/team.json", json.dumps({"run_id": history.run_id})
+                    )
+                owner = TeamCheckpoints(cp, state, checkpoint_interval, threshold)
+                token = OWNER.set(owner)
+                try:
+                    if cp.attempt == "resume_for_scoring":
+                        return state
+                    return await execute(state, generate)
+                finally:
+                    OWNER.reset(token)
+        finally:
+            if owner is not None:
+                await owner.thaw()
+
+    return checkpointed

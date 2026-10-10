@@ -18,6 +18,8 @@ task:
     memory_per_agent_mb: 256
     cpus_per_agent: 0.25
     agents_per_scoring_pipeline: 8
+    checkpoint_enabled: false
+    checkpoint_interval_seconds: 600
 
 model: null
 
@@ -28,6 +30,8 @@ generate_config:
   max_tokens: null
   seed: null
   max_connections: null
+  max_retries: 300
+  attempt_timeout: 900
 
 eval_config:
   epochs: 1

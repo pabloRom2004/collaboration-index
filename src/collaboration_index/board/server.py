@@ -82,7 +82,10 @@ class RequestBounds:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Buffer only a bounded RPC body and always release request admission."""
-        if scope["type"] != "http" or scope["path"] == "/health":
+        if scope["type"] != "http" or scope["path"] in {
+            "/health",
+            "/health/checkpoint",
+        }:
             await self.app(scope, receive, send)
             return
         acquired = False
@@ -174,6 +177,11 @@ def create_app(database: BoardDatabase, admin_hash: str) -> FastAPI:
     async def health() -> dict[str, str]:
         """Report liveness without revealing any run or participant data."""
         return {"status": "ok"}
+
+    @app.get("/health/checkpoint")
+    async def checkpoint_health() -> dict[str, int]:
+        """Report bounded active work without exposing credentials or participant contents."""
+        return {"active_requests": admission.active}
 
     async def identity(authorization: str) -> tuple[str, str]:
         """Resolve participant scope from the bearer credential for every agent endpoint."""
