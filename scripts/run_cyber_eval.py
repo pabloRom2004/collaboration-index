@@ -53,13 +53,25 @@ async def owned_job_exists(token: str, label: str) -> bool:
 
 
 def submit_with_hawk_cli(config_path: Path) -> str:
-    """Invoke Hawk's synchronous CLI outside the asynchronous preflight loop."""
+    """Invoke Hawk's CLI with the work secret scoped to this one submission."""
+    work_key_path = Path.home() / ".config" / "openrouter" / "work-api-key"
+    work_key = work_key_path.read_text().strip()
+    if not work_key:
+        raise RuntimeError("The configured OpenRouter work key is empty")
+    previous_key = os.environ.get("OPENROUTER_API_KEY")
+    os.environ["OPENROUTER_API_KEY"] = work_key
     captured = io.StringIO()
-    with contextlib.redirect_stdout(captured), contextlib.redirect_stderr(captured):
-        eval_set_id = cli.main(
-            args=["eval-set", "run", str(config_path), "--skip-confirm"],
-            standalone_mode=False,
-        )
+    try:
+        with contextlib.redirect_stdout(captured), contextlib.redirect_stderr(captured):
+            eval_set_id = cli.main(
+                args=["eval-set", "run", str(config_path), "--skip-confirm"],
+                standalone_mode=False,
+            )
+    finally:
+        if previous_key is None:
+            os.environ.pop("OPENROUTER_API_KEY", None)
+        else:
+            os.environ["OPENROUTER_API_KEY"] = previous_key
     if not isinstance(eval_set_id, str) or not eval_set_id:
         raise RuntimeError("Hawk did not return a Cyber Eval identifier")
     return eval_set_id
