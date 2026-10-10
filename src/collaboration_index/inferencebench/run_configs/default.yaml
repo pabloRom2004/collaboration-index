@@ -3,7 +3,7 @@ task:
   args:
     agents: 2
     token_limit_per_agent: null
-    team_time_limit: 3600
+    team_time_limit: null
     agent: react
     agent_args: {}
     artifact_dir: run-artifacts/inferencebench-team

@@ -151,7 +151,7 @@ def inference_team_speedup(spec: dict[str, Any]) -> Scorer:
 def inferencebench(
     agents: int = ARGS["agents"],
     token_limit_per_agent: int | None = ARGS["token_limit_per_agent"],
-    team_time_limit: float = ARGS["team_time_limit"],
+    team_time_limit: float | None = ARGS["team_time_limit"],
     agent: str = ARGS["agent"],
     agent_args: dict[str, Any] = ARGS["agent_args"],
     artifact_dir: str = ARGS["artifact_dir"],
@@ -172,12 +172,10 @@ def inferencebench(
 
     if type(agents) is not int or not 1 <= agents <= 32:
         raise ValueError("InferenceBench team sizes must be between 1 and 32")
-    if (
-        team_time_limit is None
-        or not math.isfinite(team_time_limit)
-        or team_time_limit <= 0
+    if team_time_limit is not None and (
+        not math.isfinite(team_time_limit) or team_time_limit <= 0
     ):
-        raise ValueError("Provide a positive team_time_limit in seconds")
+        raise ValueError("Provide positive team_time_limit seconds or null")
     if type(tool_timeout) is not int or tool_timeout <= 0:
         raise ValueError("tool_timeout must be a positive integer")
     if gpu_management not in {"inspect", "controller"}:

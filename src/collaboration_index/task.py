@@ -1,5 +1,6 @@
 """Compose the common team environment without placing answer keys in participant inputs."""
 
+import math
 from pathlib import Path
 from typing import Any
 
@@ -51,8 +52,9 @@ def make_task(
         raise ValueError(
             "token_limit_per_agent must be positive, or null for no per-peer budget"
         )
-    # teams run against a wall-clock deadline that every peer is reminded of
-    if team_time_limit is None or team_time_limit <= 0:
+    if team_time_limit is not None and (
+        not math.isfinite(team_time_limit) or team_time_limit <= 0
+    ):
         raise ValueError("Provide a positive team_time_limit in seconds")
     sample.metadata = dict(
         sample.metadata or {},

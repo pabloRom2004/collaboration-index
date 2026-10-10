@@ -110,8 +110,9 @@ the pinned source, safety boundary, shared-tool behavior, and Hawk launch
 requirements.
 
 Real model runs require an explicitly selected subject model and verified
-provider credentials. With `token_limit_per_agent` left null, peers have no
-token budget and run until the task ends or the team deadline passes. HLE's default judge
+provider credentials. Runs have no wall-clock deadline by default and require
+an explicit per-peer token budget. Set a deadline only when Pablo requests one;
+an explicitly timed run may leave the token budget null. HLE's default judge
 also requires an explicitly bound `grader` role. No subject, judge, paid token
 budget or reasoning effort is silently selected. The following are interface
 examples **to use after a real run has been authorized and its provider route
@@ -194,7 +195,7 @@ tasks:
     args:
       agents: 32
       token_limit_per_agent: 5000000
-      team_time_limit: 3600
+      team_time_limit: null
       artifact_dir: /tmp/collaboration-index
       sandbox_enabled: false
 models:
@@ -230,11 +231,11 @@ above exists for a reason:
   so run them with `sandbox_enabled: false`. A task that needs the container
   must use `sandbox_type: k8s`.
 - **Budgets:** leave the eval-set `token_limit` unset; a sample-level cap
-  would stop the team before it is scored. The team deadline is the end
-  condition, and any token budget belongs per agent.
-- **Output cap:** set `max_tokens` to the route's full output limit (131072
-  for GLM 5.3 Flash on `z-ai/fp8`, 128000 for GPT 6.1 Sol) and bound runs with
-  the team time limit instead. A smaller cap cuts a
+  would stop the team before it is scored. Native token caps end each peer
+  independently, allowing final scoring after the team joins. Leave task,
+  sample and runner deadlines unset unless Pablo explicitly requests a time limit.
+- **Output cap:** set `max_tokens` to the verified route's full output limit
+  and bound runs with the agreed per-peer token budget. A smaller cap cuts a
   response off mid-reasoning and measures the model below its capability.
 - **Concurrency:** Inspect shares one connection pool per model across the
   process, so set `max_connections` to at least the total agents across every
@@ -525,11 +526,12 @@ include `--epochs`, `--temperature`, `--max-tokens` and `--max-connections`.
 These differ from task arguments supplied with `-T`. `--max-tokens` caps an
 individual generated response; it does not replace `token_limit_per_agent`.
 
-`team_time_limit` is the task's solving deadline in seconds, beginning only after
-all peers are ready. A generic Inspect `--time-limit` or sample-level token limit
-can interrupt controller finalization; do not silently substitute it for the
-team/per-peer limits. Use explicit bounded solving limits when supervising
-real smoke tests, and retain partial work and infrastructure errors.
+`team_time_limit` defaults to null. Runs end through native per-peer token
+budgets or the task's completion condition. Set a wall-clock deadline only when
+Pablo explicitly requests one; it begins after all peers are ready. Leave
+Inspect `time_limit` and `working_limit` unset for token-only runs. Generic
+sample limits can interrupt finalization; do not substitute them for peer
+budgets. Request and tool timeouts remain separate infrastructure controls.
 
 ## Parameters
 
@@ -540,8 +542,8 @@ real smoke tests, and retain partial work and infrastructure errors.
 | `agents` | `2` | Integer 1–32 for authored tasks; 1–64 for MirrorCode and ExploitBench. All peers share one sandbox. |
 | `condition` | `collaborative` | Collaborative board or `oracle_allocation` control. |
 | `seed` | `0` | Stable task draw identifier; spelling uses it for dealing. |
-| `token_limit_per_agent` | `null` | Optional positive native token ceiling for each peer; `null` means no budget, so the team deadline ends the attempt. MirrorCode, which has no default deadline, needs one or the other. |
-| `team_time_limit` | `3600` | Required positive solving deadline in seconds. Before every decision each peer gets a user message with elapsed and remaining time, and peers keep working until the task ends or the deadline passes. |
+| `token_limit_per_agent` | `null` | Explicit positive native token ceiling for each peer. Supply the agreed budget before running; no spending allowance is silently selected. It may be null only for an explicitly timed run. |
+| `team_time_limit` | `null` | Optional positive solving deadline in seconds, set only when Pablo requests one. Token-only runs have no elapsed/remaining-time reminder; peers receive their own token usage and allowance before every decision. |
 | `agent` | `react` | Native ReAct, or a compatible dotted Python factory. |
 | `agent_args` | `{}` | Factory options; trusted tools/lifecycle/model/compaction cannot be replaced here. |
 | `artifact_dir` | `run-artifacts` | Parent of fresh `team-<uuid>` attempt directories. |

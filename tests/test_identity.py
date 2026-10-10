@@ -52,8 +52,10 @@ def test_peer_input_hides_ids_and_team_size(benchmark: str, tmp_path: Path) -> N
         for message in event.input:
             if message.role in ("system", "user", "tool"):
                 assert not EVALUATOR_ID.search(message.text), message.text
-            # time updates carry clock readings, not the team size
-            if message.role == "user" and not message.text.startswith("Time update:"):
+            # Decision reminders carry usage and unread counts, not the team size.
+            if message.role == "user" and not message.text.startswith(
+                ("Time update:", "Token update:")
+            ):
                 assert not re.search(rf"\b{agents}\b", message.text), message.text
         for info in event.tools:
             assert not EVALUATOR_ID.search(info.model_dump_json())
@@ -164,15 +166,37 @@ def test_every_decision_follows_a_time_update(tmp_path: Path) -> None:
         assert "of the 10-minute team deadline" in last.text
 
 
-def test_team_time_limit_is_required(tmp_path: Path) -> None:
-    """Refuse to build a team task without a positive wall-clock deadline."""
-    with pytest.raises(ValueError, match="team_time_limit"):
-        counting(
-            token_limit_per_agent=10000,
-            team_time_limit=None,
-            sandbox_enabled=False,
-            artifact_dir=str(tmp_path),
-        )
+def test_token_budget_replaces_default_deadline(tmp_path: Path) -> None:
+    """Run a token-capped team with budget reminders and no solving deadline."""
+    task = counting(
+        target=4,
+        token_limit_per_agent=10000,
+        sandbox_enabled=False,
+        artifact_dir=str(tmp_path),
+    )
+    [log] = inspect_eval(
+        task, model=fixture_model(task), log_dir=str(tmp_path / "logs"), display="none"
+    )
+    assert log.status == "success", log.error
+    sample = read_eval_log(log.location, resolve_attachments=True).samples[0]
+    assert sample.scores["team_score"].value["quality"] == 1
+    assert sample.store["TeamHistory:end_reason"] != "deadline"
+    assert log.eval.config.time_limit is None
+    assert log.eval.config.working_limit is None
+    assert log.eval.task_args["team_time_limit"] is None
+    calls = [event for event in sample.events if event.event == "model"]
+    assert calls
+    for event in calls:
+        last = event.input[-1]
+        assert last.role == "user"
+        assert "limit 10,000" in last.text
+        assert "Time update:" not in last.text
+
+
+def test_uncapped_team_requires_a_requested_deadline(tmp_path: Path) -> None:
+    """Refuse unbounded spending when neither a token budget nor deadline is supplied."""
+    with pytest.raises(ValueError, match="time limit or a per-agent token limit"):
+        counting(sandbox_enabled=False, artifact_dir=str(tmp_path))
 
 
 def test_context_window_sets_absolute_compaction_threshold(

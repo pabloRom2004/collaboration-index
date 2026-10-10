@@ -52,6 +52,7 @@ def test_team_without_token_budget_runs_to_completion(tmp_path: Path) -> None:
     task = counting(
         target=8,
         token_limit_per_agent=None,
+        team_time_limit=30,
         sandbox_enabled=False,
         artifact_dir=str(tmp_path),
     )
@@ -262,6 +263,7 @@ def test_starter_uses_common_core_and_public_defaults(tmp_path: Path) -> None:
         # colouring peers exchange DMs only and have no file or shell tool
         assert config["task"]["args"]["sandbox_enabled"] is (name != "colouring")
         assert config["task"]["args"]["token_limit_per_agent"] is None
+        assert config["task"]["args"]["team_time_limit"] is None
         assert config["task"]["args"]["compaction_threshold"] == 0.75
 
 

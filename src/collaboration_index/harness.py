@@ -132,7 +132,7 @@ def team_agents(
     checkpoint_interval: float | None = None,
 ) -> Solver:
     """Build fixed-identity tools and run prepared peers with independent token limits."""
-    # MirrorCode teams run without a deadline; every other task sets one
+    # Token budgets end individual peers; a team deadline is an explicit option.
     if (token_limit_per_agent is not None and token_limit_per_agent < 1) or (
         team_time_limit is not None
         and (not math.isfinite(team_time_limit) or team_time_limit <= 0)
@@ -251,12 +251,8 @@ def team_agents(
                     owner.meters[record.id] = limit
 
                 def token_update() -> str:
-                    """Show a workspace peer its own token usage and allowance."""
-                    if (
-                        history.benchmark
-                        not in {"mirrorcode", "inferencebench", "exploitbench"}
-                        or token_limit_per_agent is None
-                    ):
+                    """Show each peer its own token usage and allowance."""
+                    if token_limit_per_agent is None:
                         return ""
                     used = prior + int(limit.usage)
                     return TOKEN_UPDATE.prompt.format(

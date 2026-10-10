@@ -114,7 +114,8 @@ For open-ended grading also add:
 ```
 
 These are interface examples, not launch authorization. Use task `team_time_limit`
-for a bounded solving deadline when appropriate; do not silently substitute a
+for a bounded solving deadline only when explicitly requested; otherwise supply
+the agreed per-peer token budget. Do not silently substitute a
 sample token limit for the native peer budgets. Generic run settings belong in
 native run-config blocks, and experiment copies belong under `run-artifacts/`.
 The complete team is the sample selected by `--limit`; it is not one question.

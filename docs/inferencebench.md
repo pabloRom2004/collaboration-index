@@ -75,10 +75,12 @@ simultaneous foreground tests using the same GPU and measurement paths. Shared
 files and background processes remain unrestricted; agents coordinate server
 lifecycle and edits themselves. The lock is not GPU process isolation.
 
-Every decision receives elapsed/remaining time, its own cumulative token usage
-when capped, and count-only unread-board reminders. A no-tool turn continues
-while allowance remains. The default team deadline is 3,600 seconds after the
-readiness barrier; setup and final grading are outside that interval. There is
+Every decision receives its own cumulative token usage and count-only
+unread-board reminders. A no-tool turn continues while allowance remains.
+There is no default wall-clock deadline: supply an explicit per-peer token
+budget. If Pablo requests a deadline, it begins after the readiness barrier;
+peers also receive elapsed/remaining time, and setup and final grading remain
+outside that interval. There is
 no submit tool or aggregate sample token cap. Four 100K caps give a planned 400K
 team allowance; native response boundaries can overshoot it.
 

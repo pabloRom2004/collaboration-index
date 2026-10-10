@@ -165,20 +165,25 @@ The native compaction setting is 0.75. Verify a new model's effective context,
 provider route and harness consumption before launch. Do not silently select a
 model, reasoning effort or grader. Set `max_tokens` to the full output limit of
 the exact model and route, never a smaller per-turn cap; bound spending with
-the team time limit, plus a per-agent token budget only when one is requested
-(`null` means none). Graders use an explicit
+an explicitly agreed per-agent token budget (`null` means none). Graders use an explicit
 `grader` model role; there is no fallback to subject self-grading.
 
-Every evaluation runs against a wall-clock `team_time_limit` (default 3600 s;
-a task without one is refused). Before each peer's first decision and after
-every turn, the harness sends the Multi-Agent-Bench time update as a user
-message: elapsed seconds, remaining seconds and the deadline in minutes. Peers
-keep working until the task ends or the deadline passes, rather than stopping
-on a turn without a tool call. Keep this in any new task or agent factory.
-MirrorCode is the exception the user asked for: it has no deadline by default,
-so peers run until their token budgets (or submit when explicitly enabled). Its update
-replaces the time line with the peer's own token usage and limit, following
-upstream's `resources` tool, which the task removes.
+All future evaluation runs, including ExploitBench, use token budgets and have
+**no wall-clock limit unless Pablo explicitly requests one** (2026-10-10).
+Keep `team_time_limit: null` by default and leave Inspect/eval-set `time_limit`
+and `working_limit` unset. Do not add a hidden controller, job, sample or runner
+deadline. Require an agreed per-agent token budget before launching; never
+invent a spending allowance or silently restore a time cap. Accepted Hawk jobs
+are immutable: preserve an owned timed attempt and replace it with an authorized
+token-only attempt instead of claiming its deadline changed in place.
+
+Before each peer's first decision and after every turn, the harness sends its
+own cumulative token usage and limit plus the unread counts. When a time limit
+is explicitly requested, also send elapsed/remaining time and the deadline.
+Peers continue until the task ends or their native budget is exhausted; a turn
+without tools does not end a workspace benchmark. Preserve explicitly enabled
+submission behavior. Model-request and tool-operation timeouts remain bounded
+infrastructure checks; they must not become an overall run deadline.
 
 The same decision update includes the peer's current unread global and DM
 counts, reusing ExploitBench's reminder wording and the scoped board count

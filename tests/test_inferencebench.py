@@ -170,7 +170,7 @@ def fixture_model(expect_evaluate_error: bool = False) -> Any:
         names = {t.name for t in tools}
         assert {"bash", "python", "evaluate", "web_search", "message_board"} <= names
         assert "submit" not in names
-        assert "Time update:" in messages[-1].text
+        assert "Time update:" not in messages[-1].text
         assert "Token update:" in messages[-1].text
         assert "unread" in messages[-1].text.lower()
         step = len(done)
@@ -272,6 +272,7 @@ def test_task_configuration_and_validation() -> None:
     task = inferencebench(agents=4, token_limit_per_agent=100000)
     assert task.token_limit is None and len(task.dataset) == 1
     assert task.metadata["planned_team_token_budget"] == 400000
+    assert task.dataset[0].metadata["agent_seconds"] is None
     assert task.sandbox.type == "inferencebench_runpod"
     assert task.dataset[0].metadata["quality_tau"] == 0.95
     assert (
@@ -279,13 +280,18 @@ def test_task_configuration_and_validation() -> None:
     )
     with pytest.raises(ValueError, match="team sizes"):
         inferencebench(agents=33)
-    with pytest.raises(ValueError, match="team_time_limit"):
-        inferencebench(team_time_limit=None)
+    with pytest.raises(ValueError, match="time limit or a per-agent token limit"):
+        inferencebench()
     workload = copy.deepcopy(ARGS["workload"])
     workload["quality_samples"] = 0
     with pytest.raises(ValueError, match="positive"):
         inferencebench(workload=workload)
-    assert inferencebench(gpu_management="controller").sandbox is None
+    assert (
+        inferencebench(
+            token_limit_per_agent=100000, gpu_management="controller"
+        ).sandbox
+        is None
+    )
     with pytest.raises(ValueError, match="gpu_management"):
         inferencebench(gpu_management="local")
 
