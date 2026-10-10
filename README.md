@@ -537,7 +537,7 @@ real smoke tests, and retain partial work and infrastructure errors.
 
 | Argument | Maintained default | Meaning |
 | --- | --- | --- |
-| `agents` | `2` | Integer 1–32; all peers share one sandbox. |
+| `agents` | `2` | Integer 1–32 for authored tasks; 1–64 for MirrorCode and ExploitBench. All peers share one sandbox. |
 | `condition` | `collaborative` | Collaborative board or `oracle_allocation` control. |
 | `seed` | `0` | Stable task draw identifier; spelling uses it for dealing. |
 | `token_limit_per_agent` | `null` | Optional positive native token ceiling for each peer; `null` means no budget, so the team deadline ends the attempt. MirrorCode, which has no default deadline, needs one or the other. |
