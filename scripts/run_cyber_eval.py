@@ -10,6 +10,7 @@ from pathlib import Path
 
 import keyring
 import yaml
+from hawk.cli import tokens
 from hawk.cli.util.auth import ensure_logged_in
 from hawk.client import HawkClient
 from hawk.core.types import EvalSetConfig
@@ -41,12 +42,23 @@ def parse_args() -> argparse.Namespace:
 
 
 async def owned_job_exists(token: str, label: str) -> bool:
-    """Return whether the protected account already owns this exact launch label."""
+    """Match owned jobs using Hawk's 24-character launch-name prefix."""
     async with HawkClient(
         api_url="https://api.hawk.hawk.generalitylabs.ai", token=token, timeout=45
     ) as api:
         jobs = await api.get_jobs(mine=True, limit=500)
-    return any(str(job.get("job_id", "")).startswith(label) for job in jobs)
+    prefix = label[:24] + "-"
+    return any(str(job.get("job_id", "")).startswith(prefix) for job in jobs)
+
+
+def runner_refresh_token() -> str:
+    """Require the memory-only refresh credential used by Hawk's AWS helper."""
+    if type(keyring.get_keyring()).__name__ != "SessionKeyring":
+        raise RuntimeError("Cyber Eval requires the protected memory-only Hawk session")
+    refresh_token = tokens.get("refresh_token")
+    if not isinstance(refresh_token, str) or not refresh_token.strip():
+        raise RuntimeError("Hawk requires a runner refresh credential before launch")
+    return refresh_token
 
 
 def work_provider_key() -> str:
@@ -59,15 +71,18 @@ def work_provider_key() -> str:
 
 
 async def submit_with_hawk_api(
-    token: str, config: dict[str, object], work_key: str
+    token: str, config: dict[str, object], work_key: str, refresh_token: str
 ) -> str:
     """Submit one validated config through Hawk's authenticated client API."""
+    if not refresh_token.strip():
+        raise RuntimeError("Hawk requires a runner refresh credential before launch")
     async with HawkClient(
         api_url="https://api.hawk.hawk.generalitylabs.ai", token=token, timeout=45
     ) as api:
         eval_set_id = await api.create_eval_set(
             eval_set_config=config,
             secrets={"OPENROUTER_API_KEY": work_key},
+            refresh_token=refresh_token,
         )
     if not isinstance(eval_set_id, str) or not eval_set_id:
         raise RuntimeError("Hawk did not return a Cyber Eval identifier")
@@ -88,7 +103,7 @@ async def main() -> None:
 
     if receipt_path.exists():
         receipt = json.loads(receipt_path.read_text())
-        if receipt.get("state") != "submission_pending":
+        if receipt.get("state") not in {"submission_pending", "submission_retrying"}:
             print(
                 json.dumps(
                     {
@@ -104,21 +119,14 @@ async def main() -> None:
             raise RuntimeError(
                 "Reconcile the pending Cyber Eval receipt before retrying"
             )
+        if receipt.get("config_sha256") != config_hash:
+            raise RuntimeError("The pending Cyber Eval configuration has changed")
         if await owned_job_exists(token, str(config["name"])):
             raise RuntimeError(
                 "The pending Cyber Eval receipt already has an owned job"
             )
-        receipt_path.write_text(
-            json.dumps(
-                {
-                    **receipt,
-                    "state": "submission_retrying",
-                    "reconciled_at": datetime.now(UTC).isoformat(),
-                },
-                indent=2,
-            )
-            + "\n"
-        )
+
+    refresh_token = runner_refresh_token()
 
     if await owned_job_exists(token, str(config["name"])):
         raise RuntimeError("Reconcile the existing Cyber Eval job before submitting")
@@ -135,13 +143,14 @@ async def main() -> None:
         )
         return
 
+    work_key = work_provider_key()
     initial = {
         "state": "submission_pending",
         "config_sha256": config_hash,
         "intent_at": datetime.now(UTC).isoformat(),
     }
     receipt_path.write_text(json.dumps(initial, indent=2) + "\n")
-    eval_set_id = await submit_with_hawk_api(token, config, work_provider_key())
+    eval_set_id = await submit_with_hawk_api(token, config, work_key, refresh_token)
     receipt = {
         **initial,
         "state": "submitted",
@@ -162,4 +171,5 @@ async def main() -> None:
     )
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
