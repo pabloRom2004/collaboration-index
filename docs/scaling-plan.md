@@ -1,6 +1,77 @@
 # Team-size scaling plan
 
-This records the intended MirrorCode comparison and the current launch gate.
+## Current Ruff study — authorized 2026-10-10
+
+The current target is Ruff in Python, with 822 authoritative final cases
+(761 visible, 61 hidden). Mailauth launches are cancelled and their prior
+conditions/results remain separate. Pablo authorized full checkpoint integration,
+necessary scoped publication and actual Hawk testing, followed by the remaining
+six-target-model study. Earlier six-model and checkpoint shipping holds are
+superseded within that scope; no repeated permission request is needed.
+
+Each independent attempt has one epoch, a fresh board/workspace/private histories,
+version 3 with team size disclosed, no submit tool and a 250M planned team token
+allowance split equally into native peer caps. Sizes are N=1,2,4,8,16,32,64.
+Five new models have three attempts at each size; GPT-6.1 Sol has two new
+independent repeats per size, alongside its preserved original baseline.
+That is 119 new full attempts and 29.75B planned tokens. Native boundary
+overshoot and checkpoint rollback work can increase actual physical usage.
+Old failed Sol N2/N64 slot replacements are separate and remain unlaunched;
+old cancelled Sol repeat folders stay cancelled. New repeats have fresh folders.
+
+| Model | Exact route / supplier | Effective context | Full output | Native effort | New full attempts |
+| --- | --- | ---: | ---: | --- | ---: |
+| Claude Opus 4.6 | OpenRouter, `anthropic` only | 1,000,000 | 128,000 | max | 21 |
+| Claude Opus 5.5 | OpenRouter, `anthropic` only | 1,000,000 | 128,000 | xhigh | 21 |
+| GPT-5.6 Sol | Generality work Middleman Responses, API ID `openai/gpt-5.6-sol` | 1,050,000 | 128,000 | xhigh | 21 |
+| GPT-6.1 Sol | Generality work Middleman Responses, API ID `gpt-6.1-sol` | 1,050,000 | 128,000 | xhigh | 14 |
+| Kimi K3 | OpenRouter, `moonshotai/mxfp4` only, Moonshot AI supplier | 1,048,576 | 943,718 | max | 21 |
+| GLM 5.3 | OpenRouter, `z-ai/fp8` only, Z.AI supplier | 1,048,576 | 131,072 | max | 21 |
+
+Compaction is .75 of each verified effective context: 750,000; 787,500; or
+786,432 tokens respectively. Every new effective model config uses
+`max_retries: 300` and `attempt_timeout: 900`, with full route output limits and
+N connections. These are model-request retries, not fresh evaluation attempts.
+OpenRouter fallback is disabled. Protected harmless actual provider calls passed;
+the prefixed GPT-5.6 gateway ID passed while its bare name returned 404. Its
+legitimate Inspect model name is `openai/openai/gpt-5.6-sol`.
+
+Immutable plans and guarded helpers are under
+`run-artifacts/hawk-mirrorcode-six-model-checkpointed-ruff-250m-20261010/`.
+Fresh v2 configs pin checkpoint/image release
+`2ab240e594e0109d6d8436ad2a0edd1d29285967` and the three original registry
+manifest digests. All 125 earlier tag-based configs are preserved as
+superseded unlaunched revisions after protected preflights detected tag drift.
+The original Sol baseline remains on
+`55271d5` without checkpoints. Current Hawk N2 Ruff and native-compaction restore
+proofs have resumed finals and zero owned pods, as does N64 representative
+restore QA. Finished-peer ordinary continuation and the distinct native
+scorer-failure branch also have verified resumed finals and physical cleanup.
+All five actual-Hawk checkpoint QA arms are complete. After four backend final proofs,
+each of six separate native N64 model smokes runs
+with 100K per peer. A valid low score passes infrastructure QA. Its full batch
+starts after the fifth native scorer-failure restore proof and its own exact
+grading, caps, identity, checkpoint, cleanup and plot checks.
+Hawk admission controls queuing; no additional one-active-per-size gate applies.
+
+Resources retain the existing Ruff formula: an 8-CPU/32-GiB controller, a shared
+workspace growing with N, one grading pipeline per eight peers and upstream
+2-GiB scoring-container bounds. Prior Docker grading-concurrency measurements
+and current actual Hawk checkpoint measurements justify reuse, but do not prove
+real-model minima, cluster capacity or worst-case checkpoint storage. Current
+Hawk resource metrics may be unavailable; preserve null instead of zero.
+
+Retain every individual result. Aggregate only three verified finals at the same
+model/N with mean and sample SD; incomplete aggregates remain unavailable.
+Report all/visible/hidden grades, launch-to-final-log time including queue/setup/
+grading, peer duration and actual tokens. Preserve every unscored physical
+failure, checkpoint rollback and config/source change separately. One task,
+three repeats, hardware growing with N and the changed Sol baseline source/retry/
+checkpoint settings do not establish causal scaling.
+
+## Historical Mailauth planning — 2026-10-08/09
+
+The following records the earlier comparison and its then-current launch gates.
 On 2026-10-08 the user narrowed the next paid work to Haiku 5.5 smokes at 32 and
 64 agents, one epoch each, followed by review. Repair and local checks come first;
 the user wants an explanation and a successful teach-back before launch. The

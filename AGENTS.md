@@ -111,13 +111,16 @@ are different conditions.
   sandbox off. MirrorCode mailauth has now completed on Hawk with 32 and 64
   real-model peers, successful testing and final grades over all 1,553 cases;
   both used a planned 32M team allowance and embedded their board histories.
-  Hawk CPU/RAM peaks were unavailable. Resource minima, interruption cleanup
-  and checkpoint resume are not established. See the dated handoff for exact
-  evidence and the deliberately different workspace/grading allocations.
-- Known bug: after an Inspect sample interrupt (for example `hawk stop`), the
-  peers are cancelled but the board never shuts down and no score or `.eval` is
-  written. The unshielded cleanup awaits in `board/runtime.py` `local_board` are
-  the unconfirmed suspect. Let runs end on their budgets or deadline until fixed.
+  Hawk CPU/RAM peaks were unavailable. Resource minima remain unestablished.
+  Opt-in MirrorCode restore has local Ruff Docker proof and actual Hawk N2
+  Ruff, compaction and N64 resumed finals with physical cleanup. Finished-peer
+  ordinary continuation and native scorer-failure continuation also have verified
+  actual Hawk finals and cleanup; see the current dated handoff
+  for exact source/config identities and resource limitations.
+- Board shutdown now shields cancellation cleanup and joins requests before
+  snapshots. Earlier interrupted attempts remain unscored artifacts, separate
+  from budget-complete finals. Never infer a final grade or lossless recovery
+  from an interrupted status; verify durable checkpoints, logs and exact cleanup.
 
 No paid run, remote publication or deployment is authorized merely because a
 configuration or command exists. Work requested in this repository does not
@@ -212,10 +215,17 @@ add an aggregate sample token limit that prevents finalization. A response can
 overshoot a native token allowance at its final response boundary; planned
 N-times-budget accounting is not a provider spending guarantee.
 
-Checkpoint continuation deliberately fails. Do not enable it until private peer
-histories, usage limits, shared state, pending actions and board identity/history
-restore together in a tested implementation. A fresh attempt gets a fresh board;
-never clear a board while its peers are active.
+MirrorCode now has opt-in native checkpoint continuation verified with local Ruff
+Docker fixtures and actual-model N2/N64 Ruff and native compaction restores on Hawk;
+see `docs/mirrorcode-checkpointing.md` and the current dated handoff. Its default
+remains off; the authorized new sweep enables it explicitly. Finished-peer and
+native scorer-failure Hawk branches are verified through resumed grading and cleanup. No additional QA shipping signoff is
+required for Pablo's already authorized integration/testing/publication scope. Other
+task families still reject checkpoint continuation. Preserve every private peer
+history/compaction, cumulative native cap, shared files, trusted state and complete
+board together. Snapshot only after all in-flight turns finish; preserve failures
+and physical billed usage separately. A fresh attempt gets a fresh board; never
+clear a board while its peers are active.
 
 ## Privacy, credentials and environment
 
@@ -302,3 +312,7 @@ At handoff, report source/config identity, what changed, exact checks and their
 limits, real versus mock results, remaining resources and actionable next steps.
 Refresh the dated handoff when verified state changes. The user should be able
 to open this folder in a fresh chat and continue without the previous transcript.
+
+## Model-request retry policy (Pablo, 2026-10-09)
+
+For every future model run, especially long-context evaluations, configure `max_retries: 300` and `attempt_timeout: 900` seconds in the effective model generation configuration. Verify provider and harness consumption before launch and remove lower overriding values from launch configs. These are model-request retries, not 300 fresh paid evaluation attempts. Preserve budgets and failed artifacts; do not duplicate pending submissions or change active immutable runs. This policy reduces transient timeout failures but does not guarantee success or replace tested checkpoints.

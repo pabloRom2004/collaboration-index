@@ -1,9 +1,929 @@
+## Checkpoint integration and authorization — 2026-10-10 13:44 UTC
+
+The stale blanket shipping-signoff sentence was removed from the canonical `qa-inspect-task` skill. Claude and Codex resolve to the same file, and skill validation passed. Pablo's explicit checkpoint request includes scoped publication, full Hawk failure/restore/resource tests, fixes and integration; continue without another permission question.
+
+Real-provider native compaction restore is now verified on Hawk. Exact owned eval-set `mc-cpqa-sol-comp-n02-1010-xb7bplwm2j8fg2pw` was resumed once after its deliberate failure. A fresh process restored both private compacted histories and the same 16,568 cumulative real Sol tokens without another summary call. The successful durable flat log has SHA256 `1c8ac4cf2c27d97140391320a27fcb5997fff4f380bfacbe20288da96f89186c`; active owned pods are zero. This authored test forces compaction below the normal 787,500-token threshold. Hawk logs retain the two CompactionEvents and usage, but no ModelEvents for the summary calls; the trusted baseline and unchanged native usage verify the calls were not repeated. Proof: `run-artifacts/hawk-mirrorcode-checkpoint-validation-20261010/n02-compaction-v1.eval-set-final-proof.json`.
+
+The separate actual-model N2 Ruff failure/restore test `mc-cpqa-sol-n02-1010-v1-l2kelo4ys3qqll34` completed at 12:17:07 UTC after one same-ID resume. It restored both private histories and cumulative caps, shared files and the complete board into a fresh controller process and sandbox, then continued to authoritative grading over all 822 cases. Both peers ended native-limited, with 49,522 cumulative actual tokens and zero testing/reference errors or active owned pods. One participant bash argument-parsing error is retained as such; this is not zero-total-tool-error evidence. The final flat-log SHA256 is `ef20bd0a88ba46a57800f6d39b034a3049d5e5373b4c420c4574b73142da6304`. Eight checkpoint records range from 0.848 to 2.298 seconds and 2.84 to 9.21 MB in this small workload. Initial and resumed logs and proofs remain separate. The long pending provider request completed after a native attempt timeout/retry; bounded local barrier tests found no deadlock.
+
+Published immutable QA sources are `f3d1b0f0e655eb1df84a5c955a0a2d7d29f74adc` and the actual-provider compaction addition `8366d20ae2ec53291473e4769cc1b05c291d96f9`. The real-provider N64 failure/restore config, SHA256 `ed59a15bf2aa0fcb8123b1322eb989dde2d9d4ca7065859d8a7a4551bae0089f`, was accepted once at 12:21:34 UTC as `mc-cpqa-sol-n64-1010-v1-3q6dzhp914aqtu8o`. Its deliberate initial failure after two durable checkpoints retained 193,948 actual tokens, all 64 peers doing real work, zero tool errors and zero owned pods. Initial flat-log SHA256: `d3236f9e29618a006b6b818843818a49c5747ff1e18f42e68d79faed7adc82e0`. Same-ID resume was accepted once at 12:31:41 UTC and is now verified complete with 1,730,196 cumulative actual tokens, all 64 exact private/file/board/cap restores, all 64 native-limited peers, 61 testing calls, authoritative grading over all 822 cases and zero testing/reference errors or active owned pods. The four participant tool errors comprise three bash argument-parsing errors and one correctly rejected self-DM. Infrastructure tool errors are zero; this is not zero-total-tool-error evidence. A previous live timeout marker belonged to argument parsing, not a board timeout. Final flat-log SHA256: `1fbc52afde9f5e26078def75257cbc64f413edf401eaa87d7856d0e345b54e71`. Proof: `n64-provider-v1.eval-set-final-proof.json` in the QA root.
+
+The N64 checkpoint/resource proof records eight checkpoints, 0.961–33.617 seconds and 2,903,535–196,520,405 bytes each, with workspace cgroup memory peak 1,654,865,920 bytes. Runner peak RAM and actual pod image IDs are unavailable. These bounded real-model observations do not establish full-budget resource minima, worst-case storage or cluster capacity. Full details remain in `n64-resource-proof.json`; the historical local N64 test's five recoverable board timeouts remain separately retained.
+
+Checkpoint source integration is published on main as 7a7e2f4c494b90c7039882cf24f6e8ffae5a78f5, with 20 explicit paths and unrelated concurrent changes preserved. The initial 135-test integration passed; the current checkpoint/scoring/image integration passes all 144 default tests, focused Ruff/format, full mypy across 71 source files and wheel asset checks. Existing and prepared study source pins remain immutable. A fourth bounded actual-Hawk arm verifies that already native-limited peers are skipped on ordinary continuation. Its source984becac416c1c7b478b57e68968dd35bedd0a26 is public; local fresh-process Docker proof retained exact private outputs/history/usage, complete board and a random per-controller file marker, with unchanged 90 synthetic tokens and two ModelEvents, zero tool errors and authoritative 822-case grading. The actual Sol job mc-cpqa-sol-finished-n02--gogqcm0hbowhviho was accepted once at 12:51:25 UTC, configSHA470e4b074b1dd794d9a4c8b5a54604235347caab88fc6a8324a65eb2aa612a6d. Its initial intended failure and zero owned pods are verified, as is its resumed final with the same 5,965 logical tokens and two ModelEvents, exact private outputs/history/usage/files/board, full 822-case grading and zero owned pods. The final log SHA256 is `213ac8b589c9b1c18e283f04d6f3d8489cebe18df9517f578c34e9161ef35ab7`. This arm uses ordinary `resume`; it does not prove the native `resume_for_scoring` branch. The separate scorer-failure fixture passed local real Docker with a genuine native `agent_complete` checkpoint and fresh-process `resume_for_scoring`, unchanged synthetic usage/model counts, authoritative grading and cleanup. Its scoped source `969d28a1fdda910707c2341d4e04e7ba45fceeff` is public. Actual Hawk job `mc-cpqa-sol-scoring-n02-1-ahroamq7uv3h458s`, config SHA256 `47b934c325979eea8fcfc01627df0780fbc17092be718b88e402d7bfc941e69a`, was accepted once at 13:15:03 UTC. Its intended scorer failure is now verified with 5,866 logical tokens, two ModelEvents, zero tool/testing/reference errors and zero owned pods; the initial flat-log SHA256 is `8f9b87db1628cc5ec229ddc3c007f0fda3668718af7941277ce6a55af24e4098`. Its same-ID resume is now verified through the native `resume_for_scoring` branch with a fresh controller and sandbox, exact private outputs/history/usage/files/board, unchanged 5,866 logical tokens and two ModelEvents, authoritative 822-case grading, zero tool/testing/reference errors and zero owned pods. Final flat-log SHA256: `a7430155cdb8d187d0d401a704b92676f9cb25be85c57262eff20d2da7da9c3b`. All five checkpoint QA arms are complete; reuse their cached final and cleanup proofs. Never duplicate either launch or same-ID resume.
+
+Pablo authorized the remaining six-model plan on Ruff and two additional independent Sol attempts per N. The targets are Opus 4.6, Opus 5.5, GPT-5.6 Sol, GPT-6.1 Sol, Kimi K3 and GLM 5.3. Five models need three attempts at each of seven sizes; Sol needs two additional attempts, for 119 new full attempts and 29.75B planned tokens. All 119 fresh v2 immutable full configs and six separate normal N64 provider smokes are prepared under the central `run-artifacts/hawk-mirrorcode-six-model-checkpointed-ruff-250m-20261010/sweep-plan.json`; full attempts remain unlaunched until each model passes its smoke. Its `monitor_once.py` requires four checkpoint QA resumed finals and cleanup before native model smokes. Full batches additionally require the separate native scorer-failure `resume_for_scoring` final proof, then each model's authoritative smoke and inspected plot. The guarded full preflight independently enforces that fifth proof. Exact OWN journals prevent duplicate pending launches. Automatic same-ID continuation preserves failed archives, hashes, cumulative usage and cleanup, refuses valid finals and fails closed on fatal authentication/integrity, unknown outcomes, absent checkpoints or no checkpoint progress. Fifteen harmless recovery decision/reconciliation cases and nine numeric token-accounting cases passed, and all 125 study config hashes remain unchanged. Verified physical totals require exact preserved archive hashes and checkpoint baselines; missing usage or compaction ModelEvents leave physical totals unavailable. Figures label final cumulative usage separately from recorded physical tokens.
+
+All six original model-smoke preflights stopped before paid submission because the three registry tags changed manifest identities. Their terminal OWN failures are reconciled in `tag-drift-preflight-reconciliation.json`; none created a smoke job. The original three manifests remain retrievable, with byte-hashed manifest/config bodies and verified linux/amd64 platform in `immutable-image-proof.json`. A focused image-pinning repair preserves old/default behavior and explicitly pins all workspace/grading roles to those original digests. Nine local edge cases, lint, types and wheel passed. The real Ruff Docker proof pulled all three original manifests anonymously, verified the immutable references across seven live services, exercised two native-limited peers and final 822-case grading with zero tool errors, and verified both owned container projects and board processes stopped. The scoped source `2ab240e594e0109d6d8436ad2a0edd1d29285967` is public under `mirrorcode-checkpoint-image-pins-20261010-v1`. Fresh v2 study configs pin it and the original image manifests; all 125 original unlaunched config bytes and failed preflights are preserved as superseded unlaunched revisions. All 125 fresh configs passed deployed Hawk/native-generation schemas, exact source/image hashes, full output/retry settings and unique ownership-prefix checks. All six fresh model-smoke preflights passed. Both Sol smokes were accepted once: GPT-5.6 `mc-sol56-rc2-smk-n64-1010-j8dhyznc0dq23ljl`, GPT-6.1 `mc-sol61-rc2-smk-n64-1010-jfoblsxri6h7d4mz`. The four OpenRouter initial submit calls were explicitly rejected before job creation because the helper omitted the required work-key secret. Protected exact owned-prefix checks reconciled all four absences and preserved the terminal responses/intents in `missing-secret-rejection-reconciliation.json` and each smoke folder's `rejected-missing-secrets/`. Submission and same-ID resume now verify the designated work-key hash/mode and inject the credential only into the protected API call; one repaired dispatch per unchanged rejected config is underway. Accepted and pending outcomes are never repeated. Do not change any existing accepted job or remote image tag. The earlier Hawk checkpoint QA used tag-based image references and did not expose actual pod image IDs; it must not be described as proof of those exact original manifests.
+
+Official Anthropic/Moonshot/Z.ai routes passed protected harmless probes with supplier-only routing and no fallback. GPT-5.6 Sol requires the gateway's exact `openai/gpt-5.6-sol` API identifier: that identifier passed Responses while bare `gpt-5.6-sol` returned 404; its native Inspect qualified model is `openai/openai/gpt-5.6-sol`, and actual native Hawk smoke must verify it before the full batch. New runs use checkpoints, full verified output limits, .75 context compaction and 300 request retries/900-second timeout. Old jobs and cancelled configs remain immutable. Original failed Sol N2/N64 slot replacements have not been separately authorized or launched. Tables and six-metric plots keep every repeat and report means/sample SD only for three verified finals at a model/N; old Sol baseline source/checkpoint differences and unscored failures remain explicit.
+
+Haiku and Luna each have 21/21 verified finals with cleanup and remain cached. Original Sol scored slots remain 3/7; its healthy original N1 (210,281,589 tokens at 13:29:40 UTC) and the accepted N4 recovery (238,421,208 tokens at 13:31:13 UTC) continue changing real work under their existing monitors. The previous N4 backoff delay has ended in this bounded snapshot. Historical records below retain the authorization and verification state at their stated timestamps; this section supersedes their stale blanket checkpoint/shipping gate.
+
+## Sol N=2 failure — 2026-10-09 21:53 UTC
+
+Original Sol N=2 failed unscored after 175,862,019 actual tokens with model generation `RetryError` wrapping `AuthenticationError`. Both peers had real work; one errored and one was cancelled. The durable byte-hashed log and board are retained and zero owned pods is verified in Sol primary `ruff-failure-n02-v1.json`. No retry launched; do not substitute billing/provider credentials. New N=4 recovery remains accepted once. Its first metadata collection failed locally because a prepared manifest used a list instead of a mapping for failed_attempts; corrected that reporting field and preserved the terminal failed collection response before a read-only retry.
+
+## Fresh Sol N=4 retry — 2026-10-09
+
+Direct user authorization launched one fresh N=4 attempt with 300 model-request retries (previously 5), unchanged 900-second attempt timeout, 250M planned team tokens, one epoch, source 55271d5, work Middleman route and matched resources. Whole-evaluation retries remain 0; checkpoint continuation is unsupported. Unique accepted job: mc-sol61-ruff-f03-n04-v2-iq81fwsl1mcmag2c. The original unscored timeout attempt remains retained separately. OWN response and receipt are reconciled in `run-artifacts/hawk-mirrorcode-sol61-ruff-recovery-n04-v2-250m-20261009/launch-reconciliation.json`; never duplicate this launch. The Sol primary recovery-plan now monitors this root. Sol N=64 board repair publication/recovery remains awaiting separate human signoff.
+
+## Ruff monitoring update — 2026-10-09 21:43 UTC
+
+Sol N=4 failed unscored at 21:18:39 UTC after model generation exhausted retries (`RetryError` wrapping `AttemptTimeoutError`). All four peers performed real tool work; three reached native caps and one errored. Actual team usage was 228,704,133 tokens, with zero testing/reference errors. The embedded board and byte-identical raw/flat log are retained; zero active owned pods is verified. Proof: `run-artifacts/hawk-mirrorcode-sol61-ruff-parallel-250m-20261009/ruff-failure-n04-v1.json`. No recovery was launched and intermediate grades are not finals. Counts remain Haiku 18/21, Luna 21/21, Sol 3/7. Healthy Sol N=1/N=2 continued changing work at the latest collection. The separate Sol N=64 board repair publication/recovery still awaits direct human signoff.
+
+## Ruff monitoring update — 2026-10-09 21:04 UTC
+
+Sol N8 is now a verified authoritative final: 810/822 all (98.54%), 761/761 visible (100%), and 49/61 hidden (80.33%). Actual team usage was 251,153,933 tokens; launch to final log took 15,091.751269 seconds (251.53 minutes). All eight peers performed tool work and ended at native limits; 14 testing calls, zero testing/reference errors, eight continuation nudges, an embedded board, and zero active owned pods were verified. Source remains `55271d5ac26ca62579f686c16347674257df1dfd`; config hash `494bec50fad84c914c97faa29b18bb56d78da0088051a01d72e4381aaaaae169`; durable flat log hash `b44097ac277e51c18ef1d81c5ad503f9dd17be7904c4e772014205de5fbe4093`. The three-point Sol plot was visually inspected and has clear labels.
+
+Current scored slots: Haiku 18/21, Luna 21/21, Sol 3/7 (42/49 total). Sol N1/N2/N4 and all three Haiku solo attempts continue; completed Luna cohorts are cached. Sol N64 remains separately retained as an unscored, cleaned infrastructure failure. The local board repair and fresh N64 recovery still await direct human signoff; nothing was published or submitted. The monitor stays ACTIVE through all 49 scored slots and physical cleanup.
+
+## 2026-10-09 19:03 UTC — Haiku third N=2 final verified
+
+Haiku replicate 3 N=2 finished 296/822 all, 275/761 visible and 21/61 hidden cases, using 250,514,396 actual tokens in 21,168.230258 seconds launch to final log. Both peers worked and ended limited; testing/reference errors and active owned pods are zero. Exact source/config/log identities, flat durable log and embedded board verified. The updated 18/21 aggregate plot was visually inspected. All three N=2 finals are now eligible for mean/sample SD; only the three Haiku solo attempts remain. Luna21/21 and Sol2/7 unchanged. Board patch publication and fresh SolN64 recovery still require the pending direct human signoff. Keep monitor ACTIVE.
+
+## 2026-10-09 18:36 UTC — local board transport repair validated; awaiting shipping signoff
+
+The Sol N=64 transport failure was reproduced through Inspect with a real local board: a committed send followed by three lost replies terminated the sample. A scoped BoardTransportError now inherits recoverable ToolError while remaining a BoardConnectionError for unread-poll handling. Exhausted retries retain the stable request ID and report that the action may have completed, asking the participant to read before repeating a write. Authentication, identity and malformed-result failures remain fatal. Four protocol-failure cases and the committed-send duplicate-prevention regression pass; all 122 default tests pass. Changed-file lint/format, full mypy and wheel pass. Global lint/format are blocked by unrelated concurrent ExploitBench edits, left untouched. Real two-peer Ruff Docker mock passed three lost replies, two testing calls without errors, 822-case final grading, native limited peers and embedded board; proof is Sol primary board-transport-docker-qa.json. No publication or recovery launch yet: qa-inspect-task skill explicitly requires Pablo signoff before patches ship. Original failure remains unscored and cleanup verified; healthy runs remain unchanged.
+
+## 2026-10-09 18:28 UTC — Sol N=16 final verified
+
+Sol N=16 finished 810/822 all, 761/761 visible and 49/61 hidden cases, using 251,876,265 actual team tokens in 5,748.403339 seconds launch to final log. All 16 peers worked and ended limited; testing/reference errors and active owned pods are zero. Exact source/config/log hashes and embedded board verified; single-attempt plot inspected. Sol now 2/7 scored slots, with original N=64 failure separately retained unscored. Haiku17/21 and Luna21/21. Monitor remains ACTIVE.
+
+## 2026-10-09 18:21 UTC — Haiku second N=2 final verified
+
+Haiku replicate 2 N=2 completed with 321/822 all, 303/761 visible and 18/61 hidden cases, using 250,352,344 actual tokens in 19,119.548389 seconds launch to final log. Both peers performed real tool work and ended limited; testing/reference errors and active owned pods are zero. Source/config/log identities and embedded board were verified by the final verifier; the updated 17/21 aggregate plot was visually inspected. Luna remains 21/21, Sol 1/7 plus the separately retained unscored N=64 board failure. All other healthy attempts continue changing model/tool work. Keep the monitor ACTIVE.
+
+## 2026-10-09 18:13 UTC — Sol N=64 unscored board transport failure, cleanup verified
+
+Original Sol N=64 job mc-sol61-ruff-r01-n64-100-5gdk3sc63w26pan0 failed at board/client.py:_request with BoardConnectionError after bounded retries. It used 157,238,604 authoritative tokens; all 64 peers did tool work, three ended limited, one error and 60 cancelled. Testing/reference errors were zero, but no authoritative terminal grade exists. Keep the attempt unscored, never zero or silently excluded. Embedded board and raw/flat log byte hashes match c8509576f10c399d98e4b420b35d2f74f4b5cc7e0fb1074e18659334f16bce3d; exact owned pod list is empty. Evidence retained in Sol primary ruff-failure-n64-v1.json. No retry has been launched. A controlled repair requires diagnosing the fatal board transport exception, focused validation and a fresh uniquely identified recovery after preflight; healthy jobs must remain unchanged. Checkpoint continuation remains unsupported. Current scored finals remain Haiku16/21, Luna21/21, Sol1/7. Keep monitor ACTIVE.
+
+## 2026-10-09 18:08 UTC — Haiku 16/21 verified finals
+
+Haiku replicate 1 N=2 completed with 286/822 all, 267/761 visible and 19/61 hidden. Actual tokens 250,158,640; launch-to-final 18,400.291206 seconds (306.6715 minutes). Both peers did real tool work and ended native limited; 68 testing calls, 27 nudges, zero testing/reference errors, no submit, v3/disclosure, embedded board, durable flat-log hash and zero active owned pods verified in the manifest. Original source remains 26edd056564d01cbf32d36880260fac9fd834046. Updated aggregate plot visually inspected; no N=2 mean/SD before all three finals. Luna all 21 finals remain cached; Sol 1/7 with remaining teams working at 18:09:16. Pending Haiku r02/r03 collections preserve their own response identities. Keep existing heartbeat ACTIVE until all 49 slots and physical cleanup are verified.
+
+## 2026-10-09 18:03 UTC — Luna all 21 scored slots and cleanup verified
+
+Luna replicate 3 solo completed with 201/822 all, 190/761 visible and 11/61 hidden; 250,149,950 actual tokens and 13,024.107794 seconds launch to final log. Native limited, real tool work, 23 testing calls, zero testing/reference errors, no submit, v3/disclosure, embedded empty solo journal, durable hashed flat log and zero active owned pods verified in its manifest. All 21 Luna normal finals plus the separate smoke are verified; final aggregate plot inspected with clear layout. Continue reusing cached cohorts. Haiku remains 15/21 and Sol 1/7; keep existing heartbeat ACTIVE until all 49 slots and physical cleanups complete.
+
+## 2026-10-09 18:00 UTC — Sol first full final verified (N=32)
+
+GPT-6.1 Sol N=32 completed its single authorized epoch: 810/822 all (98.5401%), 758/761 visible (99.6058%) and 52/61 hidden (85.2459%). Launch to final log was 4,334.181868 seconds (72.2364 minutes), actual authoritative usage 252,765,736 tokens. All 32 peers did real tool work and ended native limited; 30 testing calls, 20 continuation nudges, zero testing/reference errors, no submit, v3/disclosure, embedded board and zero active owned pods are verified. Exact source 55271d5ac26ca62579f686c16347674257df1dfd, config 737eaea385d87353b9bdd3c37f6243fdd72c49683f78fc92e586fa5ca8aedd03 and flat-log hash 3e5d3da3ba7385f4f43cf0f691558bcf45ad24ccfedbf108343862e7f5d49e28 are retained in the manifest. The single-point score/time/token plot was visually inspected; no replicate SD or causal scaling claim is supported.
+
+Sol 1/7, Haiku 15/21 and Luna 20/21 verified scored slots. Remaining Sol teams show model/tool work and zero testing/reference errors at 17:59:09 UTC; Luna last solo still progressing at 249,312,130 tokens in its 17:57:49 snapshot. Haiku pending collections retain exact own response identities. Keep the existing monitor ACTIVE and never relaunch accepted or cancelled configs.
+
+## 2026-10-09 17:50 UTC — Luna 20/21 verified finals
+
+Luna replicate 2 solo completed with 225/822 all, 216/761 visible and 9/61 hidden, 250,283,071 authoritative tokens and 11,884.177647 seconds launch to final log. Native limited peer, real tool work, 17 testing calls, zero testing/reference errors, no submit, embedded empty solo journal, exact source/config/durable flat-log hashes and zero active owned pods are verified in the cohort manifest. Updated three-replicate plot inspected with clear layout; no solo mean/SD until the third final. Haiku remains 15/21 verified; Sol 0/7 at its 17:47:43 work snapshot, all 127 peers working with zero errors. Monitor remains ACTIVE. Pending collections use their existing response identities.
+
+## 2026-10-09 17:45 UTC — Haiku 15/21 and Luna 19/21 verified finals
+
+Haiku replicate 1 N=4 completed with 326/822 all, 300/761 visible and 26/61 hidden, 251,212,260 actual tokens and 17,012.682510 seconds launch to final log. All four peers were native limited, with real tool work, 44 testing calls, zero testing/reference errors, no submit, embedded board and zero active owned pods. Source remains 26edd056564d01cbf32d36880260fac9fd834046; config and durable flat-log hashes are in its manifest verification. All three N=4 results now qualify for mean and sample SD.
+
+Luna replicate 1 solo completed with 206/822 all, 192/761 visible and 14/61 hidden, 250,389,379 actual tokens and 11,614.185648 seconds launch to final log. The solo peer was native limited, with real tool work, one testing call, zero errors, no submit, an embedded empty solo journal and zero active owned pods. Source remains 55271d5ac26ca62579f686c16347674257df1dfd. The original event-summed reducer omitted compaction usage (249,746,506 event tokens); authoritative sample/log usage exactly matches the trusted peer total. Reporting reducers now use sample model usage and separately retain model-event usage. The strict peer-total verification passes; no task/config/job was changed or retried.
+
+Both updated aggregate plots were visually inspected with clear layout. Sol remains 0/7 finals; its previously unavailable N=4/N=64 status requests recovered, and all 127 peers show real model/tool work with zero testing/reference errors in the 17:41:41 snapshot. Keep the existing monitor ACTIVE until all 49 scored slots and all physical cleanup are verified. Pending collection identities remain authoritative; never duplicate launches.
+
+## 2026-10-09 17:15 UTC — Haiku replicate 3 N=4 final verified
+
+Haiku now has 14/21 verified scored slots. Replicate 3 N=4 scored 363/822 all (44.1606%), 334/761 visible, 29/61 hidden. Launch-to-final-log duration 15,147.015424 seconds (252.450 minutes); actual tokens 250,171,314. All four peers ended native-limited, with 43 testing calls, zero testing/reference errors, 28 continuation nudges, no submit, embedded board and zero active owned pods. Exact original source/config and durable flat-log hash verified; updated plot visually inspected. The prior live metadata 404 was followed by authoritative normal completion, not a work stall. N=4 has two finals, so no mean/sample SD yet. Unique job mc-h55-ruff-r03-n04-1009--xpbrnsjumg7pbi6b; source 26edd056564d01cbf32d36880260fac9fd834046; config SHA256 49bc9491946c75b814526d0fdee167f92ed79a46f901108f27c058145b1f97ff; flat log SHA256 026d060438062971014977064b5cabac5be45a9f2ccd854c9b439308cce75f5b. Luna remains 18/21 and Sol 0/7 finals; unfinished teams show real work. Keep heartbeat ACTIVE.
+
+## 2026-10-09 16:50 UTC — Haiku replicate 2 N=4 final verified
+
+Haiku now has 13/21 verified scored slots. Replicate 2 N=4 scored 281/822 all (34.1849%), 263/761 visible, 18/61 hidden. Launch-to-final-log duration 13,613.839973 seconds (226.897 minutes); actual tokens 251,181,789. All four peers ended native-limited, 43 testing calls, zero testing/reference errors, 27 continuation nudges, no submit, embedded board, exact original source/config and durable flat log hash; zero active owned pods verified. Updated aggregate plot inspected; N=4 has only one final so no mean/SD yet. Unique job mc-h55-ruff-r02-n04-1009--7aeuwl7u72zft0l6; config SHA256 797506bbff5c98302f6116da2bdc761f86b9eaaa4da495f4ecacab88f4463622; flat log SHA256 34e70ef9f43fe9a05b164a16158c0a89de87fda257f8dca5c079890f5ee663dc. Remaining Haiku teams show changing real work and zero live testing/reference errors. Luna remains 18/21; Sol startup all127 peers verified, 0/7 finals.
+
+## 2026-10-09 16:46 UTC — Sol full startup work verified
+
+All seven unique accepted Sol full attempts are doing model/tool work: all 127 peers across N=1,2,4,8,16,32,64 have real model and tool activity, with zero testing/reference errors in bounded live metadata. Snapshot 16:46:32 UTC is retained separately as Sol startup-work-verification.json; current-work-verification.json will continue advancing. No Sol full finals yet. Launch acceptance and startup work do not establish final grading or cleanup. Keep all original accepted jobs unchanged and never resubmit the batch.
+
+## 2026-10-09 16:43 UTC — Seven Sol full attempts accepted once
+
+Fresh protected preflight at 16:42:13 UTC passed. launch_batch.py dispatched exactly seven immutable configs once; all seven OWN responses completed successfully and seven unique receipts/config hashes were reconciled in `run-artifacts/hawk-mirrorcode-sol61-ruff-parallel-250m-20261009/launch-reconciliation.json`. NEVER rerun launch_batch.py or resubmit those configs. These are one epoch and one attempt per N=1,2,4,8,16,32,64, 250M planned team tokens each (1.75B total). Sol r02/r03 remain cancelled_unlaunched. Full primary monitor_once.py is now collecting startup metadata; acceptance alone is not proof of work. Haiku/Luna remain unchanged, with 12/21 and 18/21 verified scored slots respectively. Keep the heartbeat ACTIVE until all 49 scored slots and every physical attempt cleanup are verified.
+
+## 2026-10-09 16:42 UTC — Sol smoke verified
+
+GPT-6.1 Sol N=64 smoke completed with authoritative grading over 822 cases: 61/822 all, 61/761 visible, 0/61 hidden. All 64 peers did real model/tool work and ended limited at their 100,000 native token caps. Actual usage was 7,436,895 tokens; launch-to-final-log duration was 1,076.697036 seconds. Zero testing/reference errors, no submit tool/calls, version 3/disclosure, exact pinned source/config, embedded board, durable byte-hashed flat log and zero active owned pods are verified. The board retained 349 messages and 269 reads; unavailable automatic unread-count reminders do not establish failure of the explicit board tool. The smoke made no testing calls; final grading was authoritative. Smoke plot visually inspected and smoke-pass.json saved; score is not an infrastructure quality gate.
+
+Unique smoke job: `mc-sol61-ruff-smk-n64-100-ngud884m5n0pv5iq`. Source `55271d5ac26ca62579f686c16347674257df1dfd`; config SHA256 `8f145df7f91f577d689d01176b7bacdf461127f6f1ad08750bc0a4b9dcf26f30`; log SHA256 `8019fa2c06e9b3e882145acb1f0952d98866f56a1789607d154035ae93146684`. Full authorization remains seven attempts, one epoch/attempt at each N=1,2,4,8,16,32,64, 250M planned team tokens each; r02/r03 cancelled and unlaunched. Fresh protected preflight and single batch dispatch/reconciliation are the next steps. Haiku/Luna jobs remain unchanged.
+
+## Sol startup work verified — 2026-10-09 16:27 UTC
+
+The accepted Sol smoke now has all 64 peers doing real model and tool work, 1,648,075 actual tokens, and zero testing/reference errors in the bounded snapshot. This is startup proof, not a final smoke pass. Full launch remains gated on the authoritative final and cleanup. Sol root now has record_smoke_pass.py, which requires final proof and plot_visually_verified before writing smoke-pass.json. Full authorized scope remains seven one-epoch attempts, one per team size, 1.75B planned total; no r02/r03 launch.
+
+## Sol authorization and launch preparation — 2026-10-09 16:25 UTC
+
+Pablo authorized GPT-6.1 Sol on the same Ruff setup, then reduced it to one epoch to limit early spending. Sol has exactly one fresh full attempt per N=1,2,4,8,16,32,64: seven total, 250M planned team tokens each, 1.75B planned total. The prepared r02/r03 folders are cancelled_unlaunched and unauthorized; do not submit them. Haiku and Luna remain unchanged.
+
+The N=64 smoke at 100k native tokens per peer (6.4M planned) was accepted exactly once at 16:23:21 UTC: mc-sol61-ruff-smk-n64-100-ngud884m5n0pv5iq. Its root is run-artifacts/hawk-mirrorcode-sol61-ruff-smoke-n64-100k-20261009; config SHA256 8f145df7f91f577d689d01176b7bacdf461127f6f1ad08750bc0a4b9dcf26f30. Preserve and reconcile its OWN response and receipt; no duplicate submissions. Setup was running in the first bounded snapshot, so real participant work is not yet verified.
+
+Official OpenAI documentation verifies context 1,050,000, full output 128,000 and xhigh support. Authenticated Generality work Middleman inventory and a harmless forced Responses API function call passed for exact gpt-6.1-sol. Set explicit responses_api:true, native context 1,050,000 and .75 compaction (787,500). Source remains tested 55271d5ac26ca62579f686c16347674257df1dfd; resources, images, v3/disclosure/no-submit/topology match Luna. Reuse protected memory-only operator; no Keychain or billing substitution.
+
+Before full launch, require smoke authoritative 822 cases, zero testing/reference errors, all 64 peers doing real model/tool work and native-limited, embedded board, exact identities, durable hashed flat log and zero active owned pods. Inspect smoke plot and save concrete smoke-pass.json with passed:true. Then fresh <=10minute full protected preflight, launch_batch.py ONCE from Sol primary, seven unique OWN responses and receipts. Never launch r02/r03. Report single points per N without replicate means or sample SD. The existing heartbeat now includes Sol and stays ACTIVE until Haiku21, Luna21 and Sol7 slots plus all physical cleanups finish.
+
+## Monitoring update — 2026-10-09 16:15 UTC
+
+Luna now has 18/21 verified finals; all N=2,4,8,16,32,64 slots are complete and only the three solo attempts remain. Newly verified N=2 replicates 2 and 3 scored 191/822 (23.236%) and 257/822 (31.265%), taking 106.561 and 104.015 minutes launch-to-final with 250,386,942 and 250,640,549 actual tokens. Both attempts have two native-limited peers doing real work, embedded boards, exact source/config and durable flat-log hashes, no submit, zero testing/reference errors, and zero active owned pods. Source remains 55271d5ac26ca62579f686c16347674257df1dfd. N=2 mean is 27.534%, sample SD 4.045 percentage points; time mean 102.017 minutes, sample SD 5.806 minutes. The refreshed Luna plot was inspected and has no layout errors.
+
+Haiku remains 12/21 verified slots. Saved pending collection responses are reconciled by their own identity, without new submissions. The existing heartbeat remains ACTIVE for all remaining slots and cleanup.
+
+## Monitoring update — 2026-10-09 16:09 UTC
+
+Haiku now has 12/21 verified scored slots. Replicate 3 at N=8 finished at 385/822 (46.837%), 363/761 visible and 22/61 hidden, after 186.373 minutes launch-to-final and 251,510,161 actual tokens. All eight peers did real work and ended at native limits. There were 59 testing calls, zero testing/reference errors, 24 continuation nudges, an embedded board, a durable hashed flat log, no submit, and zero active owned pods. Source remains 26edd056564d01cbf32d36880260fac9fd834046; log SHA256 is 04dd2c98f759436f7ba43c200acb6e23dd392f4ac40145e8d3f994c2c063c2da. All three N=8 finals are now verified: mean all-case score 52.717%, sample SD 5.122 percentage points; mean launch-to-final 157.386 minutes, sample SD 32.691 minutes.
+
+Luna remains 16/21 verified. The nine unfinished Haiku teams and five unfinished Luna teams show increasing token usage and model/tool work, with zero testing/reference errors in the latest bounded snapshots. Both refreshed aggregate plots were visually inspected with no layout errors. No jobs were submitted or retried. Keep the existing heartbeat ACTIVE until all 42 scored slots and all physical-attempt cleanup are verified.
+
+## Monitoring update — 2026-10-09 16:04 UTC
+
+Luna now has 16/21 verified Ruff finals. Replicate 1 at N=2 scored 231/822 (28.102%), with 222/761 visible and 9/61 hidden cases, 95.476 minutes launch-to-final, and 250,210,161 actual tokens. Both peers did real model/tool work and ended at their native limits; seven testing calls, zero testing/reference errors, embedded board, durable hashed flat log, and zero active owned pods are verified. Source remains 55271d5ac26ca62579f686c16347674257df1dfd. The refreshed aggregate plot was visually inspected and has no layout errors. N=2 aggregates remain pending until all three finals.
+
+Haiku remains at 11/21 verified scored slots. All ten unfinished Haiku teams and five unfinished Luna teams show continuing model/tool work and increasing token usage, with zero testing/reference errors in the latest bounded snapshots. No jobs were submitted or retried. Keep the existing monitor ACTIVE until all 42 scored slots and every physical-attempt cleanup are verified.
+
+## Ruff monitoring update (2026-10-09 15:52 UTC)
+
+Luna15/21 verified finals, with all N4,8,16,32,64 replicates complete; only N1/N2 remain. New r3 N4 final passed full source/config/hash/native-cap/board/zero-error/zero-active-pod verification. Updatedplot inspectedclean. Haiku remains11/21; unfinished teams show changing work, zero available testing/referenceerrors. All current metadata available, no verified stalls. Reports refreshed; no retries/launches. Both-model monitor ACTIVE.
+
+## Ruff monitoring update (2026-10-09 15:48 UTC)
+
+Pending collections reconciled on their original OWN responses; protected operator healthy. Haiku11/21 verified: new r1 N8 55.109% in163.833min. Luna14/21 verified including new r2 N64; N64 now all3 finals. New finals passed full authoritative grading, native-cap, board, source/config/hash, zero-error and zero-active-pod checks. Both updated plots inspected clean. Remaining teams show changing real model/tool work, no available testing/reference errors or verified stalls. No launches/retries; both-model monitor ACTIVE.
+
+## Ruff monitoring update (2026-10-09 15:42 UTC)
+
+Luna13/21 verified finals; new r1 N4 score25.912%,73.145min launch-to-final,250.950M actual tokens. Final/native-cap/board/hash/zero-error/zero-active-pod verification passed; plot inspectedclean. Haiku remains10/21, allunfinished work changing with zeroavailableerrors. Luna r3 collection pending on SAME OWN response8f3dafe5013349539a571be7f8107c81, persisted pending-collection.json; nextmonitor must reconcile it without redispatch. No retries/launches or verified stalls. Both-model monitor ACTIVE.
+
+## Ruff monitoring update (2026-10-09 15:36 UTC)
+
+Luna now12/21 verified finals, Haiku10/21. New Luna r1 N8 40.998%/66.927min and r2 N4 28.589%/69.169min passed all final/native-cap/board/hash/zero-error/cleanup checks. Luna N8 now has all3 finals: mean40.146%, sampleSD2.368percentagepoints; meanlaunch-to-final60.073min, sampleSD8.058min. Updatedplot inspectedclean. Remaining available metadata shows changing realwork, zero testing/referenceerrors; Luna r2 N64 status unavailable on one bounded HawkAPIError, not zero or a verified stall. No retries/launches. Both-model monitor ACTIVE.
+
+## Ruff monitoring update (2026-10-09 15:31 UTC)
+
+Both models now have 10/21 verified finals. New Luna r3 N8 scored37.470% in62.096min; r3 N64 scored19.100% in63.910min. Complete final-grade/native-cap/source/config/hash/board/zero-error/zero-active-pod checks passed. Updated Luna plot inspected clean. No aggregate at N8/N64 yet, pending third finals. All remaining teams show changing model/tool work and zero available testing/reference errors; no current metadata errors or verified stalls. No retries or launches; monitor remains ACTIVE through42scored slots plus physical-attempt cleanup.
+
+## Ruff monitoring update (2026-10-09 15:26 UTC)
+
+Luna 8/21 finals verified, Haiku 10/21. New Luna r1 N16 36.861%/58.317min, r2 N16 37.713%/56.739min, r1 N32 33.942%/53.692min. All final and cleanup checks passed; plot inspected clean. Luna N16 three-final mean 38.808% with sample SD 2.668 percentage points and mean launch-to-final 54.081min; N32 mean 31.630% with sample SD 3.391pp and mean time47.830min. Prior unavailable status metadata cleared. Remaining teams show changing real model/tool work, zero available testing/reference errors. Both-model monitor ACTIVE, no new submissions or retries.
+
+## Ruff monitoring update (2026-10-09 15:21 UTC)
+
+Luna now 5/21 verified finals. New r1 N64: 260/822 all (31.630%), visible 32.063%, hidden 26.230%, 51.039 minutes launch to final, 254,306,313 actual tokens. New r2 N8: 345/822 all (41.971%), visible 42.050%, hidden 40.984%, 51.195 minutes, 251,098,757 tokens. Both have every peer native limited, real work, zero testing/reference errors, embedded boards, durable exact hash proofs and zero active owned pods. Plot inspected clean. Haiku remains 10/21 with changing work and zero errors. Luna r1 N32 live endpoint 404 and r2 N16 status HawkAPIError leave current metadata unavailable; no verified work stall or job failure. Preserve attempts and assess later terminal archives or next bounded snapshots. No new launch/retry; both-model monitor ACTIVE.
+
+## Ruff monitoring update (2026-10-09 15:16 UTC)
+
+Luna now has 3/21 verified finals. New r2 N32: 228/822 all (27.737%), visible 27.989%, hidden 24.590%, 45.528 minutes launch to final, 252,414,530 actual tokens. New r3 N16: 344/822 all (41.849%), visible 42.707%, hidden 31.148%, 47.187 minutes, 252,008,464 tokens. Both have all native peers limited, real tool work, zero testing/reference errors, embedded boards, exact source/config/hash proofs and zero active owned pods. Updated plot inspected clean. No three-final Luna aggregate yet. Haiku remains 10/21; unfinished teams show changing work. Luna r3 N2 status unavailable on one bounded HawkAPIError snapshot; no verified work stall or retry. Both-model monitor ACTIVE.
+
+## First full-budget Luna Ruff final (2026-10-09 15:11 UTC)
+
+Luna replicate 3 N=32 is verified: 273/822 all (33.212%), visible 262/761 (34.428%), hidden 11/61 (18.033%). Launch to final log took 2656.212162 seconds (44.270 minutes), with 252,625,158 actual tokens. All 32 peers reached native limits and did real tool work; 34 testing calls, zero testing/reference errors, embedded board, exact source/config/log hashes and zero active owned pods verified. Source remains tested tar repair 55271d5. Aggregate plot inspected clean; no mean/sample SD until all three finals at N32. Luna now 1/21 and Haiku 10/21 verified. Earlier bounded Haiku r1 N4 and Luna r3 N8 status errors cleared in current snapshots. Remaining teams show changing work, no verified stalls. Both-model heartbeat remains ACTIVE.
+
+## Ruff monitoring update (2026-10-09 15:06 UTC)
+
+Haiku now has 10/21 verified scored slots. New replicate 2 N=8 final: 462/822 all (56.204%), visible 56.110%, hidden 57.377%, 121.952 minutes launch to final log, 251,624,217 actual tokens. All eight peers reached native limits; 30 testing calls, zero testing/reference errors, embedded board, exact source/config/log hashes and zero active owned pods verified. Updated aggregate plot inspected clean. N=8 aggregate remains pending its other two finals.
+
+Luna remains 0/21 verified finals, with changing real work and zero available testing/reference errors. One Haiku r1 N4 and one Luna r3 N8 status request returned a bounded HawkAPIError; metadata is unavailable rather than zero, with no verified job failure or work stall. Preserve jobs and assess the next bounded snapshot. Both-model monitor remains ACTIVE; no new submissions or retries.
+
+## Ruff monitoring update (2026-10-09 15:01 UTC)
+
+Haiku remains at 9/21 verified scored slots and Luna at 0/21. The 12 unfinished Haiku teams and all 21 Luna teams show every peer doing real model and tool work, with increasing tokens across the latest bounded snapshots (14:58–15:00 UTC). Available testing and reference error counts are zero. Earlier transient Luna metadata errors have cleared; no current metadata outage or verified work stall. Native token overshoot is allowed, so a team total above 250M does not establish peer completion. Reports and numeric proofs are refreshed; saved final/cleanup proofs are reused. No new launches or retries. Both-model monitor remains ACTIVE.
+
+## Ruff update (2026-10-09 14:46 UTC)
+
+Haiku9/21 finalsverified: r3N16 score54.380%,101.893min,zeroerrors/activepods,all16limited. N16all3 complete mean52.758%/sampleSD8.031percentagepoints. Aggregateplotinspectedclean. Verificationinitiallyfailedbecause r3N16expectedflatlogcopywasabsent; originaldownloadarchivewaspresentandmatchedcollectorSHA. Restoredflatcopyfromauthoritativearchive,bytehashreverifiedandfullfinalverificationpassed;recordflat-log-repair-n16.json. Causeofmissinglocalcopyunestablished,nojob/source/configchange. Luna21running,mostworkchanging,partialr3liveHTTP502andoneRemoteProtocolError;missingmetadataisnull,noverifiedworkstall,failureorretry. Savedboundedproofs/reportrefreshed,both-modelmonitorACTIVE.
+
+## Ruff update (2026-10-09 14:40 UTC)
+
+Haiku8/21 finals verified including new r2N16 all492/822 (59.854%),100.856 launch-to-final minutes; native limits, zero testing/reference errors, durable archive/board and zero active pods verified. Updated aggregateplot inspectedclean. Luna all21teams/all381nativepeers now showrealmodel/toolwork in bounded snapshots14:35–14:39, zero availabletesting/referenceerrors, nofinals. Saved startup-work-verification.json as historical startup proof; current-work-verification.json stays refreshed bymonitor. Priorpendingcollectresponses reconciledsuccessfully; noextralaunches/retries. Both-modelmonitorACTIVE.
+
+## Ruff monitoring update (2026-10-09 14:29 UTC)
+
+Haiku7/21 verified finals. Repaired r3N64 fresh recovery final380/822 (46.229%),60.427min,254172890actualtokens;75testingcalls,zeroerrors,all64limited/realtoolwork,boardembedded,durableSHA7e248d5aecea71fecfca7d3ac083dbc3acacb8a2dba353b69bfc6a4162ae7c90,zeroactivepods. Originalfailed54.284M remainsunscored and preserved. N64 mean43.268%/sampleSD4.410percentagepoints,meanlaunch-to-final63.279min across3scoredslots;sourcechangeforrecoveryremainsdocumented. Plotinspectedclean.
+
+Luna21fullteams running14:28snapshots;11teams alreadyshowallpeersmodel/toolwork,otherssetuporfirstcalls;noverifiedfailures. Local reporting helper initiallyassumedHaikurecoveryplanandmissingplanreportfields; repairedoptionalrecoveryhandlingandaddedreportmetadatawithoutchangingimmutableconfigs/jobs. Numericworkproof,repeattableandplothelpernowpass;noscoresyet,noemptyplotgenerated. EvidenceinLunaprimarymonitor-repair.json. ExistingmonitorACTIVE.
+
+## GPT-6 Luna full Ruff sweep accepted (2026-10-09 14:25 UTC)
+
+The N64×100k smoke completed: all64 peers did model/tool work and limited at native caps,822authoritative cases, zero testing/reference errors, embedded board, durable hashed flat log and zero active owned pods. Final score0%,actual7261879tokens,995.857495seconds launch-to-final; no evaluate_testcases calls in the short smoke. Preserve this separate low-budget smoke. smoke-pass.json holds concrete proof; plot inspected. Fresh authenticated Middleman/work-session preflight passed. All21 normal Luna attempts now accepted exactly once, uniqueOWNresponses and immutable receipt hashes reconciled in primary launch-reconciliation.json and launch-batch.json. They run concurrently; three independent attempts at eachN1,2,4,8,16,32,64,250Mplanned team tokens each. Full monitor primary hawk-mirrorcode-luna-ruff-parallel-250m-20261009/monitor_once.py; don't redispatch launch_batch.py. Haiku remains6/21 verified; recovery metadata collection pending on its SAME response086c87d2a7df4680b56a73a3504b0b23; reconcile it rather than duplicating. Both-model heartbeat stays ACTIVE until all42scored slots and original/recovery/smoke cleanup verified.
+
+## Ruff monitoring update (2026-10-09 14:19 UTC)
+
+Haiku6/21 scoredslotsverified plus cleanups. New r1N16 all44.039%,77.646min and r2N32 all59.976%,77.344min. N32 three scores3.893%,59.976%,46.472%; mean36.780% and sampleSD29.271percentagepoints. N32 launch-to-final mean69.936min/sampleSD7.815min. Aggregate plot inspected clean. Remaining work changes, no testing/reference errors. Luna smoke at14:17:55 has63/64 model/tool-workpeers and7032591actualtokens, zero model/testing/referenceerrors; two in-flight calls started14:09:43 and14:10:09 remain within900second attempt timeout, so no verified stall. No full Luna launches; authoritative final/cleanup gate still pending. Both-model monitor ACTIVE.
+
+## Ruff monitoring update (2026-10-09 14:09 UTC)
+
+Haiku now has 4/21 verified scored slots, all with zero testing/reference errors and zero active owned pods: r1 N32 32/822 (3.893%), 61.768 minutes; r1 N64 373/822 (45.377%), 59.901 minutes; r2 N64 314/822 (38.200%), 69.509 minutes; r3 N32 382/822 (46.472%), 70.696 minutes. The low r1 N32 score is valid and retained: visible 0/761, hidden 32/61. Full source/config/log/native-cap/board proofs are in their manifests. No three-final aggregate exists yet at either size. Updated score/time/token plots inspected clean. Remaining Haiku teams show real model/tool work and zero available testing/reference errors; recovery N64 at252352351 actual tokens still active. Luna smoke remains in setup (24 scoring pods running and one pending, zero restarts); no model-work or final evidence yet and no full Luna submissions. Keep both-model heartbeat active.
+
+## GPT-6 Luna Ruff smoke accepted (2026-10-09 14:04 UTC)
+
+The user authorized Luna as a second model: N=64 smoke with 100,000 native tokens per peer, then three fresh 250M-team-token attempts at each N=1,2,4,8,16,32,64, all 21 in parallel after infrastructure smoke passes. Haiku continues unchanged. Smoke job `mc-luna-ruff-smk-n64-1009-ogokaxlgqit6gfe8` is accepted; no Luna final yet. Its immutable config/receipt and bounded monitor are in `run-artifacts/hawk-mirrorcode-luna-ruff-smoke-n64-100k-20261009/`. Full configs and guarded helpers are prepared in `hawk-mirrorcode-luna-ruff-parallel-250m-20261009` and r02/r03 siblings; none submitted yet.
+
+The protected authenticated Generality Middleman gateway lists exact `gpt-6-luna`; this reuses the successful earlier counting route. Official model documentation verifies 1,050,000 context and 128,000 output. Explicit .75 compaction resolves to 787,500 in the native harness; xhigh, matched workspace/grading/images and no-submit/version3/disclosure apply. Runtime is tested tar-repair `55271d5ac26ca62579f686c16347674257df1dfd`; compare against Haiku original `26edd` with that source difference disclosed. Require complete 822-case grading, real work, native limits, durable hashes, board and cleanup before normal launches. Existing heartbeat includes both models and this conditional launch; other models remain unauthorized.
+
 # Fresh-session handoff
 
 This snapshot was written on **2026-10-07**. Read [AGENTS.md](../AGENTS.md) and
 [README.md](../README.md) first. Recheck source, environment and receipts before
 relying on dated statements. This document records the prototype's starting
 point; it does not authorize new model calls or external actions.
+
+## First Ruff final verified (2026-10-09 13:58 UTC)
+
+Replicate 1 N=64 has a verified authoritative final over 822 cases: 373 passed
+(45.3771% all), 348/761 visible (45.7293%), and 25/61 hidden (40.9836%).
+Launch to final log took 59.9005 minutes; the peer interval including tools was
+51.1929 minutes. Actual usage was 253,948,131 tokens. All 64 peers reached their
+native caps with `end_reason=peers_finished`; no submit exposure/calls, testing
+or reference errors occurred. There were 75 testing calls and 33 trusted nudges.
+Version 3/disclosure, source/config hashes, embedded board, byte-hashed flat log
+and zero active owned pods were verified at 13:58:42 UTC. The primary manifest
+contains the proof and log path. Both new plots were visually checked.
+
+This is 1/21 verified scored slots, not an aggregate or scaling result. Keep the
+valid score and continue the remaining attempts, including the N=64 recovery.
+Primary `repeat-results.md` and `haiku55-ruff-three-replicates.png` now show the
+individual result; means and sample SD wait for three verified finals per N.
+
+## Ruff workspace-copy recovery (2026-10-09 13:22 UTC)
+
+Replicate 3 N=64 failed at 13:07:30 UTC during testing: GNU tar returned exit 1
+with a file-changed-during-read warning while peers edited the shared workspace.
+The exception cancelled its peers before final grading. Its 54,284,164 tokens,
+embedded board, raw and byte-identical flat log remain unscored; the exact job's
+resources were removed and zero owned pods verified. Evidence is in the primary
+folder's `ruff-failure-r03-n64-v1.json`. Do not treat this failure as a zero score.
+
+Upstream latest still matches the pinned mc commit. A real Ruff Docker
+reproduction produced the warning and a valid archive. The scoped repair accepts
+only that warning for the exact trusted tar command, preserving other failures
+and the intentional unrestricted-workspace behavior. Four regression cases,
+two-peer Docker Ruff tests and final grading over 822 cases with three injected
+warnings, all 103 default tests, lint, types and wheel passed. See
+`tar-race-reproduction.json` and `tar-race-qa.json`. Runtime repair commit
+`55271d5ac26ca62579f686c16347674257df1dfd` is published; healthy original jobs
+retain their original source and continue unchanged.
+
+A fresh N=64 replicate-3 recovery was accepted at 13:22:13 UTC as
+`mc-h55-ruff-f02-r03-n64-1-0n19rboezxqg0kvy`, after fresh protected preflight.
+Its separate folder is
+`run-artifacts/hawk-mirrorcode-haiku55-ruff-recovery-r03-n64-v2-250m-20261009/`.
+The original configs and plan remain immutable. Primary `recovery-plan.json`
+records the new source, config hash, receipt, exact OWN response and replaced
+failure. Recovery adds 250M planned tokens, bringing planned allocations across
+originals plus recovery to 5.5B. Keep its source change visible as a limitation.
+The primary monitor now includes this fourth folder, and aggregate reporting
+selects its third N=64 slot while separately displaying the preserved failure.
+Continue until all 21 scored slots and all original/recovery cleanup are verified.
+
+The first N=64 live-event endpoint returned HTTP 502 on two bounded checks,
+then recovered at 13:24:23 UTC with all 64 peers doing model/tool work and
+192,361,493 observed tokens. Missing counters are unavailable, not zero.
+Snapshots through 13:24:57 verify the 20 unchanged teams doing real work and
+the fresh recovery running in setup, with no available final grades yet.
+`current-work-verification.json` records this state; the earlier all-381-peer
+startup evidence is preserved in `startup-work-verification.json`.
+
+At 13:28:16 UTC the recovery showed model and tool work from all 64 peers,
+using 10,043,625 observed tokens. A transient first N=32 status API error cleared
+on one bounded recheck at 13:29:15 UTC, showing all 32 peers working and
+207,945,308 tokens. The current proof now verifies real work across all 21
+active teams, with no metadata unavailable and zero observed testing/reference
+errors. No final grades are available yet. The primary monitor now refreshes
+this proof using `write_work_verification.py` on each normal collection pass.
+
+## Ruff replacement sweep: all 21 teams doing real work (2026-10-09 13:05 UTC)
+
+The user's explicit request to stop Mailauth and run Ruff supersedes the old
+repeat schedule and the one-active-attempt-per-size restriction. Only Haiku 5.5
+is authorized. Do not submit any remaining Mailauth config or the six-model
+follow-up. The disclosed-size Mailauth experiment retains 17 verified finals,
+three user-interrupted attempts archived unscored, and one cancelled unlaunched
+config. Two attempts, replicate 3 N=4 and N=16, had completed before the delayed
+stop reached them; both passed 1,535/1,553 cases and have verified native caps,
+boards, flat logs and cleanup. All five stop-plan identities now have verified
+zero owned pods. Exact artifacts and recovery are under
+`run-artifacts/hawk-mirrorcode-haiku55-ruff-parallel-250m-20261009/` in
+`mailauth-stop-record.json` and `operator-stall-recovery.json`.
+
+The prior protected operator became unresponsive after two accepted stops. It
+was interrupted, clearing its RAM backend, and replaced with
+`hawk-counting-16-sweep-20261008/operator_session_bounded.py`. A fresh login was
+completed autonomously in Generality Chrome Profile 3, then authenticated calls
+succeeded. No Hawk credentials were written to disk or accessed through
+Keychain. Each operation now has a 180-second timeout. Retain the exact partial
+stop record; never redispatch the old stop or launch requests.
+
+Ruff / Python now has three fresh independent one-epoch attempts at each
+N=1,2,4,8,16,32,64, with **all 21 submitted for parallel execution**. They were
+accepted between 12:57:02 and 12:58:10 UTC, without predecessor gates. Each gets
+250M planned team tokens equally split into native peer caps: 5.25B planned
+tokens across 381 native peers. Actual native-boundary token overshoot remains
+possible. Separate jobs have fresh private histories, workspaces and boards.
+`repeat-plan.json`, `launch-batch.json` and `launch-verification.json` record all
+immutable config hashes, unique receipts and exact OWN response identities.
+Reconcile any pending outcome before another submission.
+
+Bounded live-event snapshots at 13:04:26, 13:04:44 and 13:05:07 UTC verify
+model and tool work from every peer in all 21 teams, totaling 381 peers and
+136,851,774 observed tokens. All owned pods were running, with zero pending
+pods, restarts, testing errors, reference errors or submit exposure/calls.
+The initial image-pull backoff cleared without a restart or a replacement
+attempt. `current-work-verification.json` records the numeric evidence and
+rechecks all 21 immutable config hashes. No Ruff final grades are available
+yet; ongoing work and elapsed time must not be represented as final scores.
+
+The primary folder above is replicate 1. Replicates 2 and 3 are siblings named
+`hawk-mirrorcode-haiku55-ruff-parallel-r02-250m-20261009` and
+`hawk-mirrorcode-haiku55-ruff-parallel-r03-250m-20261009`. The tested runtime stays
+pinned to `26edd056564d01cbf32d36880260fac9fd834046`, upstream MirrorCode
+`5c9d7b00b0c6d7609003e33896cd41d28f092fcb`, Inspect 0.3.277 and OpenAI 3.8.0.
+Version 3, disclosed team size, no submit, continuation reminders, .75 native
+compaction of 1M context, 128k output limit, xhigh reasoning, official Anthropic
+through the verified OpenRouter work identity, no fallback, and prior resource
+settings are retained. Target alone changes to Ruff. Fresh protected billing,
+supplier and all-21 schema/hash reconciliation passed in `preflight.json`.
+
+Ruff Docker mock checks passed N=2 and N=64 with authoritative grading over
+822 cases (761 visible, 61 hidden), zero testing errors, native limited peers,
+trusted nudges and embedded boards. Eight simultaneous scoring calls passed,
+also at a bounded 1 GiB / 1 CPU per grading-container allocation. Production
+retains upstream 2 GiB limits for headroom. The local incomplete fixture and
+ARM hardware do not establish real-model minima or shared-cluster capacity.
+Numeric resource and disk evidence is saved in `local-qa.json`,
+`ruff-qa-default-resources.json`, `ruff-qa-bounded-resources.json` and the
+resource sample files. Production source matches the pinned runtime.
+
+The three public amd64 Ruff images were absent and are now published at
+`ghcr.io/pablorom2004/mirrorcode`. Workflow-only commit
+`0ef8d112540ccdddc4c5c224187f70ddbbd63c14` added a selectable target, preserving
+existing image tags. Successful workflow run 37932825739 built the exact pinned
+upstream Dockerfiles; `published-images.json` records all three digests.
+
+Run the primary `monitor_once.py` with repository `.venv/bin/python`. It collects
+active cohorts, reuses verified finals, waits on the same OWN response when
+pending, reduces flat final logs, verifies all 822-case finals and cleanup, and
+writes per-cohort progress and aggregate results/plots. The plotting interpreter
+is each folder's verified `plotting-venv/bin/python` link. Keep individual
+replicates visible; calculate mean and sample SD only once all three finals at
+the same N are verified. Pending and failures are not zero. Keep Mailauth
+separate. Inspect new plots visually. Hardware grows with N and three repeats
+of one task do not establish causal scaling.
+
+The existing five-minute heartbeat `mirrorcode-haiku-smoke-monitoring` remains
+ACTIVE, renamed "MirrorCode Haiku Ruff parallel sweep", with the new exact
+roots, parallel schedule and reconciliation requirements. It must continue
+through all 21 Ruff verified finals plus cleanup, then finish reports, notify
+Pablo and pause. Remote jobs continue if the laptop sleeps; monitoring and
+conditional recovery require the local app, machine and protected session.
+
+## Second N=2 final and third launch (2026-10-09 09:50 UTC)
+
+Fifteen of the 21 planned attempts have verified final grades and owned-resource
+cleanup: all seven in replicate 1, N=2,4,8,16,32,64 in replicate 2, and N=32,64
+in replicate 3. The second N=2 attempt passed 1,535 of 1,553 cases, with
+all/visible/hidden scores of 98.84095% / 100% / 97.43590%. Launch to final log
+took 296.016 minutes; the peer interval including tools took 291.036 minutes.
+Actual usage was 250,097,478 tokens, with 105 trusted continuation reminders,
+67 testing calls, 45 board messages and 664 model calls.
+
+Both peers reached their native 125,000,000-token caps, using 125,024,805 and
+125,072,673 tokens. The successful version-3 header confirms Haiku 5.5,
+disclosed N=2 and no submit. The authoritative final has
+`end_reason=peers_finished`, zero testing/reference errors, no submit exposure
+or calls and an embedded board journal. The log completed at 09:42:21 UTC,
+including 243.413 seconds after peer join; zero active owned pods and no
+retained pod phases were verified at 09:45:35 UTC. Its durable log is
+[the N=2 replicate-2 log](../logs/2026-10-09T04-47-04-00-00_mirrorcode_5bvbGvJuQ4UaP2YJAAZKEw.eval).
+SHA256 is `19f6bc22518c5500d26b6ab896f36481c3ebfbefaa38abd16f326f0d928459c4`;
+the immutable config SHA256 is
+`2b65ab27878de74ef6af3286ae65989ce110de7826376ec85da3b0861c522d95`.
+The matching cohort folder retains header, grading and cleanup proofs.
+
+The planned third N=2 attempt was submitted once at 09:50:38 UTC as
+`mc-h55-t250m-r03-n02-1009-jsbxyxlhdkhmjrnf`, with unchanged config SHA256
+`cfba7ddaa373e29c7fc258b36c4625ce165d2a6ea1e864d0f96e3c956162c07f`.
+Protected preflight at 09:48:13 UTC reconciled all five existing third-cohort
+submissions and verified the designated work key and Anthropic supplier.
+Eligible health evidence at 09:50:20 UTC independently re-read all fifteen
+final headers and checked source/config/log hashes, native caps, embedded
+boards and cleanup, plus changing real work for the four unfinished teams.
+All 14 immutable repeat configs match the repeat plan. The scoped observer
+copy preserves the previous batch helper, updates the expected roster and
+permits zero initial testing calls while real model/tool work continues;
+authoritative final grading and zero errors remain required. Ruff checks and
+the full evidence pass are recorded in
+`repeat-health-observer-adaptation-20261009T0945.json`.
+
+See `repeat-launch-batch-20261009T0950-r03-n02.json` and its preserved health,
+preflight and exact operator response records in the first-cohort folder.
+Thirteen additional attempts have launched, receiving 3.25B additional planned
+tokens. Twenty of 21 attempts have been submitted; only replicate-3 N=1 remains
+unlaunched, waiting for the second solo final and cleanup. The active roster
+is replicate-2 N=1 and replicate-3 N=2,4,8,16, with one attempt per size and
+five teams total. The original first cohort remains fully complete and cached.
+
+The new N=2 runtime header was verified at 09:53:34 UTC: the intended model,
+version 3, disclosed N=2 and no submit. A bounded follow-up at 09:56:01 UTC
+confirmed model and completed tool work for both peers, with 2,680,564 actual
+tokens. Its first testing call had not yet completed; testing/reference/board
+errors, submit calls, pod restarts and warnings were all zero. The four other
+teams also continued real work. See `heartbeat-check-20261009T0956.json`,
+`heartbeat-validation-20261009T0945.json` and the launch batch's first-work
+record. The heartbeat remains ACTIVE.
+
+Per-attempt tables, cohort reports and the fifteen-point combined plot were
+refreshed. Both changed plots were visually inspected. N=32 and N=64 retain
+their complete three-attempt aggregates; all six means and sample standard
+deviations were independently recomputed, and six pending scores remain null.
+Runtime source remains `26edd056564d01cbf32d36880260fac9fd834046`. Keep the
+existing monitor active through all 21 verified finals and cleanup. No fourth
+attempt or six-model follow-up is authorized. Three repeats of one task with
+hardware growing with N do not establish causal scaling laws.
+
+## Solo final, second N=8 final and successor launches (2026-10-09 09:08 UTC)
+
+Fourteen of the 21 planned attempts have verified authoritative finals and
+owned-resource cleanup: all seven in replicate 1, N=4,8,16,32,64 in replicate 2,
+and N=32,64 in replicate 3. The first cohort is now fully complete; reuse its
+seven saved finals and cleanup proofs without further remote collection.
+
+| N | Replicate | Cases passed | All | Visible | Hidden | Launch to final log | Peer interval incl. tools | Actual tokens |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1 | 1,534 / 1,553 | 98.77656% | 100% | 97.29345% | 429.562 min | 423.212 min | 250,189,663 |
+| 8 | 2 | 1,535 / 1,553 | 98.84095% | 100% | 97.43590% | 229.220 min | 225.920 min | 250,944,974 |
+
+Both successful version-3 headers confirm Haiku 5.5, disclosed team size and
+no submit. All peers reached their native caps: 250,000,000 for the solo peer
+and 31,250,000 for each of the eight peers. Individual usage for N=8 ranged
+from 31,284,134 to 31,494,769. Both finals have `end_reason=peers_finished`,
+zero testing/reference errors, no submit exposure or calls and embedded board
+journals. The solo attempt used 156 trusted continuation reminders, 132 testing
+calls and 808 model calls. N=8 used 57 reminders, 86 testing calls, 190 board
+messages and 1,555 model calls. Their logs completed at 08:43:22 and 08:52:44
+UTC, with finalization intervals of 135.515 and 142.383 seconds after peer join.
+Zero active owned pods were verified at 08:46:25 and 08:56:11 UTC respectively.
+
+The durable finals are [the solo log](../logs/2026-10-09T01-36-24-00-00_mirrorcode_biq7RBNEXT9qEAvLZwUhXN.eval)
+and [the second N=8 log](../logs/2026-10-09T05-04-13-00-00_mirrorcode_i9qet2sXFyPbpAeUtSmLv5.eval).
+Their SHA256 hashes are
+`465ca156052ccd62795cf880c171692572cf1c9758d8a09d6f6fa3630a850eeb`
+and `1d502014f40d98b81777406cc6f5d356ffd98860960e5a29806869be02357953`.
+Config hashes are `57abbd52ac4a036a641fa6376bf6af9df897ed3a28f69e1fce72762aa53afd7f`
+and `db6ff44364c9b07820abf7ae033ba1aefc7793b6f8de6db6e794997a82e3d84d`.
+The matching cohort folders retain exact source, header, grading and cleanup
+proofs. During finalization each live metadata request briefly returned HTTP
+404 with an initialization phase; one bounded collection then retrieved each
+complete log. Neither job was retried or resubmitted.
+
+An observer-only correction was required for the solo final. Its serialized
+`BoardHistory:journal` is present as an empty list, while the old reducer used
+`bool(journal)` and incorrectly treated that as absent. The three ignored
+artifact reducers now check that this field is a list; a missing field, null
+or a non-list still fails. Eighteen structural fixture checks, Ruff checks and
+full reductions verified the change. Only the solo embedding flag changed;
+all other reduced fields, raw logs, production source and all 14 immutable
+repeat configs stayed unchanged. Original reducers/results/manifests and
+hashes are preserved under
+`hawk-mirrorcode-haiku55-team-aware-250m-20261009/empty-board-journal-recovery-20261009T0842/`.
+
+The two planned successors were submitted once as one batch after fresh
+protected preflights at 09:05:34 and 09:07:55 UTC and eligible global health
+evidence at 09:08:18 UTC. The health record independently re-read all fourteen
+final headers, checked source/config/log hashes, caps, board embedding and
+cleanup, and confirmed changing real model/tool work for the three remaining
+teams. Both protected preflights reconciled existing job names and verified
+the designated work key and Anthropic supplier. The successors are:
+
+- Replicate-2 N=1: `mc-h55-t250m-r02-n01-1009-rpcsg4yb6omnmive`, submitted
+  at 09:08:27 UTC, config SHA256
+  `e4cc6d765892038105944c8f586778f119c1fe9eb4f562f494caa0b9eb05636a`.
+- Replicate-3 N=8: `mc-h55-t250m-r03-n08-1009-rzg1sktavb19hlxm`, submitted
+  at 09:08:54 UTC, config SHA256
+  `19fb2492bc73344a36c890c01fe01767f4ac512ff3b8741720b12a1632f0896f`.
+
+See `repeat-launch-batch-20261009T0908-r02-n01-r03-n08.json` and preserved health
+and preflight records in the first-cohort folder. Twelve additional attempts
+have launched, receiving 3B additional planned tokens. Nineteen of 21 attempts
+have been submitted; only replicate-3 N=1,2 remain unlaunched, waiting for their
+replicate-2 finals and cleanup. The active roster is replicate-2 N=1,2 and
+replicate-3 N=4,8,16, with one active attempt per size and five teams total.
+
+The new runtime headers were verified at 09:11:46 UTC for N=1 and 09:12:20 UTC
+for N=8, confirming the intended model, version 3, disclosed size and no submit.
+N=1 initially had running pods without live model counters; one bounded
+follow-up at 09:13:39 UTC confirmed model and completed tool work for its peer,
+with 674,793 actual tokens. At 09:11:05 UTC all eight new N=8 peers had model
+and completed tool work, with 2,132,106 actual tokens. Both had zero testing,
+reference and board errors, submit calls, pod restarts and warnings; neither
+had completed its first testing call at those initial snapshots. The batch
+record preserves both observations. See `heartbeat-check-20261009T0913.json`
+and `heartbeat-validation-20261009T0913.json`. Reused third-cohort snapshots
+produce zero comparison deltas and do not establish a stall. The existing
+heartbeat remains ACTIVE.
+
+The per-attempt tables and fourteen-point combined plot were refreshed and
+visually inspected, along with both changed cohort plots. N=32 and N=64 retain
+their complete three-attempt aggregates; all six means and sample standard
+deviations were independently recomputed, and seven pending scores remain
+null. Runtime source remains `26edd056564d01cbf32d36880260fac9fd834046`.
+Keep the existing monitor active through all 21 verified finals and cleanup.
+There is no fourth attempt for a completed size and no authorized six-model
+follow-up. Three repeats of one task with hardware growing with N do not
+establish causal scaling laws.
+
+## N=32 completes all three planned attempts (2026-10-09 08:13 UTC)
+
+Twelve of the 21 planned attempts have verified final grades and cleanup: six
+in replicate 1, N=4,16,32,64 in replicate 2 and N=32,64 in replicate 3. The
+third N=32 attempt passed 1,525 of 1,553 cases, with all/visible/hidden scores
+of 98.19704% / 100% / 96.01140%. Launch to final log took 118.635 minutes;
+the peer interval including tools took 112.407 minutes. Actual usage was
+252,964,929 tokens, with 63 trusted continuation reminders, 129 testing calls,
+289 board messages and 2,525 model calls.
+
+All 32 peers reached their native 7,812,500-token caps; individual usage ranged
+from 7,814,477 to 8,010,568. The successful version-3 header confirms Haiku 5.5,
+disclosed team size and no submit. The authoritative final has
+`end_reason=peers_finished`, zero testing/reference errors, no submit exposure
+or calls and an embedded board. The log completed at 08:11:22 UTC, including
+218.808 seconds after peer join; cleanup was verified at 08:13:01 UTC with zero
+active owned pods. The durable log is
+[the N=32 replicate-3 log](../logs/2026-10-09T06-13-27-00-00_mirrorcode_chaYrVgSq5JLajeycpkjP7.eval).
+Its SHA256 is `27ef9d38d4bfdfdce3784575ad21fe4368226073b3928aec4a2dba44598bf839`;
+the immutable config SHA256 is
+`17f336d4eac8175e2cd53719c99e19c2518108a90c2f7f411f7f0b035276eb49`.
+The third-cohort folder retains its final-header and cleanup proofs.
+
+All three N=32 data points are retained, with mean and sample standard
+deviation across those exact planned attempts. There is no fourth attempt,
+best-of selection or union. N=64's complete aggregate remains unchanged.
+
+| N | Verified attempts | All | Visible | Hidden | Launch to final log | Peer interval incl. tools | Actual tokens |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 32 | 3 / 3 | 97.746% ± 0.726 pp | 100.000% ± 0.000 pp | 95.014% ± 1.605 pp | 91.045 ± 24.241 min | 84.824 ± 24.064 min | 253.047 ± 0.234 M |
+
+The individual and aggregate tables, progress/comparison reports and plots
+were refreshed. The third-cohort plot and twelve-point combined figure were
+visually inspected, including both complete aggregates and sample-SD bars.
+All six aggregate metrics were independently recomputed with `statistics.mean`
+and `statistics.stdev`; nine pending scores remain null. Plot verification
+hashes and all 14 immutable repeat configs match their saved proofs and plan.
+See `heartbeat-check-20261009T0809.json`, `repeat-results.md`,
+`repeat-report-qa.json` and `repeat-plot-verification.json` in the first-cohort
+folder. Runtime source remains `26edd056564d01cbf32d36880260fac9fd834046`.
+
+Five teams remain active: replicate-1 N=1, replicate-2 N=2,8 and replicate-3
+N=4,16. All have changing model/tool work, zero testing/reference/board errors,
+no pod restarts or warnings and no submit calls. Ten additional attempts have
+launched, receiving 2.5B additional planned tokens; four remain planned:
+replicate-2 N=1 and replicate-3 N=1,2,8. Their launches wait for the matching
+predecessor's verified final and cleanup, followed by fresh eligible health
+evidence and protected work-billing/supplier preflight. No new paid attempt
+was launched during this check. Keep the existing monitor active through all
+21 verified finals and cleanup. Three repeats of one task, with hardware
+growing with N, do not establish causal scaling laws; the six-model follow-up
+remains unauthorized.
+
+## Second N=4 final and third launch (2026-10-09 07:40 UTC)
+
+Eleven of the 21 planned attempts have verified final grades and cleanup: six
+in replicate 1, N=4,16,32,64 in replicate 2 and N=64 in replicate 3. The second
+N=4 attempt passed 1,518 of 1,553 cases, with all/visible/hidden scores of
+97.74630% / 100% / 95.01425%. Launch to final log took 167.681 minutes; the
+peer interval including tools took 164.548 minutes. Actual usage was
+250,856,757 tokens, with 66 trusted continuation reminders, 63 testing calls,
+76 board messages and 914 model calls.
+
+All four peers reached their native 62,500,000-token caps; individual usage
+ranged from 62,531,364 to 62,846,452. The version-3 header confirms the intended
+model, disclosed team size and no submit. The authoritative final has
+`end_reason=peers_finished`, zero testing/reference errors and an embedded board.
+The log completed at 07:34:06 UTC, including 134.642 seconds after peer join;
+cleanup was verified at 07:35:35 UTC with zero active owned pods. The durable
+log is [the N=4 replicate-2 log](../logs/2026-10-09T04-47-09-00-00_mirrorcode_7AFzfRbszMnawvi56SxThZ.eval).
+Its SHA256 is `abfa22f2fc1d570e1b4fec858645d2a03b94139fb0250c5cac65adc0fb65183c`;
+the config SHA256 is `57bd184e8b4aaaf3b27c8c830ca9b4b04b2e35b59dc40acd742e9795cc925c31`.
+The updated cohort and eleven-point combined plots were inspected. Only N=64
+has a complete three-attempt aggregate; other pending attempts remain unscored.
+
+The planned third N=4 attempt was submitted once at 07:40:26 UTC as
+`mc-h55-t250m-r03-n04-1009-z00pnz45h3vzj8jb`, with unchanged config SHA256
+`d4014f6f953f9a1a9f5bb2a4f918dd4cccca020b247dae644ea88a9699dda94f`.
+The protected preflight passed at 07:39:04 UTC, reconciling all three existing
+third-replicate submissions and verifying designated work billing and Anthropic
+as supplier. Eligible health evidence at 07:40:17 UTC rechecked all eleven
+authoritative final headers and hashes, native caps, embedded boards and cleanup,
+plus recent real work for the five other active teams. All 14 immutable repeat
+configs match the repeat plan. See `repeat-launch-batch-20261009T0740-r03-n04.json`
+and its preserved health record in the first-cohort folder.
+
+Ten additional attempts have launched, receiving 2.5B additional planned tokens.
+Four remain planned: replicate-2 N=1 and replicate-3 N=1,2,8. Six attempts are
+active at this launch: replicate-1 N=1, replicate-2 N=2,8 and replicate-3
+N=4,16,32. N=4's header was verified at 07:42:00 UTC: the intended Haiku 5.5
+model, version 3, disclosed N=4 and no submit. At 07:43:38 UTC all four peers
+had verified model and completed tool work, with 1,668,385 actual tokens and
+zero testing/reference errors, pod restarts or warnings. Its first testing
+call had not yet occurred. The third N=16 attempt also continued real work,
+with 33,487,843 actual tokens and two completed testing calls at that snapshot.
+See `heartbeat-check-20261009T0743.json`; the first and second cohorts' snapshots
+were reused after their launch-gate checks, so zero postlaunch deltas for those
+saved snapshots are not evidence of a stall.
+Runtime source remains `26edd056564d01cbf32d36880260fac9fd834046`. The monitor
+continues through all 21 verified finals and cleanup, with no six-model launch
+and no fourth N=64 attempt.
+
+## Second N=16 final and third launch (2026-10-09 07:31 UTC)
+
+Ten of the 21 planned attempts have verified final grades and cleanup: six in
+replicate 1, N=16,32,64 in replicate 2 and N=64 in replicate 3. The second N=16
+attempt passed 1,536 of 1,553 cases, with all/visible/hidden scores of
+98.90534% / 100% / 97.57835%. Launch to final log took 155.288 minutes; the
+peer interval including tools took 151.938 minutes. Actual usage was
+251,651,737 tokens, with 91 trusted continuation reminders, 130 testing calls,
+204 board messages and 1,968 model calls.
+
+All 16 peers reached their native 15,625,000-token caps; individual usage ranged
+from 15,635,447 to 15,851,588. The version-3 header confirms the intended model,
+disclosed team size and no submit. The authoritative final has
+`end_reason=peers_finished`, zero testing/reference errors and an embedded board.
+The final log completed at 07:21:46 UTC, including 144.667 seconds after peer
+join, and cleanup was verified at 07:24:15 UTC with zero active owned pods.
+The durable log is
+[the N=16 replicate-2 log](../logs/2026-10-09T04-47-13-00-00_mirrorcode_f9StbtgthUHsymkosdMFtD.eval).
+Its SHA256 is `d0bf8dc6255b31ca96e49170475a6a81d871e3174ed58c22281c17c0f27a5805`;
+the immutable config SHA256 is
+`518566bda799bbd9cae85c8a4622b0cc8fa534a8958f9334ae8e6e4ea1a7252d`.
+An initial live-metadata HTTP 404 during finalization was resolved by one bounded
+metadata recheck; the job was never retried or resubmitted. Saved status history
+and `heartbeat-check-20261009T0719-pre-finalization.json` preserve that observation.
+Both updated plots were inspected, and the aggregate at N=64 remains unchanged.
+N=16 remains represented by individual points until its third attempt is final.
+
+The planned third N=16 attempt was submitted once at 07:31:05 UTC as
+`mc-h55-t250m-r03-n16-1009-w9lcjmym5glb0myj`. Its config SHA256 is
+`1ab03fa4abfb0c691358465449be14f9f022ef3ca7366a2a9009a207d086b024`.
+The protected work-billing/supplier preflight passed at 07:26:00 UTC, reconciling
+both existing third-replicate submissions. Fresh eligible health evidence at
+07:30:55 UTC rechecked all ten authoritative final headers and hashes, native
+caps, board embedding and cleanup, plus changing work for the five other active
+teams. All 14 immutable repeat configs still match the repeat plan. See
+`repeat-launch-batch-20261009T0731-r03-n16.json` and its preserved health record
+in the first-cohort folder.
+
+Nine additional attempts have launched, receiving 2.25B additional planned
+tokens; five remain planned. At this launch there are six active attempts:
+replicate-1 N=1, replicate-2 N=2,4,8 and replicate-3 N=16,32. The new attempt's
+runtime header was verified at 07:33:25 UTC: Haiku 5.5, version 3, disclosed N=16
+and no submit. At 07:36:43 UTC, all 16 peers had verified model and completed
+tool work, with 23,458,229 actual tokens, one completed testing call, no pending
+testing calls and zero testing/reference errors, restarts or warnings. Runtime source remains
+`26edd056564d01cbf32d36880260fac9fd834046`; no completed low score was retried.
+The monitor stays active through all 21 verified finals and cleanup. The
+six-model follow-up remains unauthorized, and N=64 receives no fourth attempt.
+
+## N=64 completes all three planned attempts (2026-10-09 06:45 UTC)
+
+Nine of the 21 planned attempts now have verified final grades and cleanup:
+six in replicate 1, N=32,64 in replicate 2 and N=64 in replicate 3. The third
+N=64 attempt passed 1,473 of 1,553 cases. Its version-3 header discloses team
+size and exposes no submit tool; there were no submit calls. All 64 peers
+reached their native 3,906,250-token caps, with usage from 3,907,482 to 4,064,052
+tokens. It has `end_reason=peers_finished`, zero testing/reference errors, an
+embedded board, matching download/flat-log hashes and zero active owned pods.
+
+| Replicate | Agents | Passed / cases | All | Visible | Hidden | Launch to final log | Peer interval incl. tools | Actual tokens | Continuation reminders | Testing calls |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 3 | [64](../logs/2026-10-09T05-39-34-00-00_mirrorcode_JddA9CnaranKmpw7yntVBe.eval) | 1473 / 1553 | 94.84868% | 95.41716% | 94.15954% | 63.256 min | 59.134 min | 254,369,213 | 80 | 157 |
+
+The board contains 372 trusted messages. The final log completed at 06:42:05
+UTC, including 168.940 seconds of grading after peer join. Its SHA256 is
+`6d56c68c1031589081a2d611aab9befc50a0f32c99452cb0ab16d1a0051cacf6`;
+the immutable config SHA256 is
+`4f5f83a92bd2e92f5c40307d70a59c99fb048e8828552a7bad0a31803118d689`.
+The final-header proof is saved in the third-cohort folder.
+
+All three N=64 data points are retained. Their mean and sample standard
+deviation are now available; no outcome-selected retry, best-of or union was
+used. Other sizes' aggregate metrics remain pending.
+
+| N | Verified attempts | All | Visible | Hidden | Launch to final log | Peer interval incl. tools | Actual tokens |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 64 | 3 / 3 | 95.857% ± 2.629 pp | 97.101% ± 2.521 pp | 94.349% ± 2.996 pp | 60.040 ± 13.280 min | 54.769 ± 12.918 min | 253.636 ± 0.653 M |
+
+The individual and aggregate table and six-panel figure were refreshed in the
+first-cohort folder. Aggregate numbers were independently checked against
+`statistics.mean` and `statistics.stdev`. The third-cohort figure and combined
+figure were visually inspected. The aggregate diamond is offset to the right
+of the three individual points so it cannot obscure replicate 2; the footer
+explains these offsets. Original plot code and exports, hashes and validation
+are retained in `plot-aggregate-layout-recovery-20261009/`. Runtime source and
+experiment configs are unchanged at `26edd056564d01cbf32d36880260fac9fd834046`.
+
+Six teams remain active: replicate-1 N=1, replicate-2 N=2,4,8,16 and
+replicate-3 N=32. They have changing work metadata and zero testing/reference
+errors; see `heartbeat-check-20261009T0641.json`. Eight additional attempts have
+launched and six remain planned. N=64 has no further planned attempt. Continue
+the existing monitor until all 21 finals and cleanup are verified. Three
+repeats of one task, with hardware increasing across N, do not establish
+causal scaling laws; the six-model follow-up remains unauthorized.
+
+## Second N=32 final and third launch (2026-10-09 06:13 UTC)
+
+Eight of the 21 planned attempts now have verified final grades and cleanup:
+six in replicate 1 and N=32,64 in replicate 2. The second N=32 attempt has a
+version-3 header, disclosed team size, no submit exposure or calls,
+`end_reason=peers_finished`, an embedded board, matching download/flat-log
+hashes and zero testing/reference errors or active owned pods. All 32 peers
+reached their native 7,812,500-token caps; actual peer usage ranged from
+7,814,268 to 7,997,224 tokens.
+
+| Replicate | Agents | Passed / cases | All | Visible | Hidden | Launch to final log | Peer interval incl. tools | Actual tokens | Continuation reminders | Testing calls |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2 | [32](../logs/2026-10-09T04-47-17-00-00_mirrorcode_CXUsmDyPki8TrNDVKUhaB9.eval) | 1524 / 1553 | 98.13265% | 100.00000% | 95.86895% | 73.160 min | 68.121 min | 252,865,351 | 63 | 108 |
+
+The board contains 268 trusted messages. The final log completed at 05:59:42
+UTC; grading after peer join took 145.473 seconds. Its SHA256 is
+`5d180ebb2b93512505c8a96d54d3a973a8e8d5a326818b888d553bf3fa517c38`.
+The second-cohort figure and the combined eight-point, six-panel repeat figure
+were visually checked; their saved plot verification files match the PNGs.
+No size yet has three verified finals, so all aggregate means and sample SDs
+remain pending.
+
+Fresh bounded metadata from all three active cohorts, all 14 immutable repeat
+config hashes, the eight final proofs and protected work-billing/supplier
+preflight passed. The health record is timestamped 06:12:35 UTC. N=32's third
+attempt was submitted once at **06:12:43 UTC** as
+`mc-h55-t250m-r03-n32-1009-3j6k5c1jkok3n0od`, with immutable config SHA256
+`17f336d4eac8175e2cd53719c99e19c2518108a90c2f7f411f7f0b035276eb49`.
+See `repeat-launch-batch-20261009T0612-r03-n32.json` and its preserved health
+record in the first-cohort folder. Eight additional attempts have now launched,
+receiving 2.0B additional planned tokens. Six additional attempts remain planned.
+The new attempt's live header was checked at 06:14:11 UTC and confirms version
+3, the intended model, disclosed N=32 and no submit. Its first postlaunch
+snapshot was still in setup, with no pod restarts or warnings; real model/tool
+work for that new attempt is not yet established. The postlaunch audit is
+`heartbeat-check-20261009T0614.json`.
+At 06:17:59 UTC, all 32 peers had verified real model and completed tool work,
+with 28,243,917 actual tokens, five pending testing calls and zero
+testing/reference errors, pod restarts or warnings. All seven active teams
+had changing work metadata; no new final or meaningful stall was found. See
+`heartbeat-check-20261009T0615.json`.
+The 06:20 heartbeat again found all seven teams advancing, with no testing or
+reference errors and no new final or meaningful stall. Three consecutive
+first-cohort collections finished just after the operator client's wait;
+their exact successful responses were reconciled and reduced. Each cohort's
+local `monitor_once.py` now waits up to ten extra seconds for that same response
+file, then preserves a pending outcome without redispatching. Harmless existing,
+late and absent response fixtures plus Ruff checks passed. Original helpers,
+hashes, numeric evidence and QA are preserved in
+`monitor-response-grace-recovery-20261009/` in the first-cohort folder. The third
+cohort completed a real check through the updated helper at 06:23:33 UTC.
+Evaluation runtime source, all 14 repeat configs and remote jobs were unchanged.
+See `heartbeat-check-20261009T0620.json`.
+The first-cohort check completed automatically through the response grace at
+06:26:24 UTC, including all local reducers. A transient N=4 replicate-2
+`HawkAPIError` cleared on one bounded metadata retry at 06:29:38 UTC; no job was
+retried or resubmitted. All seven teams still had changing work metadata and
+zero testing/reference errors. See `heartbeat-check-20261009T0625.json`.
+
+At 07:12 UTC, two more first-cohort collections had completed successfully just
+after that extra ten-second window. Both exact responses were reconciled and
+the local reducers completed once, without redispatching. The first cohort's
+local response grace is now 30 seconds; the other two remain at ten seconds.
+Existing, delayed and absent response fixtures and Ruff checks passed. The
+previous helper, hashes and QA are preserved in
+`monitor-response-grace-extension-20261009T0711/` in the first-cohort folder.
+This observer repair changes neither the evaluation runtime nor experiment
+configs or jobs. See `heartbeat-check-20261009T0709.json` for the reconciliation.
+The first real check using the extended grace completed at 07:16:02 UTC with
+all local reducers automatic and no redispatch; that evidence is saved in the
+repair's `qa.json` and `heartbeat-check-20261009T0714.json`.
+
+The 08:31 UTC heartbeat's first-cohort response arrived after the extended
+window. Its exact successful response was reconciled and all five local
+reducers completed once, without redispatching or changing the helper, runtime,
+configs or jobs. The response path and recovery evidence are retained in
+`monitor-late-response-reconciliation-20261009T0831.json` and
+`heartbeat-check-20261009T0831.json` in the first-cohort folder. All five active
+teams continued model/tool work with zero testing/reference errors; twelve
+finals remained verified and no new attempt was launched.
+
+There are seven active teams: replicate-1 N=1, replicate-2 N=2,4,8,16 and
+replicate-3 N=32,64. The other unfinished predecessors keep working to their
+native caps. Before the launch, all six active teams had changing model/tool
+and testing metadata, zero testing/reference or board-connection errors, no
+pod restarts or warnings, and one active attempt per size. The protected
+collector exceeded its client's wait once, then completed successfully; its
+exact response was reconciled and the local reducers completed without
+another collection or job submission. See `heartbeat-check-20261009T0601.json`.
+Runtime source remains `26edd056564d01cbf32d36880260fac9fd834046`; experiment
+configs and healthy jobs were not changed. The monitor remains active through
+all 21 verified finals and cleanup. The six-model follow-up is unauthorized.
+
+## Second N=64 final and third launch (2026-10-09 05:40 UTC)
+
+Seven of the 21 planned attempts now have verified final grades and cleanup:
+six in replicate 1 and N=64 in replicate 2. The second N=64 attempt ended
+after all 64 peers reached their native 3,906,250-token caps. It has a version-3
+header, disclosed team size, no submit exposure or calls, `end_reason=peers_finished`,
+an embedded board, matching download/flat-log hashes and zero testing/reference
+errors or active owned pods. Its valid score is retained as the second planned
+data point; no outcome-selected retry was made.
+
+| Replicate | Agents | Passed / cases | All | Visible | Hidden | Launch to final log | Peer interval incl. tools | Actual tokens | Continuation reminders | Testing calls |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2 | [64](../logs/2026-10-09T04-47-19-00-00_mirrorcode_nqQvyn67fp2mVyvoDHCDcW.eval) | 1458 / 1553 | 93.88281% | 95.88719% | 91.45299% | 45.447 min | 40.234 min | 253,421,797 | 67 | 134 |
+
+The board contains 343 trusted messages. Peer tokens range from 3,908,285 to
+4,061,314. The final log completed at 05:32:02 UTC; grading after peer join
+took 147.612 seconds. Its SHA256 is
+`cb03afd8172f437de7dc71a2f69ca10277e65f674581a3b37acd4cfaa39300ae`.
+The replicate-2 figure was inspected and its visual proof saved in that folder.
+
+Fresh activity evidence from both active cohorts, exact config/header/log
+identities and protected work-billing/supplier preflight passed before N=64's
+third attempt was submitted at **05:38:49 UTC** as
+`mc-h55-t250m-r03-n64-1009-m4qofeei31gg80km`. Its immutable config SHA256 is
+`4f5f83a92bd2e92f5c40307d70a59c99fb048e8828552a7bad0a31803118d689`.
+This adds 250M planned tokens, bringing launched additional attempts to seven
+and their planned allowance to 1.75B tokens. See
+`repeat-launch-batch-20261009T0538-r03-n64.json` and its preserved fresh health
+record in the first-cohort folder. The third attempt's live header confirms
+version 3, the intended model, disclosed N=64 and no submit. It was still in
+setup at the first collection; model/tool activity is not yet established for
+that new attempt at that snapshot. At 05:44:31 UTC, all 64 third-attempt peers
+had verified real model and completed tool work, with 27,599,991 actual tokens,
+three pending testing calls, zero testing/reference errors and no pod restarts
+or warnings. See `heartbeat-check-20261009T0541.json`.
+
+There are seven active teams: replicate-1 N=1, replicate-2 N=2,4,8,16,32 and
+replicate-3 N=64. Other repeats wait for their same-size predecessor's final
+verification and cleanup. All use unchanged runtime commit
+`26edd056564d01cbf32d36880260fac9fd834046`. The first-cohort folder's
+`write_heartbeat_check.py` now saves cross-replicate numeric evidence from
+sanitized snapshots; its focused QA record confirms it preserves unavailable
+live values as null. Runtime source and experiment configs were not changed.
+`summarize_repeats.py` writes `repeat-results.md` and `repeat-results.json` in
+that folder, retaining all 21 planned slots with separate replicate values.
+Means and sample SDs remain unavailable until three verified finals exist at
+the same N. Focused checks cover sample SD, valid zero scores, pending or failed
+attempts and unexpected extra rows; no best-of or union metric is produced.
+`plot_repeats.py`, run with the linked plotting runtime, exports
+`haiku55-mailauth-three-replicates.png`, `.pdf` and `.svg`. Its six panels keep
+replicate points separate for all/visible/hidden grades, launch-to-final-log
+duration, the team peer interval and actual tokens. Aggregate diamonds and
+sample-SD bars appear only once three finals at N are verified. The initial
+seven-point figure was visually checked; `repeat-plot-verification.json`
+preserves its layout proof. Unchanged final points do not regenerate that figure.
+
+## Verified disclosed-size finals (2026-10-09 05:00 UTC)
+
+The first cohort has six verified final results at runtime commit
+`26edd056564d01cbf32d36880260fac9fd834046`. Each finished after all peers
+reached their native caps, with `end_reason=peers_finished`, no submit exposure
+or calls, a version-3 header and disclosed team size. All six have
+authoritative grades over 1,553 cases, zero testing/reference errors, embedded
+boards, matching download/flat-log hashes and zero active owned pods.
+
+| Agents | Passed / cases | All | Visible | Hidden | Launch to final log | Actual tokens | Continuation reminders | Testing calls |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| [2](../logs/2026-10-09T01-36-24-00-00_mirrorcode_QTv5MrjGC4BzepQmwLbT4r.eval) | 1534 / 1553 | 98.77656% | 100.00000% | 97.29345% | 146.376 min | 250,657,191 | 37 | 47 |
+| [4](../logs/2026-10-09T01-36-05-00-00_mirrorcode_cPmHMBNKGYLKTVNYRprkHU.eval) | 1535 / 1553 | 98.84095% | 100.00000% | 97.43590% | 165.687 min | 251,099,675 | 130 | 67 |
+| [8](../logs/2026-10-09T01-36-22-00-00_mirrorcode_WwPAuFZaVWZeEJsi35TAwq.eval) | 1519 / 1553 | 97.81069% | 100.00000% | 95.15670% | 202.914 min | 251,284,455 | 127 | 76 |
+| [16](../logs/2026-10-09T01-36-24-00-00_mirrorcode_TwxNqUmejVxxuk4bvRqcTC.eval) | 1500 / 1553 | 96.58725% | 100.00000% | 92.45014% | 159.560 min | 251,618,609 | 100 | 138 |
+| [32](../logs/2026-10-09T01-36-21-00-00_mirrorcode_bVMpDX9UPMhPQDRLA5jw5K.eval) | 1505 / 1553 | 96.90921% | 100.00000% | 93.16239% | 81.341 min | 253,310,397 | 37 | 82 |
+| [64](../logs/2026-10-09T01-36-08-00-00_mirrorcode_aGzP8SDeth9BJkyZkg339t.eval) | 1535 / 1553 | 98.84095% | 100.00000% | 97.43590% | 71.416 min | 253,117,751 | 75 | 201 |
+
+Trusted board message counts: N=2: 55, N=4: 78, N=8: 128, N=16: 214, N=32: 249, N=64: 407.
+Native response boundaries explain the small overshoots above the planned
+250M team allowances. Separate final-header verification files preserve the
+source/config/log identities; `plot-verification.json` records visual inspection
+of the partial figure. The x-axis padding fix prevents clipping at N=64 and is
+prepared in both repeat folders. These are one attempt at each of six sizes,
+not six replicates of the same size.
+
+The observation gate opened at 04:41:37 UTC. Fresh protected health/billing/config
+checks passed, and replicate 2 was submitted for N=2,4,16,32,64 at 04:46:20–35
+UTC, followed by N=8 at 05:03:30 UTC after its first final grade and cleanup.
+The two batch records preserve exact identities and 1.5B additional planned
+tokens. N=1 still advances with zero testing/reference errors; its second attempt
+waits for final verification and cleanup. Every replicate 3 requires its
+replicate-2 predecessor's final verification and cleanup. Keep at most seven
+active teams and one per size.
+
+The 05:00 UTC collection confirmed actual model/tool work for all 118 peers in
+the first five replicate-2 jobs and changing activity with no testing/reference
+errors. Their runtime headers confirm version 3, disclosure and no submit.
+At 05:07 UTC, all 126 peers across the six active replicate-2 attempts had
+verified real model and completed tool work. Runtime headers for all six
+confirm version 3, disclosed size, the intended model and no submit. Across
+that cohort, 84 testing calls had completed with zero testing/reference errors
+and zero pod restarts or warnings. See `heartbeat-check-20261009T0505.json`.
+See `heartbeat-check-20261009T0459.json` and the fresh health record.
+
+The local protected preflight reconciles Hawk's truncated job names against
+immutable submitted receipts before later partial launch batches. It accepts
+known submissions while rejecting missing, duplicate, unknown, pending or
+changed-config identities. Isolated guard checks and real read-only reconciliation
+of the five existing submissions passed. Runtime source and all 14 repeat config
+hashes are unchanged; see `preflight-reconciliation-qa-20261009.json`.
 
 ## Three Haiku replicates per team size (2026-10-09)
 
@@ -78,7 +998,7 @@ At 01:40:22 UTC, all 127 peers across the seven jobs had verified real model
 and completed tool work. Every model tool schema contained only `bash`,
 `evaluate_testcases`, `message_board` and `text_editor`; submit was absent.
 One testing call had completed, with zero testing/reference errors across
-the sweep. Final grades remain pending. The existing five-minute heartbeat
+the sweep. Final grades were pending at that snapshot. The existing five-minute heartbeat
 continues collection, authoritative final verification and plotting.
 Docker mock trajectories at N=1,2,64 received the correct disclosure, retained
 private histories and the same board across continuation reminders, reached
@@ -803,3 +1723,72 @@ Haiku InferenceBench replay was regenerated and its four Claude logo nodes
 verified. An authored fifteen-provider fixture exercised the actual frontend;
 a separate embedded-mark gallery confirmed the SVGs render. Checks and screenshots
 are retained in `run-artifacts/visualiser-provider-logos-20261009/`.
+
+
+### 2026-10-09 — local MirrorCode checkpoint implementation (unpublished)
+
+The user requested durable checkpointing for future runs. Local opt-in support
+is now wired into native ReAct MirrorCode through one team-owned Inspect
+checkpointer, private compaction namespaces, complete authenticated SQLite board
+restore with fresh bearer hashes, cumulative native caps and ArchiveSnapshots of
+`/workdir`, `/workspace`, `/root` and verified coder home `/home/coder`. Scoring
+containers are recreated. All live peers stop at complete turns; participant
+background processes stop during capture and thaw afterward. Process RAM and
+uncaptured files are not restored; a restore notice tells peers to restart needed
+background processes. Existing paid attempts remain unchanged and attempts with
+no checkpoint cannot be retroactively continued.
+
+Proof: `run-artifacts/mirrorcode-checkpoint-development-20261009/checkpoint-qa.json`
+contains source hashes and durable flat-log hashes. Literal mockllm with real Ruff
+Docker writes native checkpoints and grades all 822 cases (761 visible, 61 hidden),
+with two successful testing calls and zero tool errors. Forced native eval_retry
+restores board, private histories, files and a stopped changing writer; native
+caps remain 240 per fixture peer. A capped peer makes four model calls before
+and after resume, and both private compaction namespaces remain in subsequent
+checkpoints. Solo scorer-only recovery grades 822 cases with eight model calls
+before and after. Two forced native automatic summaries restore without repeat
+summary calls. A separate rollback fixture physically generates 510 synthetic
+tokens while its successful logical trajectory reports 480: lost post-checkpoint
+work can be repeated, so retain physical attempts and billing separately. All
+Docker fixtures are harmless scripted development trajectories, not real-model
+quality or resource minima measurements.
+
+Full source mypy, changed-file Ruff lint/format, wheel build/assets, focused
+checkpoint/board regression tests and the default suite pass (133 default tests;
+13 Docker-marked tests deselected, with additional real Docker proofs above).
+All local QA containers ended. Nothing was published or launched on paid infra.
+Several intentionally failed development logs and fixed-path/configuration
+reproductions remain retained. Supporting checkpoints and sidecars stay under
+run-artifacts; root logs stay flat and eval-only.
+
+Maintained default is still `checkpoint_enabled: false`; future approved runs can
+set true and use `checkpoint_interval_seconds: 600`. Do not claim production Hawk
+validation or turn this on globally until QA shipping signoff plus an authorized
+Hawk restore smoke verifies durable storage, PID namespace isolation, real-provider
+response/compaction compatibility and resource/storage overhead. Custom agents,
+submit-enabled attempts, deadlines and other task families remain unsupported.
+See `docs/mirrorcode-checkpointing.md` for the complete contract. Checkpoint changes
+span harness.py, mirrorcode task/defaults, board/runtime.py and both new checkpoint
+modules; do not publish a partial subset. Parent's concurrent retry/board repair
+and ExploitBench changes were preserved.
+
+
+### 2026-10-09 23:47 UTC — Haiku Ruff 19/21 verified finals
+
+Replicate 2 solo completed with 292/822 all, 276/761 visible and 16/61 hidden cases passed; 250,011,621 actual tokens and 38,332.515307 seconds launch to final log. Its one peer did real tool work and reached the native cap, with 40 testing calls, zero testing/reference errors, an embedded empty solo board, durable byte-hashed flat log and zero active owned pods. Exact source/config/log identities are retained in the cohort manifest. The updated three-replicate plot was visually inspected. Haiku now has 19/21 scored slots; Luna remains 21/21 and Sol 3/7. The two remaining Haiku solos, Sol solo and authorized fresh Sol N4 recovery continue doing work. No new submissions or publication.
+
+### 2026-10-10 02:22 UTC: Haiku first solo final verified
+
+Haiku now has 20/21 verified scored slots; Luna remains 21/21 and Sol 3/7. First Haiku solo: 272/822 all, 257/761 visible, 15/61 hidden; 250,029,793 actual tokens and 47,807.925122 seconds launch to final log. The native peer was limited, with 22 testing calls, zero testing/reference errors, 35 continuation nudges, embedded empty solo board journal and zero active owned pods. Source/config/log identities and durable flat log are recorded in the primary manifest final_verifications entry for n01-v1.eval-set.receipt.json. The refreshed 20/21 plot was visually inspected. The third solo and healthy Sol attempts remain monitored; no new recovery or publication was authorized or launched.
+
+### 2026-10-10 03:33 UTC — Haiku Ruff all 21 scored slots verified
+
+The third solo replicate completed with 263/822 all, 245/761 visible and 18/61 hidden cases passed; 250,087,920 actual tokens and 52,384.340088 seconds launch to final log. Its one peer performed real tool work and ended native-limited, with 65 testing calls, zero testing/reference errors, 73 continuation nudges, no submit, an embedded empty solo board journal, a durable flat log and zero active owned pods. Source 26edd056564d01cbf32d36880260fac9fd834046; config SHA256 878d756424bffe1fd90cd942e488bbdaeafdee714a98c23b19d9ec9c3a847d83; log SHA256 47c0c527fc659fe81ba527c9da0258a763b99201d514e860371d186b84ef533f. Proof is in the r03 manifest. The final 21/21 score/time/token plot was visually inspected; all seven three-final means and sample standard deviations are available. Original failed N64 and its verified replacement remain separately preserved. Luna remains 21/21 and Sol 3/7; the heartbeat remains ACTIVE for Sol and all required physical cleanup verification. No new paid attempt or publication was performed.
+
+### 2026-10-10 04:12 UTC — Sol request retries without successful token progress
+
+Sol solo remains at 133,869,561 tokens (unchanged since 03:49 snapshot), and the fresh N4 recovery at 235,912,730 (unchanged since 03:30). Bounded event metadata shows changing model/logger retry events, including an N4 request lasting 601.346241 seconds and a new pending model request at 04:06:38; solo has a pending request at 04:02:08. All containers remain running with zero restarts and zero testing/reference errors. This is delayed successful model-request progress, not proof of a dead controller. Preserve automatic retries and immutable runs; no new attempt is authorized or submitted. Evidence: Sol primary bounded-work-check-20261010-0412.json. Counts remain Haiku 21/21, Luna 21/21, Sol 3/7; heartbeat ACTIVE.
+
+### 2026-10-10 05:47 UTC — prolonged Sol N4 model-request delay
+
+The authorized fresh N4 recovery remains running at 235,912,730 actual tokens, unchanged since the 03:30 snapshot (over two hours). Bounded metadata continues to show timeout/retry activity, most recently a completed timeout and retry logger at 05:23:47; no authoritative final or testing/reference error is present. Evidence is saved in the Sol primary `bounded-work-check-20261010-0547.json`. Preserve its authorized 300 request retries and immutable job; no cancellation, fresh submission or unsupported checkpoint resume was performed. Sol N1 continues successful token progress (143,876,896 at 05:34:48); verified scored counts remain Haiku 21/21, Luna 21/21, Sol 3/7. Monitoring remains active.

@@ -62,10 +62,13 @@ earlier hidden-size attempts and label them separately from disclosed-size
 runs; comparisons changing both disclosure and stopping policy cannot isolate
 either effect.
 
-Checkpoint continuation is deliberately rejected until peer histories, native
-limits and the irreversible store can resume together. A fresh run always owns a
-fresh board. Hawk deployment, real-provider concurrency and command-heavy sandbox
-resource scaling have not been validated by these local authored mocks.
+MirrorCode has opt-in coordinated checkpoint continuation: private peer histories
+and compaction, cumulative native limits, trusted state, shared files and the
+complete authenticated board resume together at a completed-turn barrier. Other
+task families retain their continuation rejection. A fresh attempt owns a fresh
+board; a resumed attempt preserves the saved board and rotates credential hashes.
+Local authored mocks do not establish real-provider resource minima or cluster
+capacity. Actual Hawk verification and source identities are in the dated handoff.
 
 Any future index needs preregistered quality constraints, normalization against
 single-agent and oracle controls, benchmark weights and uncertainty estimates.

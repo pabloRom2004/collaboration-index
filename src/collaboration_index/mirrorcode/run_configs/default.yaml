@@ -20,6 +20,7 @@ task:
     agents_per_scoring_pipeline: 8
     checkpoint_enabled: false
     checkpoint_interval_seconds: 600
+    image_pins: null
 
 model: null
 

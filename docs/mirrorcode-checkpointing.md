@@ -32,8 +32,14 @@ The implementation currently refuses custom agents, submit-enabled attempts and
 team deadlines. Its process freeze requires an isolated Linux container PID
 namespace. Docker restore is verified locally, and actual-model N2 Ruff restore
 and native-compaction restore have verified resumed finals and physical cleanup
-on Hawk. The representative N64 Hawk failure/restore test is running; its final
-proof remains required before the new full study scales.
+on Hawk. The representative N64 Hawk failure/restore has also reached an
+authoritative resumed final with all 64 native caps and zero owned pods. The
+separate actual-provider finished-peer arm has also completed without more model
+work; the fifth QA arm also verified the native `resume_for_scoring` branch
+after an injected scorer failure, retaining exactly the same private state,
+5,866 logical tokens and two ModelEvents through full grading and cleanup. Full study
+batches require all five resumed final proofs and cleanup. Model smokes can
+proceed after the first four backend proofs.
 
 A checkpoint can wait for every in-flight turn, including a long provider retry.
 It does not interrupt or save a partially completed request. Calls and filesystem
@@ -60,3 +66,17 @@ Normally completed scores are never retried. Failed-log tokens may include
 restored cumulative usage, so they cannot simply be added to resumed-log tokens
 as an independent billing total. Preserve checkpoint rollback and every physical
 archive when accounting for actual work.
+
+The reporting helper verifies retained physical archives and each numeric checkpoint
+baseline before adding discarded rollback tokens to final cumulative usage.
+Missing usage, including compacted summary usage without ModelEvents, remains
+unavailable for physical accounting rather than being filled with zero.
+
+New v2 study configs pin image-pinning release
+`2ab240e594e0109d6d8436ad2a0edd1d29285967` and every workspace/grading service to
+the original registry manifest digest. Nine edge tests and a real Ruff Docker
+fixture verified all three original images, 822-case final grading and exact
+owned container/board cleanup. Tag-only configs are preserved as unlaunched revisions
+when tag drift is found; existing accepted jobs remain immutable. A metadata
+image reference is not an observed pod image ID, so report unavailable actual
+image IDs separately.

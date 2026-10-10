@@ -2,8 +2,11 @@
 
 import asyncio
 import copy
+import hashlib
+import json
 import math
 import os
+import re
 import tempfile
 from contextvars import ContextVar
 from importlib.resources import files
@@ -137,9 +140,31 @@ def scaled_workspace(
     memory_per_agent_mb: int,
     cpus_per_agent: float,
     pipelines: int,
+    image_pins: dict[str, str] | None = None,
 ) -> Path:
     """Write a copy of MirrorCode's compose file whose workspace and scoring grow with the team."""
     spec = yaml.safe_load(compose.read_text())
+    if image_pins is not None:
+        for service in spec["services"].values():
+            service["image"] = service["image"].replace(
+                "${MC_IMAGE_NAME:-mclocal}", os.environ.get("MC_IMAGE_NAME", "mclocal")
+            )
+        originals = {service["image"] for service in spec["services"].values()}
+        if not isinstance(image_pins, dict) or set(image_pins) != originals:
+            raise ValueError(
+                "image_pins must cover exactly every original compose image"
+            )
+        for original, pinned in image_pins.items():
+            repository = original.split("@", 1)[0].rsplit(":", 1)[0]
+            if not isinstance(pinned, str) or not re.fullmatch(
+                re.escape(repository) + r"@sha256:[0-9a-f]{64}", pinned
+            ):
+                raise ValueError(
+                    "image_pins require same-repository immutable sha256 identities"
+                )
+        for service in spec["services"].values():
+            service["image"] = image_pins[service["image"]]
+            service.pop("build", None)
     workspace = spec["services"]["default"]
     # upstream sizes the workspace for one agent at 2 GiB; each peer adds its share
     workspace["mem_limit"] = f"{2048 + agents * memory_per_agent_mb}m"
@@ -148,7 +173,13 @@ def scaled_workspace(
         for name in SCORING_SERVICES:
             spec["services"][f"{name}-{index}"] = copy.deepcopy(spec["services"][name])
     # Hawk only converts files whose names end in compose.yaml
-    path = compose.with_name(f"team-{agents}-compose.yaml")
+    identity = (
+        "-images-"
+        + hashlib.sha256(json.dumps(image_pins, sort_keys=True).encode()).hexdigest()
+        if image_pins is not None
+        else ""
+    )
+    path = compose.with_name(f"team-{agents}{identity}-compose.yaml")
     path.write_text(yaml.safe_dump(spec))
     return path
 
@@ -263,6 +294,7 @@ def mirrorcode(
     agents_per_scoring_pipeline: int = ARGS["agents_per_scoring_pipeline"],
     checkpoint_enabled: bool = ARGS["checkpoint_enabled"],
     checkpoint_interval_seconds: float = ARGS["checkpoint_interval_seconds"],
+    image_pins: dict[str, str] | None = ARGS["image_pins"],
 ) -> Task:
     """Build one team attempt at reimplementing a MirrorCode target in one shared workspace."""
     from mc import AgentImplementationLanguage, TargetProgram
@@ -328,9 +360,16 @@ def mirrorcode(
                 memory_per_agent_mb,
                 cpus_per_agent,
                 pipelines,
+                image_pins,
             )
         ),
     )
+    effective_images = {
+        name: service["image"]
+        for name, service in yaml.safe_load(
+            Path(str(sample.sandbox.config)).read_text()
+        )["services"].items()
+    }
     sample.metadata = {
         "data": {},
         "sandbox_enabled": True,
@@ -338,6 +377,8 @@ def mirrorcode(
         "benchmark_title": "MirrorCode",
         "allow_submit": allow_submit,
         "team_size_disclosed": True,
+        "image_pins": image_pins,
+        "effective_images": effective_images,
     }
     return Task(
         dataset=[sample],
@@ -398,5 +439,7 @@ def mirrorcode(
             "mirrorcode_language": language,
             "scoring_pipelines": pipelines,
             "checkpoint_enabled": checkpoint_enabled,
+            "image_pins": image_pins,
+            "effective_images": effective_images,
         },
     )

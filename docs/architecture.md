@@ -211,7 +211,10 @@ Number-sequence ordering with private numbers is a plausible fourth task.
 Python line assembly additionally requires validated execution/scoring and pool
 provenance, so it is not a drop-in text-only import.
 
-Before checkpoint support, test restoration of every peer's private history and
-native usage limit, all accepted actions, game end state, board history/identity
-and pending calls. The current initialized-state guard intentionally rejects
-continuation; loading a previous replay is not resuming an evaluation.
+MirrorCode checkpoint continuation saves private histories and native compaction,
+cumulative usage limits, trusted team state, shared files and full board identity
+and delivery state. It waits for complete in-flight turns, restores into a fresh
+controller and sandbox, and skips finished peers. Other task families retain the
+initialized-state continuation guard. A replay alone does not restore an
+evaluation. See `docs/mirrorcode-checkpointing.md` for limitations and the dated
+handoff for local versus actual Hawk evidence.

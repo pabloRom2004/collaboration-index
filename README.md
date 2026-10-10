@@ -686,8 +686,13 @@ are checked at response boundaries, so a final in-flight response can exceed the
 remaining allowance. N × per-peer budget is a planned ceiling, not a hard billing
 cap. There is deliberately no second aggregate sample token limit that interrupts
 finalization. Partial work survives native peer-budget exhaustion and the team
-deadline. Checkpoint continuation is rejected until all peer histories, limits,
-board and irreversible game state can be restored together.
+deadline. MirrorCode supports opt-in coordinated checkpoint continuation with
+`checkpoint_enabled: true` and `checkpoint_interval_seconds: 600`, plus durable
+native Inspect checkpoint storage. It restores every private history and native
+compaction, cumulative peer caps, shared files, trusted state and the complete
+board together. Other task families continue to reject checkpoint continuation.
+See [checkpointing](docs/mirrorcode-checkpointing.md) for restore limitations and
+the [current handoff](docs/handoff.md) for actual Hawk verification.
 
 ## Development and verification
 
