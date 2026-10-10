@@ -27,6 +27,22 @@ work is retained separately and has already incurred spending.
 Old failed Sol N2/N64 slot replacements remain unlaunched. Cancelled receipts
 cannot auto-resume, and accepted retained source/configs are immutable.
 
+At the 2026-10-10 18:03 UTC verification, ten retained new attempts have final
+822-case grades and cleanup; six others have preserved unscored terminal failures
+and cleanup (Opus 4.6 N64 and Kimi N1/N2/N8/N16/N32). Thirty selected attempts
+remain unresolved in the saved collections. The old Sol baseline has five scored
+slots, including its final N1, and its two failed N2/N64 slots remain explicit.
+See the dated handoff and central `heartbeat-1609-verification.json` for exact
+identities, scores, tokens, durations, hashes and collection times.
+
+Kimi's five failures are explicit HTTP 400 context-limit rejections: its accepted
+943,718-token full output leaves only 104,858 tokens for input/reasoning in the
+1,048,576-token route context, before the configured 786,432-token compaction
+threshold. Stored checkpoints do not repair those unchanged request settings.
+Preserve the failures and checkpoints; no automatic continuation, output reduction,
+compaction change or fresh replacement was dispatched. This exposes a limitation
+of the long-budget condition despite the successful short native smoke.
+
 | Model | Exact route / supplier | Effective context | Full output | Native effort | Retained new attempts |
 | --- | --- | ---: | ---: | --- | ---: |
 | Claude Opus 4.6 | OpenRouter, `anthropic` only | 1,000,000 | 128,000 | max | 7 |

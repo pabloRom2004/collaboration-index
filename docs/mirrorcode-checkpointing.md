@@ -5,6 +5,16 @@ are recorded in `docs/handoff.md`.
 Existing attempts without checkpoints cannot be continued. Active runs retain
 their immutable source and configuration.
 
+A durable checkpoint preserves state, but cannot make an invalid provider request
+valid. Five retained Kimi Ruff attempts failed on 2026-10-10 with explicit HTTP
+400 context-limit rejections despite having 4–10 committed checkpoints. Their
+full-output reservation plus accumulated input/reasoning exceeded the route
+context before the configured compaction threshold. All archives, boards and
+checkpoints are preserved and owned pods are zero; unchanged continuation is
+blocked, with no fresh replacement or silent generation-setting change. Recovery
+classification uses explicit status fields and exception types, never unqualified
+numbers from traceback text. Authentication and integrity failures remain fatal.
+
 Set `checkpoint_enabled: true` and `checkpoint_interval_seconds: 600` in the
 MirrorCode task arguments for a future approved run. Native Inspect checkpoint
 storage must remain enabled and durable on the controller. Keep logs and their

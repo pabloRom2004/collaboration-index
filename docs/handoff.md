@@ -1,3 +1,28 @@
+## Ruff finals and Kimi request-limit failures — 2026-10-10 18:03 UTC
+
+Ten of the 46 retained new attempts now have authoritative finals, hashed flat logs, embedded boards, native-limited real-work peers and zero active owned pods. Every final grades all 822 cases (761 visible, 61 hidden), with zero testing/reference errors. Their accepted source remains `8da8680a15c647b15baae3eb2a80355343ca5cbf`; all 119 historical accepted config hashes were reverified without changes. The central `repeat-results.md/json` preserves all selected, cancelled and failed identities separately.
+
+| Model | N | Repeat | All / 822 | Visible / 761 | Hidden / 61 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Claude Opus 4.6 | 32 | 1 | 128 | 125 | 3 |
+| GLM 5.3 | 16 | 1 | 184 | 180 | 4 |
+| GLM 5.3 | 32 | 1 | 139 | 130 | 9 |
+| GLM 5.3 | 64 | 1 | 79 | 78 | 1 |
+| GPT-5.6 Sol | 8 | 1 | 609 | 581 | 28 |
+| GPT-5.6 Sol | 32 | 1 | 28 | 0 | 28 |
+| GPT-5.6 Sol | 16 | 2 | 587 | 557 | 30 |
+| GPT-6.1 Sol | 32 | 2 | 808 | 760 | 48 |
+| GPT-6.1 Sol | 32 | 3 | 817 | 760 | 57 |
+| Kimi K3 | 64 | 1 | 62 | 60 | 2 |
+
+Five retained Kimi attempts (N1/N2/N8/N16/N32) failed unscored with explicit HTTP 400 `BadRequestError` context-limit rejections. The accepted route requests 943,718 output tokens within a 1,048,576-token context, leaving 104,858 tokens for input/reasoning before the normal 786,432-token compaction threshold. The saved rejection diagnostics establish over-limit requests. This is a long-history request-setting incompatibility that the short model smoke did not expose. Each failed archive/flat copy, board, recorded usage and 4–10 durable checkpoints is preserved; all five have zero active owned pods. Repeating the same immutable settings would repeat the rejection. No same-ID continuation, fresh replacement, reduced output, changed compaction or provider substitution was dispatched. Kimi N4's last collected state remains running; do not infer its later state from this snapshot.
+
+The recovery helper's initial broad numeric match incorrectly interpreted traceback numbers as authentication codes. The guard now uses explicit HTTP status fields, exception types and fixed diagnostic markers; HTTP 400 request errors block automatic continuation, while authentication/integrity checks remain fatal. Eight harmless regression cases passed across all ten helpers (80 checks). The superseded diagnosis remains retained. Bounded evidence is in the Kimi cohort's `request-rejection-summary.json` and central `failure-classification-repair.json`. The earlier retained Opus N64 failure still has no usable checkpoint and remains unscored and cleaned. Together these six failures are explicit physical dispositions, without replacement spending.
+
+Old Sol N1 also completed: `mc-sol61-ruff-r01-n01-100-ltghbmsnpenyz1dk` scored 810/822 all, 760/761 visible and 50/61 hidden, used 250,157,167 tokens and took 87,300.53294 seconds from launch to final log. Its solo peer reached its native limit; 24 testing calls had zero testing/reference errors, the board is embedded and active owned pods are zero. Flat-log SHA-256 is `5ed9648fb8af773dfffc244efbc27f1af8e610822319d68ea8e5e4e01d8433e3`. A bounded `get_job_status` check and exact terminal archive collection resolved the unavailable full metadata endpoint; native final verification passed afterward. The old baseline has five verified slots (N1/N4/N8/N16/N32), with N2/N64 explicitly unscored and no replacements. Its monitor now reuses four original finals, three cleaned original failures and the authorized N4 recovery final without recollecting terminal jobs.
+
+All new cohort/comparison plots and the corrected old Sol plots were inspected, with hashes saved. They show individual points and no mixed-condition means; physical token accounting remains unavailable where native event usage is incomplete. The central `heartbeat-1609-verification.json` records ten new finals, five old Sol finals, six retained failures, unchanged config hashes and cached zero-pod cleanup for all 73 cancellations. No paid launch or resume occurred in this monitoring pass. Keep the heartbeat ACTIVE for the remaining 30 retained attempts, their disposition/cleanup and refreshed reports; null metadata stays unavailable, and saved collection timestamps remain explicit.
+
 ## Token budgets without default deadlines — 2026-10-10
 
 Pablo explicitly removed wall-clock limits for all future evaluations unless he requests a time limit. `AGENTS.md`, the maintained task defaults and both starter copies now encode this policy. ExploitBench, InferenceBench and the common task factory accept `team_time_limit: null`; capped peers receive native token-usage reminders. A launch still needs an agreed per-peer token allowance, with no silent spending budget. Inspect `time_limit` and `working_limit` stay unset. Model-request and tool timeouts remain infrastructure controls.
