@@ -1,0 +1,12 @@
+{
+  "cprepro": {
+    "ghcr.io/pablorom2004/mirrorcode:mc_cprepro_python_llm_workspace_0.1.193": "ghcr.io/pablorom2004/mirrorcode@sha256:65dcf266698b60790066991c8a424b7c670b81eebf8bec38846420840c747ad7",
+    "ghcr.io/pablorom2004/mirrorcode:mc_cprepro_python_llm_agent-scoring_0.1.193": "ghcr.io/pablorom2004/mirrorcode@sha256:31daff80c4eb99436e4dc7c44edf6eb06be58d4454fde5e3ec1abd37f39a9b75",
+    "ghcr.io/pablorom2004/mirrorcode:mc_cprepro_python_llm_reference-scoring_0.1.193": "ghcr.io/pablorom2004/mirrorcode@sha256:cc346fc0104d206fe4357a1b540fc4834027b4bdfc58acf20b055a136563e920"
+  },
+  "sed": {
+    "ghcr.io/pablorom2004/mirrorcode:mc_sed_python_llm_workspace_0.1.193": "ghcr.io/pablorom2004/mirrorcode@sha256:e1676d31e276aa7c6021a35f629438488609e00032e70bacf1cdaf9b5f3213bd",
+    "ghcr.io/pablorom2004/mirrorcode:mc_sed_python_llm_agent-scoring_0.1.193": "ghcr.io/pablorom2004/mirrorcode@sha256:c40b7f7cf7ee711f16f4e91dc7b07b954fd75ed860f604c4fe4b6a5d44d15a58",
+    "ghcr.io/pablorom2004/mirrorcode:mc_sed_python_llm_reference-scoring_0.1.193": "ghcr.io/pablorom2004/mirrorcode@sha256:3b1d6f9fe73e0bce61d45b2cc388214f03f6b6c03c9872344b134712df48e0bb"
+  }
+}
