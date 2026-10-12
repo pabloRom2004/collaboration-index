@@ -101,7 +101,7 @@ def main():
         stop.set()
         thread.join(timeout=60)
         output.write_text(json.dumps(snapshots, indent=2) + "\n")
-    output.with_suffix(".host.json").write_text(json.dumps(host, indent=2) + "\n")
+        output.with_suffix(".host.json").write_text(json.dumps(host, indent=2) + "\n")
 
 
 if __name__ == "__main__":

@@ -28,6 +28,20 @@ from inspect_ai.util import sandbox
 from collaboration_index.mirrorcode import mirrorcode
 
 
+def host_capacity_record(daemon_cpus: int, requested_cpus: float) -> dict[str, Any]:
+    """Describe the exact Docker CPU admissibility condition without changing its limits."""
+    return {
+        "docker_daemon_cpus": daemon_cpus,
+        "requested_workspace_cpus": requested_cpus,
+        "eligible": daemon_cpus >= requested_cpus,
+        "reason": "admissible"
+        if daemon_cpus >= requested_cpus
+        else "workspace_cpu_quota_exceeds_docker_daemon_cpus",
+        "production_workspace_cpus": 17,
+        "authored_cpu_allocation_matches_production": False,
+    }
+
+
 def main():
     """Reuse the maintained busy fixture without any external provider inference request."""
     assert os.environ.get("GITHUB_ACTIONS") == "true", "Remote-only authored QA"
@@ -37,6 +51,32 @@ def main():
     assert len(pins) == 3
     root = Path("run-artifacts") / f"remote-{target}-native64-qa"
     root.mkdir(parents=True, exist_ok=True)
+    daemon_cpus = int(
+        subprocess.run(
+            ["docker", "info", "--format", "{{.NCPU}}"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        ).stdout.strip()
+    )
+    capacity = host_capacity_record(daemon_cpus, 4.0)
+    capacity["docker_daemon_memory_bytes"] = int(
+        subprocess.run(
+            ["docker", "info", "--format", "{{.MemTotal}}"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        ).stdout.strip()
+    )
+    (root / "host-capacity-preflight.json").write_text(
+        json.dumps(capacity, indent=2) + "\n"
+    )
+    if not capacity["eligible"]:
+        raise RuntimeError(
+            "Authored QA workspace CPU quota exceeds Docker daemon CPUs; see host-capacity-preflight.json"
+        )
     source = Path("tests/test_mirrorcode.py").read_text()
     tree = ast.parse(source)
     node = next(
@@ -136,6 +176,7 @@ def main():
         allow_submit=False,
         artifact_dir=str(root / "artifacts"),
         agents_per_scoring_pipeline=8,
+        cpus_per_agent=0.046875,
         image_pins=pins,
         checkpoint_enabled=True,
         checkpoint_interval_seconds=3600,
@@ -287,8 +328,13 @@ def main():
         "final_log_sha256": hashlib.sha256(Path(log.location).read_bytes()).hexdigest(),
         "image_pins": pins,
         "external_provider_requests": 0,
+        "qa_cpus_per_agent": 0.046875,
+        "qa_workspace_cpu_limit": 4.0,
+        "production_workspace_cpu_limit": 17,
+        "allocation_matches_production": False,
+        "host_capacity_preflight": capacity,
         "synthetic_only": True,
-        "limit": "Authored workload and grader packing proof, not real-model resource minima or full84-team cluster capacity",
+        "limit": "Authored grading/packing at4CPU; not matched17CPU performance, real-model resource minima or full84-team cluster capacity",
     }
     (root / "proof.json").write_text(json.dumps(proof, indent=2) + "\n")
     print(

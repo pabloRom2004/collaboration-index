@@ -1,4 +1,4 @@
-name: MirrorCode existing-image native64 resource QA
+name: MirrorCode existing-image native64 resource QA (authored4CPU)
 on:
   workflow_dispatch:
     inputs:
@@ -38,7 +38,7 @@ jobs:
           free -b > "$RUNNER_TEMP/native64-host-memory.txt"
           df -B1 > "$RUNNER_TEMP/native64-host-disk.txt"
           nproc > "$RUNNER_TEMP/native64-host-cpus.txt"
-      - name: Native64 peer caps, eight concurrent pipelines and real final grading
+      - name: Authored4CPU native64 caps, eight concurrent pipelines and real final grading
         run: uv run python scripts/mirrorcode_native64_resources.py scripts/mirrorcode_native64_qa.py
       - name: Exact-image disposable container cleanup
         if: always()
