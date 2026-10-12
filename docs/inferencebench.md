@@ -6,6 +6,10 @@ Each scenario and seed pair is one team sample: native peers have separate model
 histories and token ceilings, and share one RunPod H100, one workspace and one
 message board. They choose names and coordinate without evaluator-assigned roles.
 
+This is the default mode. The [leased-GPU mode](#leased-gpu-mode) gives the
+team 1 to 8 leased workspace GPUs, a separate grading pod and graded
+submissions.
+
 ## Usage
 
 Install the optional runtime with:
@@ -86,6 +90,96 @@ team allowance; native response boundaries can overshoot it.
 
 Checkpoint continuation remains unsupported because the shared harness cannot
 restore every peer history, limit and board together.
+
+## Leased-GPU mode
+
+Setting `orchestration.enabled: true` requires `gpu_management: controller`.
+The settings are in the `orchestration` block of
+[default.yaml](../src/collaboration_index/inferencebench/run_configs/default.yaml).
+Each team sample then owns two RunPod pods:
+
+- The workspace pod has `workspace_gpus` H100s (1 to 8). Peers work there. It
+  gets development requests, MMLU-Pro questions from the separate
+  `dev_eval.quality_seed` and a development Transformers baseline. It does not
+  get the held-out requests, seeds or baseline.
+- The grading pod has one H100. The upstream preparation measures the held-out
+  baseline and quality reference there. Peers reach it only through `submit`.
+
+Peers get these tools in addition to `bash`, `python`, `web_search` and the
+board:
+
+- `gpu` acquires, gives back or reports workspace GPUs. With `acquire`, a peer
+  asks for `count` GPUs in total and waits up to `wait_seconds` for a first
+  one; a `note` tells teammates what the GPUs are for. With `release`, it gives
+  back one GPU or all of them. `status` lists every GPU with its holder's board
+  name and note. While a peer holds GPUs, its commands receive
+  `CUDA_VISIBLE_DEVICES` with those GPUs, `PORT=8000+<first GPU>`, and
+  `INFERENCEBENCH_GPUS` and `INFERENCEBENCH_PORTS` with every GPU and port.
+  Without GPUs, `CUDA_VISIBLE_DEVICES` is empty.
+- `evaluate` measures the server of one of the caller's GPUs (`gpu`, default
+  the first), which must listen on port 8000 plus that GPU number. It sends
+  `dev_eval.requests` requests and `dev_eval.quality_samples` quality questions
+  (`quick_requests` and `quick_quality_samples` with `quick`) and reports a
+  proxy speedup over the development baseline.
+- `submit` snapshots `/home/agent/task` and queues it for the hidden final
+  evaluation on the grading pod.
+- `submissions` lists every team submission with its status and result.
+
+GPU sharing follows these rules:
+
+- Each peer holds at most one lease, which can cover several GPUs.
+- Peers without a GPU are served in arrival order, and each gets one GPU
+  before any peer gets an extra one.
+- A lease receives extra GPUs, up to its `count`, only while no peer waits.
+- When peers wait, extra GPUs are taken back first. A lease's last GPU is taken
+  back only when the lease is older than `lease_seconds`, counted from its
+  first grant, and another peer waits.
+- No GPU is taken from a lease while one of its holder's commands or `evaluate`
+  calls runs.
+
+Before a GPU goes to a new holder, the controller stops what the previous
+holder left on it. When a lease ends, it stops every process started under the
+lease. When one GPU leaves a lease that keeps others, it stops only that
+lease's GPU processes whose `CUDA_VISIBLE_DEVICES` includes that GPU. A monitor
+samples GPU memory, utilization, power and processes about every
+`monitor_seconds`, records GPU use outside a lease, and with `enforce: kill`
+stops it.
+
+Submissions are graded one at a time on the grading pod. The grader starts
+`./start_server.sh` with `PORT=8000` on one GPU, so everything the server needs
+must be inside `/home/agent/task`; a snapshot above `max_submission_bytes` is
+refused. An identical snapshot reuses the earlier grade unless that grading
+failed. `submit` refuses new content while `max_pending_submissions` snapshots
+wait for or are in grading. Each result has an outcome (`valid`,
+`invalid_submission`, `quality_failed`, `no_successful_requests`,
+`undefined_performance` or `grading_error`) and a speedup rounded to two
+decimals, which is 1.0 for every outcome but `valid`. Peers see results in
+their next update and through `submissions`, never logs or inputs from the
+grading pod.
+
+The latest submission is the team's final answer. After all peers finish and
+the queue is graded, the upstream scorer restarts the grading pod and measures
+the latest submission. It calls the integrity judge only when the submission is
+valid, passes the quality gate and has successful requests in every profile;
+otherwise the score is 1.0. A team without a submission scores 1.0.
+
+`token_budget: {mode, tokens}` needs this mode and `token_limit_per_agent:
+null`; `tokens` must be at least the number of agents. `split` gives each peer
+`tokens // agents`. `shared` gives the team one pool: each peer stops after the
+turn that brings the team's usage to the pool, so the total can exceed
+`tokens`.
+
+`InferenceHistory:orchestration` in the sample store holds the lease summary,
+GPU usage, submission ledger and events. The sample's artifact directory holds
+one line per monitor sample in `gpu-samples.jsonl`, every snapshot archive as
+`submissions/<digest>.tar.gz`, and for each graded submission N its
+`submissions/N/final.json`, `final-server.log` and `final-evaluator.log`.
+
+`scripts/inferencebench_scaling.py plan DESIGN --out DIR` writes one run config
+per attempt of a team-size design and a `manifest.json` with the commands in a
+seeded random order; the script's docstring lists the design keys.
+`scripts/inferencebench_scaling.py collect LOGS... --out FILE` writes one JSON
+line per attempt with its score and the records above.
 
 ## Scoring and provenance
 

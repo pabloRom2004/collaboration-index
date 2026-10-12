@@ -53,7 +53,9 @@ an interrupted sample or its board.
 | `{hle,counting,spelling,colouring,mirrorcode,inferencebench,exploitbench}/task.py` | Explicit public interfaces and benchmark inputs. |
 | `{hle,counting,spelling,colouring,mirrorcode,inferencebench,exploitbench}/run_configs/default.yaml` | Maintained adjustable defaults. |
 | `inferencebench/backend/` | Pinned upstream GPU provisioning, evaluator assets, baseline preparation and final scoring. |
-| `inferencebench/tools.py`, `inferencebench/state.py` | Shared foreground command queue and development measurements, separate from final grades. |
+| `inferencebench/tools.py`, `inferencebench/state.py` | Shared foreground command queue and development measurements, separate from final grades, and the leased-GPU `gpu`, `submit` and `submissions` tools. |
+| `inferencebench/session.py`, `inferencebench/orchestration.py` | Leased-GPU mode: workspace and grading pods, GPU leases, GPU monitoring and the graded submission queue. |
+| `inferencebench/pod.py` | Commands run on the workspace and grading pods: GPU probes, process cleanup, snapshot archives and workspace preparation. |
 | `exploitbench/backend/` | Pinned upstream manifest, prompts, deterministic grader and provenance. |
 | `exploitbench/tools.py`, `exploitbench/state.py` | Cached setup, fixed-actor grading queue and durable grade metadata. |
 | `task.py` | Common Task assembly, invariant setup, solver, scorer and sandbox. |

@@ -136,6 +136,12 @@ TOKEN_UPDATE = Prompt(
     origin="MirrorCode resources tool, mc/tool.py _resource_line at 5c9d7b00b0c6d7609003e33896cd41d28f092fcb; sent as a user message before every decision instead of a tool, and scoped to the peer's own budget",
     prompt="Token update: {used:,} tokens used ({fraction:.0%} of your limit), {remaining:,} remaining (limit {limit:,}).",
 )
+TEAM_TOKEN_UPDATE = Prompt(
+    title="team_token_update",
+    role="subject",
+    origin="TOKEN_UPDATE adapted for one token pool shared by every agent in the team",
+    prompt="Token update: your team has used {used:,} tokens of its shared {limit:,}-token pool ({fraction:.0%}), {remaining:,} remaining; you used {own:,} of them. Every agent's usage draws from this pool, and all agents stop when it is used up.",
+)
 UNREAD_UNAVAILABLE = Prompt(
     title="unread_counts_unavailable",
     role="subject",
@@ -173,6 +179,7 @@ PROMPTS = {
         COLOURING,
         TIME_UPDATE,
         TOKEN_UPDATE,
+        TEAM_TOKEN_UPDATE,
         UNREAD_REMINDER,
         UNREAD_DIRECT_REMINDER,
         UNREAD_UNAVAILABLE,

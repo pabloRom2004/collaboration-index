@@ -213,6 +213,18 @@ def fixture_model(expect_evaluate_error: bool = False) -> Any:
     )
 
 
+def passing_judge() -> Any:
+    """Return an integrity judge that finds no contamination and only allowed use."""
+    return get_model(
+        "mockllm/judge",
+        custom_outputs=[
+            ModelOutput.from_content(
+                "mockllm/judge", "No contamination detected\nOnly allowed use detected"
+            )
+        ],
+    )
+
+
 def test_inferencebench_team_roundtrip(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -227,14 +239,7 @@ def test_inferencebench_team_roundtrip(
         agents=4, token_limit_per_agent=240, artifact_dir=str(tmp_path)
     )
     task.sandbox = SandboxEnvironmentSpec("inferencebench_fixture")
-    judge = get_model(
-        "mockllm/judge",
-        custom_outputs=[
-            ModelOutput.from_content(
-                "mockllm/judge", "No contamination detected\nOnly allowed use detected"
-            )
-        ],
-    )
+    judge = passing_judge()
     [log] = inspect_eval(
         task,
         model=fixture_model(),
@@ -294,6 +299,47 @@ def test_task_configuration_and_validation() -> None:
     )
     with pytest.raises(ValueError, match="gpu_management"):
         inferencebench(gpu_management="local")
+    leased = copy.deepcopy(ARGS["orchestration"])
+    leased["enabled"] = True
+    with pytest.raises(ValueError, match="controller"):
+        inferencebench(token_limit_per_agent=10, orchestration=leased)
+    bad = copy.deepcopy(leased)
+    bad["dev_eval"]["quality_seed"] = ARGS["workload"]["quality_seed"]
+    with pytest.raises(ValueError, match="quality seed"):
+        inferencebench(
+            token_limit_per_agent=10, gpu_management="controller", orchestration=bad
+        )
+    bad = copy.deepcopy(leased)
+    bad["workspace_gpus"] = 9
+    with pytest.raises(ValueError, match="workspace_gpus"):
+        inferencebench(
+            token_limit_per_agent=10, gpu_management="controller", orchestration=bad
+        )
+    with pytest.raises(ValueError, match="needs orchestration enabled"):
+        inferencebench(agents=4, token_budget={"mode": "split", "tokens": 1000})
+    with pytest.raises(ValueError, match="without token_limit_per_agent"):
+        inferencebench(
+            token_limit_per_agent=10,
+            token_budget={"mode": "split", "tokens": 100},
+            gpu_management="controller",
+            orchestration=leased,
+        )
+    split = inferencebench(
+        agents=4,
+        token_budget={"mode": "split", "tokens": 1000},
+        gpu_management="controller",
+        orchestration=leased,
+    )
+    assert split.metadata["planned_team_token_budget"] == 1000
+    assert split.metadata["token_limit_per_agent"] == 250
+    shared = inferencebench(
+        agents=4,
+        token_budget={"mode": "shared", "tokens": 1000},
+        gpu_management="controller",
+        orchestration=leased,
+    )
+    assert shared.metadata["token_limit_per_agent"] is None
+    assert shared.metadata["token_budget"]["team_pool"] == 1000
 
 
 @pytest.mark.parametrize("failure", [None, "prepare", "final", "missing_role"])
@@ -342,14 +388,7 @@ def test_controller_gpu_lifecycle(
         gpu_management="controller",
         grader_context_window=1050000,
     )
-    judge = get_model(
-        "mockllm/judge",
-        custom_outputs=[
-            ModelOutput.from_content(
-                "mockllm/judge", "No contamination detected\nOnly allowed use detected"
-            )
-        ],
-    )
+    judge = passing_judge()
     [log] = inspect_eval(
         task,
         model=fixture_model(),
@@ -521,14 +560,7 @@ def test_hawk_readonly_working_directory(
         artifact_dir=str(root),
         gpu_management="controller",
     )
-    judge = get_model(
-        "mockllm/judge",
-        custom_outputs=[
-            ModelOutput.from_content(
-                "mockllm/judge", "No contamination detected\nOnly allowed use detected"
-            )
-        ],
-    )
+    judge = passing_judge()
     [log] = inspect_eval(
         task,
         model=fixture_model(),
@@ -588,14 +620,7 @@ def test_development_failure_remains_visible(
         agents=4, token_limit_per_agent=240, artifact_dir=str(tmp_path)
     )
     task.sandbox = SandboxEnvironmentSpec("inferencebench_fixture")
-    judge = get_model(
-        "mockllm/judge",
-        custom_outputs=[
-            ModelOutput.from_content(
-                "mockllm/judge", "No contamination detected\nOnly allowed use detected"
-            )
-        ],
-    )
+    judge = passing_judge()
     [log] = inspect_eval(
         task,
         model=fixture_model(expect_evaluate_error=True),
@@ -791,14 +816,7 @@ def test_inferencebench_docker_tools(
     path = tmp_path / "fixture-compose.yaml"
     path.write_text(yaml.safe_dump(compose))
     task.sandbox = SandboxEnvironmentSpec("docker", str(path))
-    judge = get_model(
-        "mockllm/judge",
-        custom_outputs=[
-            ModelOutput.from_content(
-                "mockllm/judge", "No contamination detected\nOnly allowed use detected"
-            )
-        ],
-    )
+    judge = passing_judge()
     [log] = inspect_eval(
         task,
         model=original_model,
@@ -814,3 +832,285 @@ def test_inferencebench_docker_tools(
         c["status"] == "completed" for c in result.store["InferenceHistory:calls"]
     )
     assert result.scores["inference_team_speedup"].value["speedup"] == 2
+
+
+class LeasedPod(FixtureSandbox):
+    """Answer the pod.py, inventory and snapshot commands of the leased-GPU mode."""
+
+    def __init__(self, role: str, gpus: int = 1) -> None:
+        """Name the pod's role and GPU count so tests can check which inputs reached it."""
+        super().__init__()
+        self.role = role
+        self.gpus = gpus
+        self.envs: list[dict[str, str]] = []
+        self.packs = 0
+        self.kills: list[str] = []
+
+    async def exec(self, cmd: list[str], **kwargs: Any) -> ExecResult[str]:
+        """Simulate pod operations and record the environment of participant commands."""
+        text = " ".join(cmd)
+        if cmd[:2] == ["bash", "--login"]:
+            self.envs.append(dict(kwargs.get("env") or {}))
+            if "fixture-oom" in cmd[-1]:
+                return ExecResult(
+                    True, 0, "", "torch.OutOfMemoryError: CUDA out of memory."
+                )
+        if cmd[:2] == ["nvidia-smi", "--query-gpu=name"]:
+            return ExecResult(True, 0, "Authored H100\n" * self.gpus, "")
+        if "pod.py probe" in text:
+            sample = {
+                "time": 0.0,
+                "gpus": [
+                    {
+                        "index": index,
+                        "bus_id": f"00000000:{index:02X}:00.0",
+                        "memory_used_mib": 1000.0,
+                        "memory_total_mib": 80000.0,
+                        "utilization_percent": 50.0,
+                        "power_watts": 300.0,
+                    }
+                    for index in range(self.gpus)
+                ],
+                "processes": [],
+            }
+            return ExecResult(True, 0, json.dumps(sample) + "\n", "")
+        if "pod.py kill" in text:
+            self.kills.append(text)
+            return ExecResult(True, 0, '{"killed": []}\n', "")
+        if "pod.py unpack" in text:
+            return ExecResult(True, 0, '{"files": 1}\n', "")
+        if "pod.py workspace" in text:
+            self.files["/opt/inferencebench-dev/baseline.json"] = json.dumps(
+                {"profiles": {"fixture": {"success_count": 5, "ttft": {"p50": 2.0}}}}
+            )
+            return ExecResult(True, 0, '{"requests": 5}\n', "")
+        if "pod.py pack" in text:
+            self.packs += 1
+            remote = text.split(" pack /home/agent/task ")[1].split()[0]
+            self.files[remote] = b"authored submission %d" % self.packs
+            info = {"digest": f"{self.packs:064x}", "bytes": 10, "files": 1}
+            return ExecResult(True, 0, json.dumps(info) + "\n", "")
+        return await super().exec(cmd, **kwargs)
+
+
+def leased_model(
+    submit: bool = True,
+    agents: int = 2,
+    counts: dict[str, int] | None = None,
+    first: bool = False,
+) -> Any:
+    """Script peers that acquire ``counts`` GPUs, measure, submit, release and idle, with agent_0 first if ``first``."""
+    counts = counts or {}
+    # idle turns spend the shared pool, so no peer idles until every script is done
+    finished: set[str] = set()
+    everyone = asyncio.Event()
+    leader_holds = asyncio.Event()
+
+    async def reply(
+        messages: list[Any], tools: Any, choice: Any, config: Any
+    ) -> ModelOutput:
+        """Follow one fixed tool sequence per peer and verify the leased-GPU tools."""
+        opening = next(m for m in messages if (m.metadata or {}).get("team_actor"))
+        actor = opening.metadata["team_actor"]
+        names = {t.name for t in tools}
+        assert {"bash", "python", "gpu", "evaluate", "submit", "submissions"} <= names
+        assert "-token pool" in messages[-1].text
+        step = len([m for m in messages if isinstance(m, ChatMessageTool)])
+        if actor == "agent_0" and step >= 2:
+            # agent_0's acquire call has returned before its third decision
+            leader_holds.set()
+        if first and actor != "agent_0" and step == 1:
+            await asyncio.wait_for(leader_holds.wait(), 30)
+        plan = [
+            ("message_board", {"action": "register", "name": "Fixture " + actor[-1]}),
+            (
+                "gpu",
+                {
+                    "action": "acquire",
+                    "wait_seconds": 60,
+                    "count": counts.get(actor, 1),
+                },
+            ),
+            (
+                "bash",
+                {
+                    "command": "fixture-oom"
+                    if actor == "agent_0"
+                    else "fixture-gpu-work"
+                },
+            ),
+            ("evaluate", {"quick": True}),
+            ("submit", {}) if submit else ("submissions", {}),
+            ("gpu", {"action": "release"}),
+            ("submissions", {}),
+        ]
+        if step < len(plan):
+            output = ModelOutput.for_tool_call("mockllm/model", *plan[step])
+        else:
+            finished.add(actor)
+            if len(finished) == agents:
+                everyone.set()
+            await asyncio.wait_for(everyone.wait(), 30)
+            output = ModelOutput.from_content("mockllm/model", "Fixture idles.")
+        output.usage = ModelUsage(input_tokens=20, output_tokens=10, total_tokens=30)
+        return output
+
+    return get_model(
+        "mockllm/model",
+        custom_outputs=reply,
+        config=GenerateConfig(max_connections=agents),
+    )
+
+
+def leased_task(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    agents: int = 2,
+    gpus: int = 1,
+    tokens: int = 600,
+) -> tuple[Any, list[LeasedPod]]:
+    """Build a leased-GPU task whose grading and workspace pods are authored fixtures."""
+    from collaboration_index.inferencebench.backend import environment
+    from collaboration_index.inferencebench.backend.runpod_sandbox import RunPodSandbox
+
+    pods: list[LeasedPod] = []
+
+    async def allocate(
+        cls: Any, task_name: str, config: Any, metadata: Any
+    ) -> dict[str, LeasedPod]:
+        """Create the grading pod or the workspace pod from the requested provider config."""
+        workspace = "workspace-" in str(config)
+        env = LeasedPod(
+            "workspace" if workspace else "grader", gpus if workspace else 1
+        )
+        pods.append(env)
+        return {"default": env}
+
+    monkeypatch.setattr(RunPodSandbox, "sample_init", classmethod(allocate))
+    monkeypatch.setattr(environment, "BASELINE_CACHE", tmp_path / "baselines")
+    orchestration = copy.deepcopy(ARGS["orchestration"])
+    orchestration.update(enabled=True, monitor_seconds=0.05, workspace_gpus=gpus)
+    task = inferencebench(
+        agents=agents,
+        token_budget={"mode": "shared", "tokens": tokens},
+        artifact_dir=str(tmp_path),
+        gpu_management="controller",
+        orchestration=orchestration,
+    )
+    return task, pods
+
+
+def test_leased_gpus_with_more_agents_than_gpus(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Let one agent hold both GPUs, then share two GPUs among three agents until all finish."""
+    task, pods = leased_task(tmp_path, monkeypatch, agents=3, gpus=2, tokens=900)
+    judge = passing_judge()
+    [log] = inspect_eval(
+        task,
+        model=leased_model(agents=3, counts={"agent_0": 2}, first=True),
+        model_roles={"integrity": judge},
+        log_dir=str(LOGS),
+        display="none",
+    )
+    assert log.status == "success", log.error.traceback if log.error else None
+    workspace = next(p for p in pods if p.role == "workspace")
+    assert workspace.gpus == 2 and all(p.terminated for p in pods)
+    leased = [env for env in workspace.envs if env.get("CUDA_VISIBLE_DEVICES")]
+    assert leased
+    for env in leased:
+        gpus = env["CUDA_VISIBLE_DEVICES"].split(",")
+        assert set(gpus) <= {"0", "1"} and env["PORT"] == str(8000 + int(gpus[0]))
+        assert env["INFERENCEBENCH_PORTS"] == ",".join(str(8000 + int(g)) for g in gpus)
+    sample = read_eval_log(log.location).samples[0]
+    leases = sample.store["InferenceHistory:orchestration"]["leases"]
+    # agent_0 held both GPUs before anyone else asked; every agent got a GPU in turn
+    assert leases["max_gpus_per_lease"] == 2 and leases["grants"] == 3
+    assert "active" not in leases["end_reasons"]
+    assert {lease["actor"] for lease in leases["leases"]} == {
+        "agent_0",
+        "agent_1",
+        "agent_2",
+    }
+    # a GPU taken from a lease that keeps others stops only that lease's processes
+    # for that GPU, never every process on the device
+    assert not any("--gpu=" in command for command in workspace.kills)
+    for lease in leases["leases"]:
+        if lease["reclaimed"]:
+            assert any(f"--scoped={lease['token']}:" in c for c in workspace.kills)
+
+
+def test_leased_gpus_submissions_and_final_grade(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Queue two peers on one leased GPU, grade both submissions and score the latest one."""
+    from collaboration_index.inferencebench import resource
+
+    task, pods = leased_task(tmp_path, monkeypatch)
+    judge = passing_judge()
+    [log] = inspect_eval(
+        task,
+        model=leased_model(),
+        model_roles={"integrity": judge},
+        log_dir=str(LOGS),
+        display="none",
+    )
+    assert log.status == "success", log.error.traceback if log.error else None
+    assert not resource.RESOURCES
+    assert sorted(p.role for p in pods) == ["grader", "workspace"]
+    assert all(p.terminated for p in pods)
+    grader = next(p for p in pods if p.role == "grader")
+    workspace = next(p for p in pods if p.role == "workspace")
+    # held-out inputs and the evaluation seed never reach the agents' pod
+    assert not any(
+        "heldout" in name or "quality.json" == name.rsplit("/", 1)[-1]
+        for name in workspace.files
+    )
+    options = json.loads(
+        str(workspace.files["/tmp/inferencebench/workspace-options.json"])
+    )
+    assert "eval_seed" not in options and options["quality_seed"] == 1729
+    assert grader.restarts == 1 and workspace.restarts == 0
+    leased = [env for env in workspace.envs if env.get("CUDA_VISIBLE_DEVICES")]
+    assert leased and all(
+        env["PORT"] == "8000" and env["INFERENCEBENCH_GPU_LEASE"] for env in leased
+    )
+    sample = read_eval_log(log.location).samples[0]
+    assert sample.scores["inference_team_speedup"].value["speedup"] == 2
+    measured = sample.store["InferenceHistory:orchestration"]
+    assert (
+        measured["submissions"]["count"] == 2 and measured["submissions"]["valid"] == 2
+    )
+    assert (
+        measured["leases"]["grants"] == 2
+        and measured["leases"]["end_reasons"]["released"] == 2
+    )
+    assert measured["gpu"]["samples"] > 0 and measured["oom_events"] == 1
+    checks = sample.store["InferenceHistory:checks"]
+    assert len(checks) == 2 and all(c["proxy_speedup"] == 2.0 for c in checks)
+    peers = sample.store["TeamHistory:peers"]
+    assert all(p["status"] == "limited" for p in peers)
+    assert 600 <= sum(p["tokens"] for p in peers) < 600 + 2 * 30
+    result = sample.store["TeamHistory:result"]
+    assert result["submitted"] and result["submissions"] == 2
+    assert sample.store["workspace_gpu_lifecycle"]["status"] == "terminated"
+
+
+def test_leased_gpus_without_submission_scores_baseline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Give a team that never submits the 1.0 fallback without restarting the grader or calling the judge."""
+    task, pods = leased_task(tmp_path, monkeypatch)
+    judge = get_model("mockllm/judge", custom_outputs=[])
+    [log] = inspect_eval(
+        task,
+        model=leased_model(submit=False),
+        model_roles={"integrity": judge},
+        log_dir=str(LOGS),
+        display="none",
+    )
+    assert log.status == "success", log.error.traceback if log.error else None
+    sample = read_eval_log(log.location).samples[0]
+    score = sample.scores["inference_team_speedup"]
+    assert score.value["speedup"] == 1.0 and score.metadata["submitted"] is False
+    assert all(p.restarts == 0 and p.terminated for p in pods)

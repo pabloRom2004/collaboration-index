@@ -16,6 +16,8 @@ class WorkspaceCall(BaseModel):
     started: str | None = None
     completed: str | None = None
     status: str = "queued"
+    gpus: list[int] = Field(default_factory=list)
+    oom: str | None = None
 
 
 class DevelopmentCheck(BaseModel):
@@ -27,6 +29,12 @@ class DevelopmentCheck(BaseModel):
     status: str = "running"
     metrics: dict[str, Any] | None = None
     error_type: str | None = None
+    actor: str | None = None
+    slot: int | None = None
+    quick: bool | None = None
+    proxy_speedup: float | None = None
+    contended: bool | None = None
+    concurrent_commands: int | None = None
 
 
 class InferenceHistory(StoreModel):
@@ -35,3 +43,5 @@ class InferenceHistory(StoreModel):
     calls: list[WorkspaceCall] = Field(default_factory=list)
     checks: list[DevelopmentCheck] = Field(default_factory=list)
     final: dict[str, Any] = Field(default_factory=dict)
+    # lease, GPU, submission and failure measurements of the leased-GPU mode
+    orchestration: dict[str, Any] = Field(default_factory=dict)

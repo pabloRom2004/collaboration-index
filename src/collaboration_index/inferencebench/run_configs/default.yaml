@@ -37,6 +37,34 @@ task:
       backend: duckduckgo
       max_results: 10
       timeout: 5
+    # team budget {mode: split | shared, tokens: N}; needs orchestration enabled and
+    # token_limit_per_agent null. split gives each agent N / agents tokens; shared is one pool.
+    token_budget: null
+    # leased-GPU mode; false keeps one GPU, one command lock and grading of the live workspace
+    orchestration:
+      enabled: false
+      # H100s on the agents' workspace pod, 1 to 8; grading uses a separate one-H100 pod
+      workspace_gpus: 1
+      # a lease older than this can lose its last GPU while another agent waits
+      lease_seconds: 1800
+      # audit records GPU use outside a lease; kill also stops those processes
+      enforce: audit
+      # foreground bash, python and evaluate calls that may run at once
+      max_parallel_commands: 8
+      # seconds between GPU probes
+      monitor_seconds: 15
+      # submissions that may wait for or be in grading before submit refuses new content
+      max_pending_submissions: 3
+      # largest uncompressed size of /home/agent/task in one submission
+      max_submission_bytes: 40000000000
+      # the development evaluate on visible inputs; quality_seed must differ from the held-out one
+      dev_eval:
+        requests: 5
+        quick_requests: 2
+        quality_samples: 100
+        quick_quality_samples: 16
+        quality_seed: 1729
+        server_wait_seconds: 600
     scorer:
       name: collaboration_index.inferencebench.backend.scorers.inference_speedup
       args:

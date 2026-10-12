@@ -1,5 +1,8 @@
 """Collaboration instructions added to the pinned InferenceBench task prompt."""
 
+from typing import Any
+
+from collaboration_index.inferencebench.session import Session, current
 from collaboration_index.prompts import Prompt
 
 WORKSPACE = Prompt(
@@ -33,11 +36,141 @@ CONTINUE = Prompt(
 )
 
 
-def workspace_prompt(agents: int) -> str:
-    """Disclose the team size without exposing evaluator participant identities."""
-    context = (
-        "You are working alone on this task."
-        if agents == 1
-        else f"You are one of {agents} collaborating agents, with {agents - 1} teammates."
+LEASED_GPUS = Prompt(
+    title="inferencebench_leased_gpus_and_submissions",
+    role="subject",
+    origin="Collaboration Index adaptation of InferenceBench with GPU leases and graded submissions",
+    prompt="""{context}
+
+GPUs: the gpu tool gives you exclusive GPUs; ask for several with count. Your
+bash and python commands see only the GPUs you hold (CUDA_VISIBLE_DEVICES).
+PORT is your first GPU's server port, and INFERENCEBENCH_GPUS and
+INFERENCEBENCH_PORTS list all of yours; GPU number k serves on port 8000+k.
+To run one server per GPU, set CUDA_VISIBLE_DEVICES and PORT for each server.
+Without GPUs, CUDA_VISIBLE_DEVICES is empty, and GPU use outside your GPUs is
+recorded. The final evaluation runs your server on one GPU. Give back GPUs you
+do not need. When one of several GPUs leaves you, your GPU processes whose
+CUDA_VISIBLE_DEVICES includes it are stopped; when your last GPU leaves you,
+every process you started while holding GPUs is stopped.{shared}
+
+Development feedback: evaluate measures the server on your leased GPU with
+{requests} visible development requests and {quality} quality questions
+(quick mode: {quick_requests} and {quick_quality}). It is fast and approximates
+the final evaluation.
+
+Submissions: submit snapshots /home/agent/task for the hidden final
+evaluation. Snapshots are graded later, one at a time, on a separate H100:
+the evaluator starts ./start_server.sh fresh with PORT=8000 on one GPU and
+measures held-out requests and the quality gate. This is slower than evaluate
+and is the real measurement. Everything the server needs, including
+installed packages and changed weights, must be inside /home/agent/task (for
+example a virtual environment in /home/agent/task/.venv); files elsewhere are
+not submitted. {submitters} submit at any time, any number of times, but
+while {pending} snapshots wait for or are in grading, submit refuses new
+content until a result arrives. A snapshot identical to an earlier one reuses
+its grade. Every submission is graded, and {recipients} its outcome and
+speedup; results contain no logs or inputs from the final evaluation. The
+most recent submission is the final answer and alone sets the score; without
+a submission the score is the 1.0 baseline. The Output Contract and Final
+Evaluation sections above apply to each submission; a server that is still
+running when the session ends is not scored.""",
+)
+
+# sentences that differ between one agent and a team; the rest of LEASED_GPUS is shared
+SOLO_TEXT = {
+    "machine": "You have one development machine with {gpus} H100 GPU(s); your files are in /home/agent/task.",
+    "shared": "",
+    "submitters": "You may",
+    "recipients": "you receive",
+}
+TEAM_TEXT = {
+    "machine": (
+        "Use message_board to choose a unique name, discover teammates and coordinate. "
+        "All agents share one development machine with {gpus} H100 GPU(s) and the files "
+        "in /home/agent/task. Your model histories are separate; teammates cannot see "
+        "your reasoning or replies. No agent has an assigned role."
+    ),
+    "shared": (
+        " An agent without a GPU is always served before anyone gets an extra GPU: "
+        "extra GPUs are lent only while nobody waits and are taken back first when "
+        "someone does. A lease older than {lease_minutes:g} minutes can be taken back "
+        "while another agent waits. No GPU is taken back while one of your commands "
+        "or evaluate calls runs. gpu status shows who holds each GPU and their note. "
+        "Files and background processes are shared, so coordinate edits and server "
+        "lifecycles."
+    ),
+    "submitters": "Any agent may",
+    "recipients": "all agents receive",
+}
+
+CONTINUE_SUBMIT = Prompt(
+    title="inferencebench_continue_submit",
+    role="subject",
+    origin="InferenceBench token-budget continuation adapted for graded submissions",
+    prompt=(
+        "You stopped without tool calls while budget remains. Continue improving and "
+        "measuring the inference server with evaluate, and submit versions you want "
+        "graded. The most recent submission is the final answer."
+    ),
+)
+
+
+def team_context(agents: int) -> str:
+    """State the team size without exposing evaluator participant identities."""
+    if agents == 1:
+        return "You are working alone on this task."
+    return f"You are one of {agents} collaborating agents, with {agents - 1} teammates."
+
+
+def budget_text(plan: dict[str, Any] | None, agents: int) -> str:
+    """Describe the team token budget to each peer."""
+    if plan is None:
+        return ""
+    if agents == 1:
+        return f"You have your own budget of {plan['tokens']:,} tokens."
+    if plan["mode"] == "shared":
+        return (
+            f"Your team shares one pool of {plan['team_pool']:,} tokens; every agent's "
+            "usage draws from it, and all agents stop when it is used up."
+        )
+    return (
+        f"You have your own budget of {plan['per_agent_cap']:,} tokens; the team's "
+        f"{plan['planned_team_total']:,} tokens are split equally and cannot be transferred."
     )
-    return WORKSPACE.prompt.format(team_context=context)
+
+
+def workspace_prompt(agents: int) -> str:
+    """Describe the shared workspace and the team size to every peer."""
+    session = current()
+    if session is None:
+        return WORKSPACE.prompt.format(team_context=team_context(agents))
+    return leased_gpu_prompt(agents, session)
+
+
+def leased_gpu_prompt(agents: int, session: Session) -> str:
+    """Render the leased-GPU instructions, without team wording for a single agent."""
+    options, dev = session.options, session.options["dev_eval"]
+    text = SOLO_TEXT if agents == 1 else TEAM_TEXT
+    notes = "You can use message_board for your own notes." if agents == 1 else ""
+    context = [
+        team_context(agents),
+        notes,
+        text["machine"].format(gpus=options["workspace_gpus"]),
+        budget_text(session.budget, agents),
+    ]
+    return LEASED_GPUS.prompt.format(
+        context=" ".join(part for part in context if part),
+        shared=text["shared"].format(lease_minutes=options["lease_seconds"] / 60),
+        submitters=text["submitters"],
+        recipients=text["recipients"],
+        requests=dev["requests"],
+        quality=dev["quality_samples"],
+        quick_requests=dev["quick_requests"],
+        quick_quality=dev["quick_quality_samples"],
+        pending=options["max_pending_submissions"],
+    )
+
+
+def continue_prompt() -> str:
+    """Select the continuation reminder for the current submission policy."""
+    return (CONTINUE if current() is None else CONTINUE_SUBMIT).prompt

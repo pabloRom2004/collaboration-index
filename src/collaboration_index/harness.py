@@ -18,7 +18,6 @@ from inspect_ai.model import (
     get_model,
 )
 from inspect_ai.solver import Generate, Solver, TaskState, solver
-from inspect_ai.tool import ToolDef
 from inspect_ai.util import checkpointer, sandbox, token_limit
 
 from collaboration_index.board.client import (
@@ -45,6 +44,7 @@ from collaboration_index.prompts import (
     COLOURING,
     CONTINUE_WORK,
     ORACLE,
+    TEAM_TOKEN_UPDATE,
     TIME_UPDATE,
     TOKEN_UPDATE,
     codebase_prompt,
@@ -130,16 +130,31 @@ def team_agents(
     compaction_threshold: float,
     context_window: int | None = None,
     checkpoint_interval: float | None = None,
+    team_token_pool: int | None = None,
 ) -> Solver:
-    """Build fixed-identity tools and run prepared peers with independent token limits."""
-    # Token budgets end individual peers; a team deadline is an explicit option.
+    """Build fixed-identity tools and run prepared peers with independent or pooled token limits."""
+    # Token budgets end individual peers, a shared pool ends the whole team, and a
+    # team deadline is an explicit option.
     if (token_limit_per_agent is not None and token_limit_per_agent < 1) or (
         team_time_limit is not None
         and (not math.isfinite(team_time_limit) or team_time_limit <= 0)
     ):
         raise ValueError("Team token and time limits must be finite and positive")
-    if token_limit_per_agent is None and team_time_limit is None:
-        raise ValueError("A team needs a time limit or a per-agent token limit")
+    if team_token_pool is not None:
+        if type(team_token_pool) is not int or team_token_pool < 1:
+            raise ValueError("team_token_pool must be a positive integer")
+        if token_limit_per_agent is not None or checkpoint_interval is not None:
+            raise ValueError(
+                "team_token_pool cannot be combined with token_limit_per_agent or checkpoint_interval"
+            )
+    if (
+        token_limit_per_agent is None
+        and team_time_limit is None
+        and team_token_pool is None
+    ):
+        raise ValueError(
+            "A team needs a time limit or a per-agent token limit, or a shared token pool"
+        )
     forbidden = {"tools", "submit", "on_continue", "model", "compaction"} & set(
         agent_args
     )
@@ -198,6 +213,16 @@ def team_agents(
             ready: asyncio.Queue[None] = asyncio.Queue()
             release = asyncio.Event()
             clock = {"released": 0.0}
+            # every peer's native meter; a shared pool ends peers when their sum reaches it
+            meters: dict[str, Any] = {}
+
+            def pool_used() -> int:
+                """Return the team's current total usage against a shared token pool."""
+                return sum(int(meter.usage) for meter in meters.values())
+
+            def pool_exhausted() -> bool:
+                """Report whether a configured shared team pool is used up."""
+                return team_token_pool is not None and pool_used() >= team_token_pool
 
             def time_update() -> str:
                 """Tell a peer the team's elapsed and remaining solving time before its next decision."""
@@ -235,7 +260,7 @@ def team_agents(
                     await owner.barrier.finished(record.id)
                     return
                 remaining = (
-                    None
+                    team_token_pool
                     if token_limit_per_agent is None
                     else token_limit_per_agent - prior
                 )
@@ -247,11 +272,21 @@ def team_agents(
                     await owner.barrier.finished(record.id)
                     return
                 limit = token_limit(remaining)
+                meters[record.id] = limit
                 if owner is not None:
                     owner.meters[record.id] = limit
 
                 def token_update() -> str:
-                    """Show each peer its own token usage and allowance."""
+                    """Show each peer its own token usage and allowance, or the shared pool."""
+                    if team_token_pool is not None:
+                        used = pool_used()
+                        return TEAM_TOKEN_UPDATE.prompt.format(
+                            used=used,
+                            fraction=used / team_token_pool,
+                            remaining=max(0, team_token_pool - used),
+                            limit=team_token_pool,
+                            own=int(limit.usage),
+                        )
                     if token_limit_per_agent is None:
                         return ""
                     used = prior + int(limit.usage)
@@ -263,15 +298,22 @@ def team_agents(
                     )
 
                 async def decision_update(nudge: str = "") -> ChatMessageUser:
-                    """Combine the team clock, the peer's token budget and non-destructive unread counts."""
+                    """Combine the team clock, the token budget, benchmark notices and non-destructive unread counts."""
                     unread = await unread_reminder(
                         options if history.condition == "collaborative" else None,
                         direct_only=history.benchmark == "colouring",
                     )
+                    notes = ""
+                    if history.benchmark == "inferencebench":
+                        from collaboration_index.inferencebench.tools import (
+                            decision_notes,
+                        )
+
+                        notes = decision_notes(record.id)
                     # one block per part: Inspect's Anthropic prompt caching marks the
                     # penultimate block of the last message, so a single text block
                     # would leave every turn's history uncached
-                    parts = (nudge, time_update(), token_update(), unread)
+                    parts = (nudge, time_update(), token_update(), notes, unread)
                     return ChatMessageUser(
                         content=[ContentText(text=part) for part in parts if part]
                     )
@@ -287,7 +329,7 @@ def team_agents(
                         record.output_tokens += output.usage.output_tokens
                     # peers work until the task ends or time runs out, not until a
                     # turn happens to carry no tool call
-                    if history.end_reason is not None:
+                    if history.end_reason is not None or pool_exhausted():
                         return False
                     nudge = ""
                     if (
@@ -301,10 +343,10 @@ def team_agents(
                         record.nudges += 1
                         if history.benchmark == "inferencebench":
                             from collaboration_index.inferencebench.prompts import (
-                                CONTINUE,
+                                continue_prompt,
                             )
 
-                            nudge = CONTINUE.prompt
+                            nudge = continue_prompt()
                         else:
                             nudge = CONTINUE_WORK.prompt
                     current.messages.append(await decision_update(nudge))
@@ -331,14 +373,9 @@ def team_agents(
                     # the shared workspace tools that the task's setup installed
                     tools += list(state.tools)
                 if history.benchmark == "inferencebench":
-                    from collaboration_index.inferencebench.tools import serialized_tool
+                    from collaboration_index.inferencebench.tools import peer_tools
 
-                    tools = [
-                        serialized_tool(item, game.lock, record.id)
-                        if ToolDef(item).name in {"bash", "python", "evaluate"}
-                        else item
-                        for item in tools
-                    ]
+                    tools = peer_tools(tools, game.lock, record.id)
                 if history.benchmark == "exploitbench":
                     from collaboration_index.exploitbench.tools import peer_tool
 
@@ -433,7 +470,9 @@ def team_agents(
                     _, exceeded = await run(
                         runner, messages, limits=[limit], name=record.id
                     )
-                    record.status = "limited" if exceeded else "completed"
+                    record.status = (
+                        "limited" if exceeded or pool_exhausted() else "completed"
+                    )
                 except asyncio.CancelledError:
                     record.status = "cancelled"
                     raise
@@ -445,6 +484,12 @@ def team_agents(
                 finally:
                     record.tokens = prior + int(limit.usage)
                     record.completed = now()
+                    if history.benchmark == "inferencebench":
+                        from collaboration_index.inferencebench.tools import (
+                            finish_peer,
+                        )
+
+                        finish_peer(record.id)
                 if owner is not None:
                     await owner.barrier.finished(record.id)
 
