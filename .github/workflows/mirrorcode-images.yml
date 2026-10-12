@@ -8,7 +8,7 @@ on:
       target:
         description: MirrorCode target to publish in Python
         type: choice
-        options: [rev, mailauth, ruff]
+        options: [rev, mailauth, ruff, cprepro, sed]
         default: ruff
 permissions:
   contents: read
@@ -20,6 +20,9 @@ jobs:
       IMAGE: ghcr.io/pablorom2004/mirrorcode
       MIRRORCODE: mc @ git+https://github.com/epoch-research/MirrorCode@5c9d7b00b0c6d7609003e33896cd41d28f092fcb
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - name: Install uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Log in to GHCR
@@ -33,9 +36,68 @@ jobs:
           from mc.task import get_compose_file
           path = get_compose_file(TargetProgram('$target'), AgentImplementationLanguage.PYTHON, False)
           print(path.parent, version.__version__)")
+            mkdir -p image-build-proofs
+            uv run --no-project python scripts/mirrorcode_build_provenance.py "$context" "$target" image-build-proofs
             for name in workspace agent-scoring reference-scoring; do
-              docker buildx build --platform linux/amd64 --push \
+              docker buildx build --platform linux/amd64 --push --metadata-file "image-build-proofs/${target}-${name}.build.json" \
                 --label org.opencontainers.image.source=https://github.com/pabloRom2004/collaboration-index \
                 -f "$context/$name.Dockerfile" -t "$IMAGE:mc_${target}_python_llm_${name}_${version}" "$context"
             done
           done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: target-${{ inputs.target }}-build-provenance
+          path: image-build-proofs/
+          retention-days: 7
+
+  target-qa:
+    needs: publish
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.target == 'cprepro' || inputs.target == 'sed') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    env:
+      MIRRORCODE_QA_TARGET: ${{ inputs.target }}
+      MC_IMAGE_NAME: ghcr.io/pablorom2004/mirrorcode
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Set ephemeral anonymous Docker and pin paths
+        run: |
+          echo "MIRRORCODE_QA_IMAGE_PINS=$RUNNER_TEMP/target-pins.json" >> "$GITHUB_ENV"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/anonymous-docker" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/anonymous-docker"
+      - uses: docker/setup-buildx-action@v3
+      - uses: astral-sh/setup-uv@v7
+      - name: Install pinned runtime from reviewed tag
+        run: uv sync --python 3.13 --extra mirrorcode
+      - name: Resolve anonymous immutable target images
+        run: |
+          mkdir -p "$DOCKER_CONFIG"
+          uv run python scripts/mirrorcode_image_pins.py
+      - name: Runner resource identity
+        run: |
+          free -b > "$RUNNER_TEMP/host-memory.txt"
+          df -B1 > "$RUNNER_TEMP/host-disk.txt"
+      - name: Two-peer concurrent grading and vanished-file regression
+        env:
+          MIRRORCODE_QA_RESOURCE_OUTPUT: run-artifacts/concurrent-resource-samples.json
+        run: uv run python scripts/mirrorcode_qa_resources.py scripts/mirrorcode_concurrent_qa.py
+      - name: Fresh-process native checkpoint restore and final grading
+        env:
+          MIRRORCODE_QA_RESOURCE_OUTPUT: run-artifacts/restore-resource-samples.json
+        run: uv run python scripts/mirrorcode_qa_resources.py scripts/mirrorcode_target_qa.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: target-${{ inputs.target }}-checkpoint-qa
+          path: |
+            run-artifacts/remote-*-checkpoint-qa/
+            run-artifacts/remote-*-concurrent-qa/
+            run-artifacts/*resource-samples.json
+            ${{ runner.temp }}/host-*.txt
+            ${{ runner.temp }}/target-pins*.json
+          retention-days: 7
