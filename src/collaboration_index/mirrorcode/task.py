@@ -286,6 +286,7 @@ def mirrorcode(
     artifact_dir: str = ARGS["artifact_dir"],
     compaction_threshold: float = ARGS["compaction_threshold"],
     context_window: int | None = ARGS["context_window"],
+    reserve_output_context: bool = ARGS["reserve_output_context"],
     target: str = ARGS["target"],
     language: str = ARGS["language"],
     docs: bool = ARGS["docs"],
@@ -308,6 +309,12 @@ def mirrorcode(
         raise ValueError("MirrorCode team sizes must be between 1 and 64")
     if type(allow_submit) is not bool:
         raise ValueError("allow_submit must be a boolean")
+    if type(reserve_output_context) is not bool:
+        raise ValueError("reserve_output_context must be a boolean")
+    if reserve_output_context and (not checkpoint_enabled or context_window is None):
+        raise ValueError(
+            "Output-reserved context requires checkpointing and an explicit model window"
+        )
     if token_limit_per_agent is not None and token_limit_per_agent < 1:
         raise ValueError(
             "token_limit_per_agent must be positive, or null for no per-peer budget"
@@ -397,6 +404,7 @@ def mirrorcode(
             compaction_threshold,
             context_window,
             checkpoint_interval_seconds if checkpoint_enabled else None,
+            reserve_output_context,
         ),
         scorer=mirrorcode_scorer(visible_case_ablation=0.0),
         config=GenerateConfig(**CONFIG["generate_config"]),
@@ -438,6 +446,7 @@ def mirrorcode(
             if token_limit_per_agent is None
             else agents * token_limit_per_agent,
             "context_window": context_window,
+            "reserve_output_context": reserve_output_context,
             "mirrorcode_target": target,
             "mirrorcode_language": language,
             "scoring_pipelines": pipelines,

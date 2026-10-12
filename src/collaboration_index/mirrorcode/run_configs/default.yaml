@@ -9,6 +9,7 @@ task:
     artifact_dir: run-artifacts
     compaction_threshold: 0.75
     context_window: null
+    reserve_output_context: false
     target: rev
     language: python
     docs: true

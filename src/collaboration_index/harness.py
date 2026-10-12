@@ -130,6 +130,7 @@ def team_agents(
     compaction_threshold: float,
     context_window: int | None = None,
     checkpoint_interval: float | None = None,
+    reserve_output_context: bool = False,
 ) -> Solver:
     """Build fixed-identity tools and run prepared peers with independent token limits."""
     # Token budgets end individual peers; a team deadline is an explicit option.
@@ -151,6 +152,12 @@ def team_agents(
         raise ValueError("Compaction threshold must be within (0,1]")
     if context_window is not None and context_window < 1:
         raise ValueError("Context window must be a positive token count")
+    if reserve_output_context and (
+        context_window is None or checkpoint_interval is None
+    ):
+        raise ValueError(
+            "Output-reserved context requires an explicit window and checkpointed native agent"
+        )
     # a verified window covers models missing from Inspect's model metadata
     threshold = (
         compaction_threshold
@@ -507,7 +514,14 @@ def team_agents(
                     await team_workspace(state).write_file(
                         "/workspace/team.json", json.dumps({"run_id": history.run_id})
                     )
-                owner = TeamCheckpoints(cp, state, checkpoint_interval, threshold)
+                owner = TeamCheckpoints(
+                    cp,
+                    state,
+                    checkpoint_interval,
+                    threshold,
+                    context_window if reserve_output_context else None,
+                    compaction_threshold,
+                )
                 token = OWNER.set(owner)
                 try:
                     if cp.attempt == "resume_for_scoring":

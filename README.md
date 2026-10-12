@@ -693,6 +693,15 @@ deadline. MirrorCode supports opt-in coordinated checkpoint continuation with
 native Inspect checkpoint storage. It restores every private history and native
 compaction, cumulative peer caps, shared files, trusted state and the complete
 board together. Other task families continue to reject checkpoint continuation.
+MirrorCode's optional `reserve_output_context: true` keeps the supplied true
+`context_window` and full model `max_tokens`, while applying the compaction
+fraction to their difference. It requires checkpointing and an explicit window
+and output allowance. Ordinary requests include a check of replayed reasoning,
+tool schemas and framing; native summary requests fit copied tool output to the
+remaining input allowance. The whole-envelope estimate has an additional 10%
+margin and remains approximate. Oversized immutable prompts or assistant content
+fail explicitly before dispatch; full original histories remain preserved in the
+native log and checkpoint. The general default is off.
 See [checkpointing](docs/mirrorcode-checkpointing.md) for restore limitations and
 the [current handoff](docs/handoff.md) for actual Hawk verification.
 

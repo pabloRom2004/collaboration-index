@@ -1,0 +1,196 @@
+"""Fit checkpointed requests while preserving the configured full output allowance."""
+
+import json
+import math
+from dataclasses import dataclass
+from typing import Any
+
+from inspect_ai._util.notgiven import NOT_GIVEN
+from inspect_ai.log import transcript
+from inspect_ai.model import (
+    ChatMessage,
+    ChatMessageUser,
+    CompactionAuto,
+    GenerateConfig,
+    Model,
+    ModelOutput,
+)
+from inspect_ai.model._call_tools import get_tools_info, resolve_tools
+from inspect_ai.model._compaction.summary import (
+    _MAX_TRUNCATION_ITERATIONS,
+    _largest_shrinkable,
+    _shrink,
+)
+from inspect_ai.tool import ToolInfo
+
+
+class ContextEnvelopeExceeded(RuntimeError):
+    """Identify only an estimated context overflow that can trigger native compaction."""
+
+
+@dataclass(frozen=True)
+class ContextEnvelope:
+    """Keep the true context and full output reservation separate from usable input."""
+
+    context_window: int
+    output_tokens: int
+    compaction_threshold: float
+
+    def __post_init__(self) -> None:
+        """Reject a request envelope that leaves no input or has an invalid trigger."""
+        if not 0 < self.output_tokens < self.context_window:
+            raise ValueError(
+                "Full output reservation must leave positive input capacity"
+            )
+        if not 0 < self.compaction_threshold < 1:
+            raise ValueError("Reserved-input compaction threshold must be within (0,1)")
+
+    @property
+    def input_tokens(self) -> int:
+        """Return the input capacity remaining after the complete output reservation."""
+        return self.context_window - self.output_tokens
+
+    @property
+    def trigger_tokens(self) -> int:
+        """Leave configured headroom below the input capacity for estimation differences."""
+        return int(self.input_tokens * self.compaction_threshold)
+
+    def metadata(self) -> dict[str, Any]:
+        """Describe the policy without claiming that estimated token counts are exact."""
+        return {
+            "context_window": self.context_window,
+            "full_output_tokens": self.output_tokens,
+            "usable_input_tokens": self.input_tokens,
+            "compaction_threshold": self.compaction_threshold,
+            "compaction_trigger_tokens": self.trigger_tokens,
+            "estimator": "maximum of native messages plus tools and serialized envelope including reasoning; provider text tokenizer",
+            "additional_envelope_estimate_buffer": 0.1,
+            "estimated_counts_are_exact": False,
+            "summary_tool_fitting": "native middle truncation of copied tool outputs only",
+        }
+
+
+async def estimate_envelope(
+    model: Model, messages: list[ChatMessage], tools: list[ToolInfo]
+) -> int:
+    """Count message framing, replayed reasoning and complete tool schemas conservatively."""
+    native = await model.count_tokens(messages) + await model.count_tool_tokens(tools)
+    wire = {
+        "messages": [
+            message.model_dump(
+                mode="json", exclude={"id", "metadata", "source"}, exclude_none=True
+            )
+            for message in messages
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": tool.model_dump(mode="json", exclude_none=True),
+            }
+            for tool in tools
+        ],
+    }
+    serialized = await model.api.count_text_tokens(json.dumps(wire, ensure_ascii=False))
+    # Providers may already buffer their token estimates; this additional
+    # margin also covers framing and tokenizer differences in summary requests.
+    return math.ceil(1.1 * max(native, serialized))
+
+
+async def require_fitted_request(
+    model: Model,
+    messages: list[ChatMessage],
+    tools: list[Any],
+    envelope: ContextEnvelope,
+    *,
+    summary: bool = False,
+) -> int:
+    """Reject an oversized estimated request before sending an invalid provider call."""
+    info = get_tools_info(await resolve_tools(tools))
+    count = await estimate_envelope(model, messages, info)
+    limit = envelope.input_tokens if summary else envelope.trigger_tokens
+    if count > limit:
+        raise ContextEnvelopeExceeded(
+            f"Reserved-input request is not fitted: estimated {count} input tokens exceed "
+            f"{limit} limit ({envelope.input_tokens} input capacity)"
+        )
+    return count
+
+
+async def fit_summary_input(
+    model: Model, messages: list[ChatMessage], envelope: ContextEnvelope
+) -> list[ChatMessage]:
+    """Reuse native copied-tool fitting against the actual remaining input allowance."""
+    fitted = list(messages)
+    for _ in range(_MAX_TRUNCATION_ITERATIONS + 1):
+        count = await estimate_envelope(model, fitted, [])
+        if count <= envelope.input_tokens:
+            return fitted
+        candidate = _largest_shrinkable(fitted)
+        if candidate is None:
+            break
+        _shrink(fitted, candidate)
+    raise RuntimeError(
+        f"Reserved-input summary cannot fit immutable messages: estimated {count} "
+        f"input tokens exceed {envelope.input_tokens} input capacity"
+    )
+
+
+class SummaryEnvelopeModel(Model):
+    """Keep native summary generation on its original model with reservation-aware fitting."""
+
+    def __init__(self, target: Model, envelope: ContextEnvelope) -> None:
+        """Share the exact model API and generation configuration without creating a new route."""
+        super().__init__(target.api, target.config, target.model_args)
+        self.target, self.envelope = target, envelope
+
+    async def generate(
+        self,
+        input: str | list[ChatMessage],
+        tools: Any = [],
+        tool_choice: Any = None,
+        config: GenerateConfig = GenerateConfig(),
+        cache: Any = NOT_GIVEN,
+        on_stream: Any = None,
+    ) -> ModelOutput:
+        """Fit only native summary tool copies, preserving the full output and original history."""
+        if tools or config.model_dump(exclude_none=True):
+            raise RuntimeError(
+                "Native summary envelope expects the unchanged model configuration"
+            )
+        messages: list[ChatMessage] = (
+            [ChatMessageUser(content=input)] if isinstance(input, str) else input
+        )
+        fitted = await fit_summary_input(self.target, messages, self.envelope)
+        count = await require_fitted_request(
+            self.target, fitted, [], self.envelope, summary=True
+        )
+        transcript().info(
+            {
+                "reserved_input_request": "summary",
+                "estimated_input_tokens": count,
+                **self.envelope.metadata(),
+            }
+        )
+        return await self.target.generate(
+            fitted, tool_choice=tool_choice, cache=cache, on_stream=on_stream
+        )
+
+
+class ReservedCompactionAuto(CompactionAuto):
+    """Preserve native compaction behavior while fitting its summary requests correctly."""
+
+    def __init__(self, envelope: ContextEnvelope) -> None:
+        """Use the configured fraction of usable input as the native compaction trigger."""
+        super().__init__(threshold=envelope.trigger_tokens)
+        self.envelope = envelope
+
+    async def compact(
+        self, model: Model, messages: list[ChatMessage], tools: list[ToolInfo]
+    ) -> tuple[list[ChatMessage], ChatMessageUser | None]:
+        """Scope the fitted summary model to this peer's locked native compaction call."""
+        original = self._summary.model
+        self._summary.model = SummaryEnvelopeModel(model, self.envelope)
+        try:
+            return await super().compact(model, messages, tools)
+        finally:
+            self._summary.model = original

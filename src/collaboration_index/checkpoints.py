@@ -25,6 +25,12 @@ from pydantic import BaseModel, Field
 
 from collaboration_index.board.checkpoint import snapshot_board
 from collaboration_index.board.client import LIMITS
+from collaboration_index.model_context import (
+    ContextEnvelope,
+    ContextEnvelopeExceeded,
+    ReservedCompactionAuto,
+    require_fitted_request,
+)
 from collaboration_index.state import TeamHistory
 
 T = TypeVar("T")
@@ -167,9 +173,22 @@ class TeamCheckpoints:
         state: TaskState,
         interval: float,
         threshold: float | int,
+        reserved_context_window: int | None = None,
+        compaction_threshold: float = 0.75,
     ) -> None:
         """Restore stable team state and create one all-peer checkpoint barrier."""
         self.cp, self.task = cp, state
+        self.envelope = None
+        if reserved_context_window is not None:
+            output_tokens = get_model().config.max_tokens
+            if output_tokens is None:
+                raise ValueError(
+                    "Output-reserved context requires an explicit full max_tokens"
+                )
+            self.envelope = ContextEnvelope(
+                reserved_context_window, output_tokens, compaction_threshold
+            )
+            state.metadata["model_context_envelope"] = self.envelope.metadata()
         from inspect_ai.util._checkpoint.checkpointer_noop import _NoopCheckpointer
 
         if isinstance(cp, _NoopCheckpointer):
@@ -220,7 +239,9 @@ class TeamCheckpoints:
         """Keep a skipped peer's native compaction in every later checkpoint without model work."""
         if actor not in self.finished_compactions:
             self.finished_compactions[actor] = compaction(
-                CompactionAuto(threshold=threshold),
+                ReservedCompactionAuto(self.envelope)
+                if self.envelope is not None
+                else CompactionAuto(threshold=threshold),
                 prefix=self.snapshot.prefixes[actor],
                 checkpointer=PeerCheckpointer(self.cp, actor),
             )
@@ -257,7 +278,9 @@ class TeamCheckpoints:
                         )
                     )
                 compact = compaction(
-                    CompactionAuto(threshold=threshold),
+                    ReservedCompactionAuto(self.envelope)
+                    if self.envelope is not None
+                    else CompactionAuto(threshold=threshold),
                     prefix=prefix,
                     tools=tools,
                     checkpointer=scoped,
@@ -269,6 +292,31 @@ class TeamCheckpoints:
             inputs, supplemental = await compact.compact_input(current.messages)
             if supplemental is not None:
                 current.messages.append(supplemental)
+            if self.envelope is not None:
+                from inspect_ai.log import transcript
+
+                try:
+                    count = await require_fitted_request(
+                        get_model(), inputs, tools, self.envelope
+                    )
+                except ContextEnvelopeExceeded:
+                    # Native estimates omit plain replayed reasoning on this route.
+                    # Force the same checkpointed handler to summarize before dispatch.
+                    inputs, supplemental = await compact.compact_input(
+                        current.messages, force=True
+                    )
+                    if supplemental is not None:
+                        current.messages.append(supplemental)
+                    count = await require_fitted_request(
+                        get_model(), inputs, tools, self.envelope
+                    )
+                transcript().info(
+                    {
+                        "reserved_input_request": "ordinary",
+                        "estimated_input_tokens": count,
+                        **self.envelope.metadata(),
+                    }
+                )
             attempts = 0
             while True:
                 try:
