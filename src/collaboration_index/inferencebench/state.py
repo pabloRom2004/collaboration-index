@@ -31,6 +31,7 @@ class DevelopmentCheck(BaseModel):
     error_type: str | None = None
     actor: str | None = None
     slot: int | None = None
+    port: int | None = None
     quick: bool | None = None
     proxy_speedup: float | None = None
     contended: bool | None = None

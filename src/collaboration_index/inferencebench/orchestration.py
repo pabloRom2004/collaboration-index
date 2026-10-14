@@ -13,6 +13,12 @@ from typing import Any
 
 # fraction of a GPU's memory in use at which a memory-pressure event is recorded
 MEMORY_PRESSURE = 0.97
+# how agents are told which submission sets the score
+SCORING_RULE_TEXT = {
+    "best_submit": "the valid submission with the highest speedup sets the score",
+    "last_submit": "the most recent valid submission sets the score",
+}
+SCORING_RULES = tuple(SCORING_RULE_TEXT)
 
 
 @dataclass
@@ -436,6 +442,10 @@ class GpuUsage:
                     self.pressured.discard(index)
         return events
 
+    def busy_seconds(self) -> float:
+        """Return the GPU-seconds observed so far with utilization of at least 1%, summed over GPUs."""
+        return sum(stats["busy"] for stats in self.gpus.values())
+
     def summary(self) -> dict[str, Any]:
         """Report per-GPU time-weighted means and team totals in GPU-hours and watt-hours."""
 
@@ -489,6 +499,8 @@ class Submission:
     finished_at: float | None = None
     result: dict[str, Any] | None = None
     detail: dict[str, Any] | None = None
+    # time, team-token and GPU totals when the snapshot was taken
+    measures: dict[str, Any] = field(default_factory=dict)
 
 
 Grader = Callable[[Submission], Awaitable[tuple[dict[str, Any], dict[str, Any]]]]
@@ -497,15 +509,23 @@ Grader = Callable[[Submission], Awaitable[tuple[dict[str, Any], dict[str, Any]]]
 class SubmissionQueue:
     """Grade distinct submissions one at a time and report results to every peer.
 
-    The latest submission is the team's final answer. A resubmitted snapshot with
-    an identical content digest reuses the earlier grade instead of re-measuring.
+    ``scoring`` selects the submission that sets the score: the best valid one
+    (``best_submit``) or the last valid one (``last_submit``). A resubmitted
+    snapshot with an identical content digest reuses the earlier grade instead of
+    re-measuring.
     """
 
     def __init__(
-        self, max_pending: int, clock: Callable[[], float] = time.time
+        self,
+        max_pending: int,
+        scoring: str = "best_submit",
+        clock: Callable[[], float] = time.time,
     ) -> None:
         """Start an empty ledger with a bound on queued and running gradings."""
+        if scoring not in SCORING_RULES:
+            raise ValueError(f"scoring must be one of {', '.join(SCORING_RULES)}")
         self.max_pending = max_pending
+        self.scoring = scoring
         self.clock = clock
         self.items: list[Submission] = []
         self.announced: dict[str, set[int]] = {}
@@ -522,7 +542,12 @@ class SubmissionQueue:
         return item
 
     async def submit(
-        self, actor: str, digest: str, size: int, archive: str
+        self,
+        actor: str,
+        digest: str,
+        size: int,
+        archive: str,
+        measures: dict[str, Any] | None = None,
     ) -> Submission:
         """Record a snapshot, deduplicating identical content, or raise QueueFull."""
         original = next(
@@ -548,6 +573,7 @@ class SubmissionQueue:
             archive=archive,
             status="duplicate" if original else "queued",
             same_as=original.number if original else None,
+            measures=measures or {},
         )
         self.items.append(item)
         async with self.changed:
@@ -555,8 +581,26 @@ class SubmissionQueue:
         return item
 
     def latest(self) -> Submission | None:
-        """Return the team's final answer, which is its most recent submission."""
+        """Return the team's most recent submission, valid or not."""
         return self.items[-1] if self.items else None
+
+    def valid(self) -> list[Submission]:
+        """List submissions whose hidden-evaluation outcome is valid, in submission order."""
+        return [
+            item
+            for item in self.items
+            if (self.origin(item).result or {}).get("outcome") == "valid"
+        ]
+
+    def select(self) -> Submission | None:
+        """Return the submission that sets the score under the scoring rule, or None without a valid one."""
+        valid = self.valid()
+        if not valid:
+            return None
+        if self.scoring == "last_submit":
+            return valid[-1]
+        # max keeps the earliest of equal speedups
+        return max(valid, key=lambda item: (self.origin(item).result or {})["speedup"])
 
     async def work(self, grade: Grader) -> None:
         """Grade queued submissions in order until cancelled, keeping failures as results."""
@@ -616,16 +660,15 @@ class SubmissionQueue:
     def summary(self, released: float) -> dict[str, Any]:
         """Report submission timing and in-run grades relative to team release."""
         graded = [i for i in self.items if self.origin(i).status == "graded"]
-        valid = [
-            i for i in graded if (self.origin(i).result or {}).get("outcome") == "valid"
-        ]
+        valid = self.valid()
         best = max(
             valid,
             key=lambda i: (self.origin(i).result or {}).get("speedup", 0.0),
             default=None,
         )
-        latest = self.latest()
+        latest, selected = self.latest(), self.select()
         return {
+            "scoring": self.scoring,
             "count": len(self.items),
             "distinct": sum(i.same_as is None for i in self.items),
             "graded": len(graded),
@@ -639,8 +682,10 @@ class SubmissionQueue:
             if best
             else None,
             "best_submission": best.number if best else None,
-            "final_submission": latest.number if latest else None,
-            "final_in_run_result": self.origin(latest).result if latest else None,
+            "latest_submission": latest.number if latest else None,
+            # the submission the scoring rule selects; final scoring measures it again
+            "final_submission": selected.number if selected else None,
+            "final_in_run_result": self.origin(selected).result if selected else None,
             "grading_seconds": describe(
                 [
                     i.finished_at - i.started_at

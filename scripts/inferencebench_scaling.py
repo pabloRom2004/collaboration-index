@@ -147,6 +147,26 @@ def plan(design: dict[str, Any], base: dict[str, Any], out: Path) -> dict[str, A
     return manifest
 
 
+def series(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """List each submission's time, tokens, GPU-seconds and grade, with duplicates sharing their original's grade."""
+    by_number = {item["number"]: item for item in items}
+    points = []
+    for item in items:
+        source = item
+        while source.get("same_as") in by_number:
+            source = by_number[source["same_as"]]
+        result = source.get("result") or {}
+        points.append(
+            {
+                "number": item["number"],
+                **(item.get("measures") or {}),
+                "outcome": result.get("outcome"),
+                "speedup": result.get("speedup"),
+            }
+        )
+    return points
+
+
 def row(
     task_args: dict[str, Any],
     metadata: dict[str, Any],
@@ -197,9 +217,12 @@ def row(
         "first_submission_seconds": submissions.get("first_submission_seconds"),
         "first_valid_seconds": submissions.get("first_valid_seconds"),
         "best_in_run_speedup": submissions.get("best_in_run_speedup"),
+        "scoring": submissions.get("scoring"),
+        "final_submission": submissions.get("final_submission"),
         "final_in_run_speedup": (submissions.get("final_in_run_result") or {}).get(
             "speedup"
         ),
+        "submission_series": series(submissions.get("items") or []),
         "solve_seconds": result.get("elapsed_seconds"),
         "tokens": tokens,
         "agent_tokens": [p.get("tokens", 0) for p in peers],

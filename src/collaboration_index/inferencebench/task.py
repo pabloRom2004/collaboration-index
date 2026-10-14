@@ -18,6 +18,7 @@ from collaboration_index.inferencebench.backend.metrics import (
     scored_attempts,
     unscored_attempts,
 )
+from collaboration_index.inferencebench.orchestration import SCORING_RULES
 from collaboration_index.inferencebench.resource import allocate
 from collaboration_index.inferencebench.session import (
     Session,
@@ -32,8 +33,10 @@ from collaboration_index.task import defaults
 
 CONFIG = defaults("inferencebench")
 ARGS = CONFIG["task"]["args"]
+MAX_AGENTS = 64
 MAX_WORKSPACE_GPUS = 8
 BUDGET_MODES = ("split", "shared")
+GPU_ACCESS = ("scheduler", "unmanaged")
 
 
 def budget_plan(mode: str, tokens: int, agents: int) -> dict[str, Any]:
@@ -45,12 +48,14 @@ def budget_plan(mode: str, tokens: int, agents: int) -> dict[str, Any]:
             "token_budget tokens must be an integer of at least one per agent"
         )
     split = mode == "split"
+    # split gives every agent the same floor share; the remainder (< agents) is not allocated
     return {
         "mode": mode,
         "tokens": tokens,
         "per_agent_cap": tokens // agents if split else None,
         "team_pool": None if split else tokens,
         "planned_team_total": tokens // agents * agents if split else tokens,
+        "unallocated_tokens": tokens % agents if split else 0,
     }
 
 
@@ -114,6 +119,10 @@ def validate_orchestration(options: dict[str, Any], workload: dict[str, Any]) ->
             raise ValueError(f"{name} must be a finite positive number")
     if options["enforce"] not in {"audit", "kill"}:
         raise ValueError("enforce must be audit or kill")
+    if options["gpu_access"] not in GPU_ACCESS:
+        raise ValueError(f"gpu_access must be one of {', '.join(GPU_ACCESS)}")
+    if options["gpu_access"] == "unmanaged" and options["enforce"] == "kill":
+        raise ValueError("enforce: kill needs gpu_access: scheduler")
     dev = options["dev_eval"]
     counts = [
         "requests",
@@ -137,6 +146,18 @@ def validate_orchestration(options: dict[str, Any], workload: dict[str, Any]) ->
         raise ValueError(
             "The development quality seed must differ from the held-out quality seed"
         )
+
+
+def validate_scoring(scoring: str, evaluation: dict[str, Any]) -> None:
+    """Reject an unknown scoring rule or malformed submission-recording flags."""
+    if scoring not in SCORING_RULES:
+        raise ValueError(f"scoring must be one of {', '.join(SCORING_RULES)}")
+    if (
+        not isinstance(evaluation, dict)
+        or set(evaluation) != set(ARGS["evaluation"])
+        or any(type(value) is not bool for value in evaluation.values())
+    ):
+        raise ValueError("evaluation must contain exactly the documented boolean flags")
 
 
 @solver
@@ -200,29 +221,39 @@ def inference_team_speedup(spec: dict[str, Any]) -> Scorer:
     async def final_submission(
         state: TaskState, target: Target, session: Session
     ) -> Score | None:
-        """Grade the team's latest submission on the restarted grader, or apply the no-submission fallback."""
+        """Grade the submission the scoring rule selects on the restarted grader, or apply the 1.0 fallback."""
         # the monitor covers solving time only; queued submissions are still graded
         await session.stop("monitor")
         await session.queue.drain()
         await session.stop()
-        latest = session.queue.latest()
-        if latest is None:
+        selected = session.queue.select()
+        common = {
+            "scoring": session.queue.scoring,
+            "submitted": bool(session.queue.items),
+            "submissions": len(session.queue.items),
+        }
+        if selected is None:
             result: Score | None = Score(
                 value={"speedup": 1.0},
-                explanation="The team made no submission; the upstream baseline fallback applies.",
-                metadata={"submitted": False},
+                explanation="The team made no valid submission; the upstream baseline fallback applies.",
+                metadata={**common, "final_submission": None},
             )
         else:
-            await session.install(latest)
+            # the selected snapshot is measured again, now with the integrity judge
+            await session.install(selected)
             result = await upstream(state, target)
             if result is not None:
                 result.metadata = {
                     **(result.metadata or {}),
-                    "submitted": True,
-                    "final_submission": latest.number,
-                    "final_in_run_result": session.queue.origin(latest).result,
+                    **common,
+                    "final_submission": selected.number,
+                    "final_digest": selected.digest,
+                    "final_archive": selected.archive,
+                    "final_in_run_result": session.queue.origin(selected).result,
                 }
-        session.persist()
+        # a missing grade fails scoring before any archive is pruned
+        if result is not None:
+            session.finalize(selected, result.value)
         return result
 
     async def score(state: TaskState, target: Target) -> Score:
@@ -263,6 +294,8 @@ def inference_team_speedup(spec: dict[str, Any]) -> Scorer:
             measured = state.store_as(InferenceHistory).orchestration
             submissions, gpu = measured["submissions"], measured["gpu"]
             team.update(
+                scoring=submissions["scoring"],
+                final_submission=submissions["final_submission"],
                 submitted=bool(submissions["count"]),
                 submissions=submissions["count"],
                 valid_submissions=submissions["valid"],
@@ -302,13 +335,18 @@ def inferencebench(
     scorer: dict[str, Any] = ARGS["scorer"],
     token_budget: dict[str, Any] | None = ARGS["token_budget"],
     orchestration: dict[str, Any] = ARGS["orchestration"],
+    scoring: str = ARGS["scoring"],
+    evaluation: dict[str, bool] = ARGS["evaluation"],
 ) -> Task:
     """Build team samples that optimize one inference server on shared RunPod H100s."""
     from collaboration_index.inferencebench.backend.dataset import get_inference_dataset
 
-    if type(agents) is not int or not 1 <= agents <= 32:
-        raise ValueError("InferenceBench team sizes must be between 1 and 32")
+    if type(agents) is not int or not 1 <= agents <= MAX_AGENTS:
+        raise ValueError(
+            f"InferenceBench team sizes must be between 1 and {MAX_AGENTS}"
+        )
     validate_orchestration(orchestration, workload)
+    validate_scoring(scoring, evaluation)
     leased = orchestration["enabled"]
     if leased and gpu_management != "controller":
         raise ValueError("orchestration needs gpu_management: controller")
@@ -368,7 +406,9 @@ def inferencebench(
             web_search_args,
             scorer["args"]["grader_role"],
             gpu_management == "controller",
-            orchestration if leased else None,
+            {**orchestration, "scoring": scoring, "evaluation": dict(evaluation)}
+            if leased
+            else None,
             plan,
         ),
         cleanup=cleanup,
@@ -404,5 +444,7 @@ def inferencebench(
             "gpu_management": gpu_management,
             "team_size_disclosed": True,
             "orchestration": orchestration,
+            "scoring": scoring,
+            "evaluation": evaluation,
         },
     )

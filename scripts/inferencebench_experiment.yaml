@@ -1,0 +1,65 @@
+# InferenceBench team-size experiment. scripts/inferencebench_experiment.py reads this
+# file; `plan` prints what it would run and `run` starts it. Each scenario x epoch is one
+# run with its own agents, development pod, grading pod and message board.
+
+# collaborating agents per run: [1, 4, 16, 64]
+num_agents: 1
+
+# GPUs on the agents' development pod per run (1 to 8). Every run also gets one separate
+# grading GPU of the same type, so a run uses num_gpus + 1 GPUs.
+num_gpus: 4
+gpu_type: NVIDIA H100 80GB HBM3
+
+# model the agents must serve and optimize
+base_model: Qwen/Qwen3.5-35B-A3B
+
+# which limit ends a run: [time, token_shared, token_uniform]
+# time: wall_clock_hours per run (each epoch separately); no token limit
+# token_shared: all agents of one run draw from one pool of token_budget tokens
+# token_uniform: each agent gets token_budget // num_agents tokens; the remainder
+#   (fewer than num_agents tokens) is not allocated and is recorded as unallocated_tokens
+# GPU time is not a budget, but busy and allocated GPU-seconds are recorded.
+budget: time
+
+# hours per run when budget is time: [1, 4, 8, 16]
+wall_clock_hours: 8
+
+# team tokens per run when budget is token_shared or token_uniform: [2M, 4M, 8M, 16M]
+token_budget: 4000000
+
+# independent repeats of every scenario
+epochs: 3
+
+# every epoch always gets its own num_gpus + 1 GPUs, num_agents agents and board
+# true: the epochs of one scenario run one after another
+# false: all epochs of a scenario start together
+epoch_sequential: true
+
+# which graded submission sets a run's score: [best_submit, last_submit]
+# best_submit: the valid submission with the highest in-run speedup
+# last_submit: the last valid submission, even if an earlier one was faster
+# Either way every submission is graded and its grade is shown to the agents (and logged
+# while evaluation.log_all_submissions is true). The selected submission is measured
+# again with the integrity judge; if that measurement is not valid, the score is 1.0,
+# with no fallback to another submission. Without a valid submission the score is 1.0.
+scoring: best_submit
+
+# InferenceBench scenarios; all scenarios run at the same time
+scenarios: [A, B, C, D]
+
+# the agents' model (Inspect model name); Haiku 5.5 through Anthropic's own API
+agent_model: anthropic/claude-haiku-5-5
+
+# how agents share the development GPUs: [unmanaged, scheduler]
+# unmanaged: every command sees every GPU; nothing reserves a GPU; agents coordinate
+# scheduler: exclusive GPU leases through the gpu tool, with fair queueing and reclaiming
+gpu_access_mode: unmanaged
+
+# what is kept for each submission
+evaluation:
+  log_all_submissions: true
+  save_submitted_artifacts: true
+  record_wall_clock_timestamp: true
+  record_cumulative_agent_tokens: true
+  record_cumulative_gpu_seconds: true
+  record_validation_errors: true

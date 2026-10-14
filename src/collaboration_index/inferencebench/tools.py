@@ -1,8 +1,9 @@
 """Bind shared workspace tools to peers and retain development evaluator feedback.
 
 By default, foreground commands share one lock. In the leased-GPU mode
-(``orchestration.enabled``), peers share GPUs through leases and also get the
-``gpu``, ``submit`` and ``submissions`` tools.
+(``orchestration.enabled``), peers get the ``submit`` and ``submissions`` tools.
+With ``gpu_access: scheduler`` they share GPUs through leases and the ``gpu``
+tool; with ``gpu_access: unmanaged`` every command sees every GPU.
 """
 
 import asyncio
@@ -19,7 +20,11 @@ from inspect_ai.tool import python as native_python
 from inspect_ai.util import SandboxEnvironment, store_as
 
 from collaboration_index.inferencebench import pod
-from collaboration_index.inferencebench.orchestration import Lease, QueueFull
+from collaboration_index.inferencebench.orchestration import (
+    SCORING_RULE_TEXT,
+    Lease,
+    QueueFull,
+)
 from collaboration_index.inferencebench.resource import workspace
 from collaboration_index.inferencebench.session import (
     BASE_PORT,
@@ -342,53 +347,81 @@ def leased_evaluate(session: Session, actor: str) -> Tool:
                 raise ToolError(
                     f"You do not hold GPU {gpu}; yours are {sorted(lease.slots)}"
                 )
-            return await measure(lease, slot, quick)
+            return await measure(session, actor, lease, BASE_PORT + slot, quick, slot)
         finally:
             session.scheduler.unprotect(lease)
 
-    async def measure(lease: Lease, slot: int, quick: bool) -> str:
-        """Run the development evaluator against one leased GPU's port and record the check."""
-        async with recorded_check(actor=actor, slot=slot, quick=quick) as check:
-            path = f"{TASK_DIR}/metrics-{check.id}.json"
-            command = [
-                f"{TASK_DIR}/evaluate.py",
-                "--json-output-file",
-                path,
-                "--server-url",
-                f"http://127.0.0.1:{BASE_PORT + slot}",
-            ] + (["--quick"] if quick else [])
-            async with session.command():
-                check.concurrent_commands = session.running
-                before = await session.foreign_processes(slot)
-                result = await session.workspace.exec(
-                    command,
-                    env={"CUDA_VISIBLE_DEVICES": ""},
-                    timeout=session.tool_timeout,
-                    timeout_retry=False,
-                )
-                after = await session.foreign_processes(slot)
-            check.contended = (
-                None if before is None or after is None else bool(before or after)
-            )
-            if not result.success:
-                text = result.stdout + result.stderr
-                signature = pod.detect_oom(text)
-                if signature:
-                    text += session.record_oom(actor, lease, "evaluate", signature)
-                raise ToolError(text)
-            metrics = await read_metrics(session.workspace, path)
-            check.metrics, check.status = metrics, "completed"
-            check.proxy_speedup = session.proxy_speedup(metrics)
-            return json.dumps(
-                {
-                    "proxy_speedup": check.proxy_speedup,
-                    "quality_pass": (metrics.get("quality_check") or {}).get("pass"),
-                    "other_processes_on_your_gpu": check.contended,
-                    "metrics": metrics,
-                }
-            )
+    return ToolDef(evaluate, name="evaluate").as_tool()
+
+
+def open_evaluate(session: Session, actor: str) -> Tool:
+    """Measure any server on the shared machine when GPU access is unmanaged."""
+
+    async def evaluate(quick: bool = False, port: int = BASE_PORT) -> str:
+        """Measure a server on the shared development machine with the fast development evaluation.
+
+        It uses a few visible development requests and a small quality sample;
+        submit runs the hidden final evaluation.
+
+        Args:
+            quick: Use fewer requests and quality questions for a smoke test.
+            port: The port your server listens on; by convention GPU k serves on 8000 plus k.
+        """
+        if type(port) is not int or not 1 <= port <= 65535:
+            raise ToolError("port must be an integer from 1 to 65535")
+        return await measure(session, actor, None, port, quick)
 
     return ToolDef(evaluate, name="evaluate").as_tool()
+
+
+async def measure(
+    session: Session,
+    actor: str,
+    lease: Lease | None,
+    port: int,
+    quick: bool,
+    slot: int | None = None,
+) -> str:
+    """Run the development evaluator against one local port and record the check."""
+    async with recorded_check(actor=actor, slot=slot, port=port, quick=quick) as check:
+        path = f"{TASK_DIR}/metrics-{check.id}.json"
+        command = [
+            f"{TASK_DIR}/evaluate.py",
+            "--json-output-file",
+            path,
+            "--server-url",
+            f"http://127.0.0.1:{port}",
+        ] + (["--quick"] if quick else [])
+        async with session.command():
+            check.concurrent_commands = session.running
+            # other agents' processes on a leased GPU; unmanaged GPUs have no owner
+            before = None if slot is None else await session.foreign_processes(slot)
+            result = await session.workspace.exec(
+                command,
+                env={"CUDA_VISIBLE_DEVICES": ""},
+                timeout=session.tool_timeout,
+                timeout_retry=False,
+            )
+            after = None if slot is None else await session.foreign_processes(slot)
+        check.contended = (
+            None if before is None or after is None else bool(before or after)
+        )
+        if not result.success:
+            text = result.stdout + result.stderr
+            signature = pod.detect_oom(text)
+            if signature:
+                text += session.record_oom(actor, lease, "evaluate", signature)
+            raise ToolError(text)
+        metrics = await read_metrics(session.workspace, path)
+        check.metrics, check.status = metrics, "completed"
+        check.proxy_speedup = session.proxy_speedup(metrics)
+        reply: dict[str, Any] = {
+            "proxy_speedup": check.proxy_speedup,
+            "quality_pass": (metrics.get("quality_check") or {}).get("pass"),
+        }
+        if slot is not None:
+            reply["other_processes_on_your_gpu"] = check.contended
+        return json.dumps({**reply, "metrics": metrics})
 
 
 def submit_tool(session: Session, actor: str) -> Tool:
@@ -399,15 +432,17 @@ def submit_tool(session: Session, actor: str) -> Tool:
         """Submit the current /home/agent/task for the hidden final evaluation.
 
         The snapshot is graded later, one submission at a time, on a separate
-        H100: ./start_server.sh is launched fresh with PORT=8000 and measured
+        GPU: ./start_server.sh is launched fresh with PORT=8000 and measured
         on held-out requests and the quality gate. Everything the server needs
         must be inside /home/agent/task. You may submit any number of times,
         but submit refuses new content while the maximum number of snapshots
         are waiting for or in grading. An identical snapshot reuses the earlier
-        grade. The most recent submission is the final answer; earlier ones
-        are still graded and reported.
+        grade. Every submission is graded and reported; the task instructions
+        say which one sets the score.
         """
         async with session.pack_lock:
+            # measure when the snapshot starts, not after a long pack and copy
+            measures = session.measures()
             try:
                 info, local = await session.snapshot(limit)
             except ToolError:
@@ -420,7 +455,7 @@ def submit_tool(session: Session, actor: str) -> Tool:
                 ) from error
         try:
             item = await session.queue.submit(
-                actor, info["digest"], info["bytes"], str(local)
+                actor, info["digest"], info["bytes"], str(local), measures
             )
         except QueueFull as error:
             raise ToolError(
@@ -443,8 +478,8 @@ def submit_tool(session: Session, actor: str) -> Tool:
         return (
             f"Submission #{item.number} recorded ({info['files']} files, "
             f"{info['bytes']} bytes compressed); {session.queue.pending()} waiting for "
-            f"or in grading.{reuse} It is now the team's final answer. Results appear "
-            "in your updates and through submissions."
+            f"or in grading.{reuse} Once graded, {SCORING_RULE_TEXT[session.queue.scoring]}. "
+            "Results appear in your updates and through submissions."
         )
 
     return ToolDef(submit, name="submit").as_tool()
@@ -461,10 +496,11 @@ def submissions_tool(session: Session, actor: str) -> Tool:
         """
         # this listing reports every result, so later updates do not repeat them
         session.queue.unseen(actor)
-        latest = session.queue.latest()
+        selected = session.queue.select()
         return json.dumps(
             {
-                "final_answer": latest.number if latest else None,
+                "scoring_rule": SCORING_RULE_TEXT[session.queue.scoring],
+                "currently_scored_submission": selected.number if selected else None,
                 "submissions": [
                     session.queue.view(actor, item) for item in session.queue.items
                 ],
@@ -490,14 +526,25 @@ def peer_tools(tools: list[Tool], lock: asyncio.Lock, actor: str) -> list[Tool]:
         if name in {"bash", "python"}:
             bound.append(leased_tool(item, session, actor))
         elif name == "evaluate":
-            bound.append(leased_evaluate(session, actor))
+            bound.append(
+                leased_evaluate(session, actor)
+                if session.managed
+                else open_evaluate(session, actor)
+            )
         else:
             bound.append(item)
     return bound + [
-        gpu_tool(session, actor),
+        *([gpu_tool(session, actor)] if session.managed else []),
         submit_tool(session, actor),
         submissions_tool(session, actor),
     ]
+
+
+def bind_meters(meters: dict[str, Any]) -> None:
+    """Let the session read the harness's per-peer token meters for submission records."""
+    session = current()
+    if session is not None:
+        session.meters = meters
 
 
 def decision_notes(actor: str) -> str:
@@ -517,9 +564,13 @@ def decision_notes(actor: str) -> str:
         )
     if not lines:
         return ""
-    latest = session.queue.latest()
-    if latest is not None:
-        lines.append(f"The final answer is submission #{latest.number}.")
+    selected = session.queue.select()
+    lines.append(
+        f"Submission #{selected.number} currently sets the score "
+        f"({SCORING_RULE_TEXT[session.queue.scoring]})."
+        if selected
+        else "No valid submission yet; the score is the 1.0 baseline."
+    )
     return "\n".join(lines)
 
 

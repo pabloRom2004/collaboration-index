@@ -98,11 +98,12 @@ The settings are in the `orchestration` block of
 [default.yaml](../src/collaboration_index/inferencebench/run_configs/default.yaml).
 Each team sample then owns two RunPod pods:
 
-- The workspace pod has `workspace_gpus` H100s (1 to 8). Peers work there. It
+- The workspace pod has `workspace_gpus` GPUs (1 to 8, H100 unless the provider
+  config names another type). Peers work there. It
   gets development requests, MMLU-Pro questions from the separate
   `dev_eval.quality_seed` and a development Transformers baseline. It does not
   get the held-out requests, seeds or baseline.
-- The grading pod has one H100. The upstream preparation measures the held-out
+- The grading pod has one GPU of the same type. The upstream preparation measures the held-out
   baseline and quality reference there. Peers reach it only through `submit`.
 
 Peers get these tools in addition to `bash`, `python`, `web_search` and the
@@ -157,23 +158,54 @@ decimals, which is 1.0 for every outcome but `valid`. Peers see results in
 their next update and through `submissions`, never logs or inputs from the
 grading pod.
 
-The latest submission is the team's final answer. After all peers finish and
-the queue is graded, the upstream scorer restarts the grading pod and measures
-the latest submission. It calls the integrity judge only when the submission is
-valid, passes the quality gate and has successful requests in every profile;
-otherwise the score is 1.0. A team without a submission scores 1.0.
+`scoring` selects the submission that sets the score. Only submissions with
+the outcome `valid` count. `best_submit` (the default) selects the valid
+submission with the highest in-run speedup, the earliest one on a tie.
+`last_submit` selects the most recent valid submission, even when an earlier
+one was faster. After all peers finish and the queue is graded, the upstream
+scorer restarts the grading pod and measures the selected submission again. It
+calls the integrity judge only when that measurement is valid, passes the
+quality gate and has successful requests in every profile; otherwise the score
+is 1.0, without a fallback to another submission. A team without a valid
+submission scores 1.0.
+
+`gpu_access: unmanaged` replaces the leases: every command sees every
+workspace GPU (`CUDA_VISIBLE_DEVICES` lists all of them, `PORT=8000`), there is
+no `gpu` tool, and `evaluate` takes a `port` (default 8000) instead of a `gpu`.
+The monitor still records GPU use but does not audit or stop processes, so
+`enforce: kill` is rejected in this mode. `max_parallel_commands` still bounds
+concurrent foreground commands, because each command opens its own SSH
+connection to the pod.
 
 `token_budget: {mode, tokens}` needs this mode and `token_limit_per_agent:
 null`; `tokens` must be at least the number of agents. `split` gives each peer
-`tokens // agents`. `shared` gives the team one pool: each peer stops after the
-turn that brings the team's usage to the pool, so the total can exceed
-`tokens`.
+`tokens // agents` and leaves the remainder, fewer than `agents` tokens,
+unallocated (`unallocated_tokens` in the task metadata). `shared` gives the
+team one pool: each peer stops after the turn that brings the team's usage to
+the pool, so the total can exceed `tokens`.
 
 `InferenceHistory:orchestration` in the sample store holds the lease summary,
 GPU usage, submission ledger and events. The sample's artifact directory holds
 one line per monitor sample in `gpu-samples.jsonl`, every snapshot archive as
 `submissions/<digest>.tar.gz`, and for each graded submission N its
 `submissions/N/final.json`, `final-server.log` and `final-evaluator.log`.
+`submissions.jsonl` has one line per submission with its grade, trusted
+validation reasons, archive and the measures taken when its snapshot started:
+UTC time, seconds since the team started, the team's total agent tokens, and
+busy and allocated workspace GPU-seconds. `final-submission.json` names the
+submission and archive that set the score. The `evaluation` flags in
+default.yaml switch these records on or off; with `save_submitted_artifacts:
+false`, every archive except the scored one is deleted after final scoring.
+
+`scripts/inferencebench_experiment.yaml` describes a whole experiment (team
+size, GPUs, base model, budget, epochs, scoring, scenarios, agent model and GPU
+access). `scripts/inferencebench_experiment.py plan` prints the resolved runs
+and GPU totals; `run --integrity-model MODEL` starts one Inspect eval with one
+task per scenario. The scenarios run at the same time; `epoch_sequential`
+decides whether a scenario's epochs run one after another or all at once,
+each with its own pods and agents. Its default `budget: time` sets an explicit
+wall-clock limit per run, which differs from this repository's token-only
+default.
 
 `scripts/inferencebench_scaling.py plan DESIGN --out DIR` writes one run config
 per attempt of a team-size design and a `manifest.json` with the commands in a

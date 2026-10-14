@@ -12,7 +12,7 @@ import re
 import time
 from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -88,7 +88,8 @@ def workspace_gpu_config(source: str | None, gpus: int, folder: Path) -> str:
     """Write a provider config that differs from the grading pod only in its GPU count."""
     config = load_config(source or "runpod.yaml")
     config["pod"]["gpuCount"] = gpus
-    path = folder / f"workspace-{gpus}gpu.yaml"
+    # concurrent samples share the folder, so each writes its own file
+    path = folder / f"workspace-{gpus}gpu-{uuid4().hex[:12]}.yaml"
     path.write_text(yaml.safe_dump(config))
     return str(path)
 
@@ -163,6 +164,24 @@ def classify_final(
     return {"outcome": "valid", "speedup": round(value, 2), "quality_pass": True}
 
 
+def validation_record(
+    metrics: dict[str, Any], public: dict[str, Any]
+) -> dict[str, Any]:
+    """Keep the trusted reasons behind a submission's outcome; peers never see these."""
+    quality = metrics.get("quality_check") or {}
+    profiles = metrics.get("profiles") or {}
+    return {
+        "outcome": public["outcome"],
+        "invalid_submission": metrics.get("invalid_submission"),
+        "evaluator_error": metrics.get("evaluator_error"),
+        "quality_pass": quality.get("pass"),
+        "quality_error": quality.get("error"),
+        "profiles_without_success": sorted(
+            name for name, p in profiles.items() if p.get("success_count", 0) == 0
+        ),
+    }
+
+
 class Session:
     """Hold the attempt's pods, lease scheduler, submission queue, monitor and notices."""
 
@@ -188,10 +207,16 @@ class Session:
         self.scenario = metadata["scenario"]
         self.dev_baseline = dev_baseline
         self.held_out_baseline = held_out_baseline
+        self.managed = options["gpu_access"] == "scheduler"
+        self.flags: dict[str, bool] = options["evaluation"]
         self.scheduler = GpuScheduler(
             options["workspace_gpus"], options["lease_seconds"]
         )
-        self.queue = SubmissionQueue(options["max_pending_submissions"])
+        self.queue = SubmissionQueue(
+            options["max_pending_submissions"], options["scoring"]
+        )
+        # the harness's per-peer token meters, bound when peers start
+        self.meters: dict[str, Any] = {}
         self.usage = GpuUsage(options["monitor_seconds"])
         self.commands = asyncio.Semaphore(options["max_parallel_commands"])
         self.pack_lock = asyncio.Lock()
@@ -212,18 +237,46 @@ class Session:
         }
 
     def lease_env(self, lease: Lease | None) -> dict[str, str]:
-        """Expose a peer's leased GPUs and their server ports to its commands, or hide every GPU."""
-        if lease is None or not lease.slots:
+        """Expose a peer's leased GPUs, or every GPU in unmanaged mode, with their server ports."""
+        if lease is not None and lease.slots:
+            slots = sorted(lease.slots)
+        elif not self.managed:
+            slots = list(range(self.options["workspace_gpus"]))
+        else:
             return {"CUDA_VISIBLE_DEVICES": "", "CUDA_DEVICE_ORDER": "PCI_BUS_ID"}
-        slots = sorted(lease.slots)
-        return {
+        env = {
             "CUDA_VISIBLE_DEVICES": ",".join(map(str, slots)),
             "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
             "PORT": str(BASE_PORT + slots[0]),
             "INFERENCEBENCH_GPUS": ",".join(map(str, slots)),
             "INFERENCEBENCH_PORTS": ",".join(str(BASE_PORT + s) for s in slots),
-            pod.LEASE_VAR: lease.token,
         }
+        if lease is not None:
+            env[pod.LEASE_VAR] = lease.token
+        return env
+
+    def measures(self) -> dict[str, Any]:
+        """Record time, team tokens and GPU-seconds at a submission, as the evaluation flags select."""
+        now = time.time()
+        released = store_as(TeamHistory).released
+        elapsed = (
+            now - datetime.fromisoformat(released).timestamp() if released else None
+        )
+        measured: dict[str, Any] = {}
+        if self.flags["record_wall_clock_timestamp"]:
+            measured["submitted_at"] = datetime.fromtimestamp(now, UTC).isoformat()
+            measured["seconds_since_release"] = elapsed
+        if self.flags["record_cumulative_agent_tokens"]:
+            measured["cumulative_agent_tokens"] = sum(
+                int(meter.usage) for meter in self.meters.values()
+            )
+        if self.flags["record_cumulative_gpu_seconds"]:
+            # busy: monitor probes with utilization >= 1%; allocated: workspace GPUs x elapsed
+            measured["cumulative_gpu_busy_seconds"] = self.usage.busy_seconds()
+            measured["cumulative_gpu_allocated_seconds"] = (
+                None if elapsed is None else elapsed * self.options["workspace_gpus"]
+            )
+        return measured
 
     def names(self) -> dict[str, str]:
         """Map each peer to the board name it registered, for GPU status shown to teammates."""
@@ -265,10 +318,14 @@ class Session:
             source=source,
             signature=signature,
         )
+        clear = (
+            "Stop stale processes, or release and re-acquire the lease to clear them"
+            if self.managed
+            else "Check which processes use the GPU (nvidia-smi) and stop stale ones you own"
+        )
         return (
-            f"\n[GPU out of memory: {signature!r}. Stop stale processes, or release and "
-            "re-acquire the lease to clear them, and lower memory use (for example "
-            "gpu_memory_utilization, max_num_seqs or max_model_len) before retrying.]"
+            f"\n[GPU out of memory: {signature!r}. {clear}, and lower memory use (for "
+            "example gpu_memory_utilization, max_num_seqs or max_model_len) before retrying.]"
         )
 
     async def kill(
@@ -398,7 +455,8 @@ class Session:
             return previous
         now = time.monotonic()
         holders = {slot: lease.token for slot, lease in self.scheduler.holders.items()}
-        violations = pod.audit(sample, holders)
+        # without leases every GPU process is allowed, so there is nothing to audit
+        violations = pod.audit(sample, holders) if self.managed else []
         # usage covers solving time only, from the release barrier onwards
         released = store_as(TeamHistory).released is not None
         if released:
@@ -533,7 +591,10 @@ class Session:
         # peers see only the outcome category and rounded speedup; the server log
         # can contain held-out data
         public = classify_final(metrics, self.held_out_baseline, self.scenario)
-        return public, {"metrics_file": str(folder / "final.json")}
+        detail: dict[str, Any] = {"metrics_file": str(folder / "final.json")}
+        if self.flags["record_validation_errors"]:
+            detail["validation"] = validation_record(metrics, public)
+        return public, detail
 
     def proxy_speedup(self, metrics: dict[str, Any]) -> float | None:
         """Compare development measurements with the development Transformers baseline."""
@@ -544,25 +605,84 @@ class Session:
         self, released: float | None, completed: float | None
     ) -> dict[str, Any]:
         """Collect lease, GPU, submission and failure measurements over the solving interval."""
+        submissions = self.queue.summary(
+            released if released is not None else self.scheduler.started
+        )
+        if not self.flags["log_all_submissions"]:
+            submissions["items"] = [
+                item
+                for item in submissions["items"]
+                if item["number"] == submissions["final_submission"]
+            ]
         return {
             "options": self.options,
             "leases": self.scheduler.summary(released, completed),
             "gpu": self.usage.summary(),
-            "submissions": self.queue.summary(
-                released if released is not None else self.scheduler.started
-            ),
+            "submissions": submissions,
             "events": self.events,
             "oom_events": sum(e["kind"] == "oom" for e in self.events),
         }
 
+    def ledger(self) -> list[dict[str, Any]]:
+        """Describe every submission with its shared grade, measures and archive, one row each."""
+        selected = self.queue.select()
+        rows = []
+        for item in self.queue.items:
+            source = self.queue.origin(item)
+            rows.append(
+                {
+                    "number": item.number,
+                    "actor": item.actor,
+                    "digest": item.digest,
+                    "bytes": item.size,
+                    "status": source.status if item.same_as else item.status,
+                    "same_content_as": item.same_as,
+                    "submitted_at_epoch": item.submitted_at,
+                    "grading_started_at_epoch": source.started_at,
+                    "grading_finished_at_epoch": source.finished_at,
+                    "result": source.result,
+                    "detail": source.detail,
+                    "measures": item.measures,
+                    "archive": item.archive if Path(item.archive).exists() else None,
+                    "selected": item is selected,
+                }
+            )
+        return rows
+
     def persist(self) -> None:
-        """Copy the current measurements into the sample store so failed runs keep them."""
+        """Copy the current measurements into the sample store and ledger so failed runs keep them."""
         history = store_as(TeamHistory)
         released, completed = (
             datetime.fromisoformat(value).timestamp() if value else None
             for value in (history.released, history.completed)
         )
         store_as(InferenceHistory).orchestration = self.summary(released, completed)
+        if self.flags["log_all_submissions"] and self.queue.items:
+            path = self.artifacts / "submissions.jsonl"
+            partial = path.with_name(path.name + ".partial")
+            partial.write_text("".join(json.dumps(r) + "\n" for r in self.ledger()))
+            partial.replace(path)
+
+    def finalize(self, selected: Submission | None, score: Any) -> None:
+        """Record which archive set the score and, unless all are kept, delete the others."""
+        record = {
+            "scoring": self.queue.scoring,
+            "submission": selected.number if selected else None,
+            "digest": selected.digest if selected else None,
+            "archive": selected.archive if selected else None,
+            "in_run_result": self.queue.origin(selected).result if selected else None,
+            "final_score": score,
+        }
+        (self.artifacts / "final-submission.json").write_text(
+            json.dumps(record, indent=2)
+        )
+        if not self.flags["save_submitted_artifacts"]:
+            # the scored archive is always kept so the final server can be reproduced
+            keep = selected.archive if selected else None
+            for item in self.queue.items:
+                if item.archive != keep:
+                    Path(item.archive).unlink(missing_ok=True)
+        self.persist()
 
     async def stop(self, *names: str) -> None:
         """Cancel the named background tasks, or all of them, and wait for them to exit."""

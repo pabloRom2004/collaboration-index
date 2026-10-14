@@ -42,24 +42,15 @@ LEASED_GPUS = Prompt(
     origin="Collaboration Index adaptation of InferenceBench with GPU leases and graded submissions",
     prompt="""{context}
 
-GPUs: the gpu tool gives you exclusive GPUs; ask for several with count. Your
-bash and python commands see only the GPUs you hold (CUDA_VISIBLE_DEVICES).
-PORT is your first GPU's server port, and INFERENCEBENCH_GPUS and
-INFERENCEBENCH_PORTS list all of yours; GPU number k serves on port 8000+k.
-To run one server per GPU, set CUDA_VISIBLE_DEVICES and PORT for each server.
-Without GPUs, CUDA_VISIBLE_DEVICES is empty, and GPU use outside your GPUs is
-recorded. The final evaluation runs your server on one GPU. Give back GPUs you
-do not need. When one of several GPUs leaves you, your GPU processes whose
-CUDA_VISIBLE_DEVICES includes it are stopped; when your last GPU leaves you,
-every process you started while holding GPUs is stopped.{shared}
+GPUs: {gpus}
 
-Development feedback: evaluate measures the server on your leased GPU with
+Development feedback: evaluate measures {evaluate_target} with
 {requests} visible development requests and {quality} quality questions
 (quick mode: {quick_requests} and {quick_quality}). It is fast and approximates
 the final evaluation.
 
 Submissions: submit snapshots /home/agent/task for the hidden final
-evaluation. Snapshots are graded later, one at a time, on a separate H100:
+evaluation. Snapshots are graded later, one at a time, on a separate GPU of the same type:
 the evaluator starts ./start_server.sh fresh with PORT=8000 on one GPU and
 measures held-out requests and the quality gate. This is slower than evaluate
 and is the real measurement. Everything the server needs, including
@@ -69,28 +60,68 @@ not submitted. {submitters} submit at any time, any number of times, but
 while {pending} snapshots wait for or are in grading, submit refuses new
 content until a result arrives. A snapshot identical to an earlier one reuses
 its grade. Every submission is graded, and {recipients} its outcome and
-speedup; results contain no logs or inputs from the final evaluation. The
-most recent submission is the final answer and alone sets the score; without
-a submission the score is the 1.0 baseline. The Output Contract and Final
-Evaluation sections above apply to each submission; a server that is still
-running when the session ends is not scored.""",
+speedup; results contain no logs or inputs from the final evaluation.
+{scoring} Without a valid submission the score is the 1.0 baseline. After
+the session ends, the submission that sets the score is measured once more
+with an integrity review. The Output Contract and Final Evaluation sections
+above apply to each submission; a server that is still running when the
+session ends is not scored.""",
 )
+
+# the GPU paragraph for each gpu_access mode; {shared} adds the team sentences
+GPU_TEXT = {
+    "scheduler": (
+        "the gpu tool gives you exclusive GPUs; ask for several with count. Your "
+        "bash and python commands see only the GPUs you hold (CUDA_VISIBLE_DEVICES). "
+        "PORT is your first GPU's server port, and INFERENCEBENCH_GPUS and "
+        "INFERENCEBENCH_PORTS list all of yours; GPU number k serves on port 8000+k. "
+        "To run one server per GPU, set CUDA_VISIBLE_DEVICES and PORT for each server. "
+        "Without GPUs, CUDA_VISIBLE_DEVICES is empty, and GPU use outside your GPUs is "
+        "recorded. The final evaluation runs your server on one GPU. Give back GPUs you "
+        "do not need. When one of several GPUs leaves you, your GPU processes whose "
+        "CUDA_VISIBLE_DEVICES includes it are stopped; when your last GPU leaves you, "
+        "every process you started while holding GPUs is stopped.{shared}"
+    ),
+    "unmanaged": (
+        "your bash and python commands see every GPU of the machine "
+        "(CUDA_VISIBLE_DEVICES lists all of them), and nothing reserves a GPU for you. "
+        "INFERENCEBENCH_GPUS and INFERENCEBENCH_PORTS list every GPU and its port; by "
+        "convention GPU number k serves on port 8000+k, and PORT is 8000. To run a "
+        "server on chosen GPUs, set CUDA_VISIBLE_DEVICES and PORT for it. The final "
+        "evaluation runs your server on one GPU.{shared}"
+    ),
+}
+EVALUATE_TARGET = {
+    "scheduler": "the server on your leased GPU",
+    "unmanaged": "the server on a port you choose (default 8000)",
+}
+SCORING_TEXT = {
+    "best_submit": (
+        "The valid submission with the highest speedup sets the score; a later, "
+        "slower submission does not lower it."
+    ),
+    "last_submit": (
+        "The most recent valid submission sets the score, even when an earlier one "
+        "was faster; a submission that is not valid never replaces it."
+    ),
+}
 
 # sentences that differ between one agent and a team; the rest of LEASED_GPUS is shared
 SOLO_TEXT = {
-    "machine": "You have one development machine with {gpus} H100 GPU(s); your files are in /home/agent/task.",
-    "shared": "",
+    "machine": "You have one development machine with {gpus} GPU(s); your files are in /home/agent/task.",
+    "scheduler": "",
+    "unmanaged": "",
     "submitters": "You may",
     "recipients": "you receive",
 }
 TEAM_TEXT = {
     "machine": (
         "Use message_board to choose a unique name, discover teammates and coordinate. "
-        "All agents share one development machine with {gpus} H100 GPU(s) and the files "
+        "All agents share one development machine with {gpus} GPU(s) and the files "
         "in /home/agent/task. Your model histories are separate; teammates cannot see "
         "your reasoning or replies. No agent has an assigned role."
     ),
-    "shared": (
+    "scheduler": (
         " An agent without a GPU is always served before anyone gets an extra GPU: "
         "extra GPUs are lent only while nobody waits and are taken back first when "
         "someone does. A lease older than {lease_minutes:g} minutes can be taken back "
@@ -98,6 +129,11 @@ TEAM_TEXT = {
         "or evaluate calls runs. gpu status shows who holds each GPU and their note. "
         "Files and background processes are shared, so coordinate edits and server "
         "lifecycles."
+    ),
+    "unmanaged": (
+        " Teammates' commands run at the same time as yours and can use the same "
+        "GPUs, ports and files, so agree on the message board who uses which GPU and "
+        "port, and coordinate edits and server lifecycles."
     ),
     "submitters": "Any agent may",
     "recipients": "all agents receive",
@@ -110,7 +146,7 @@ CONTINUE_SUBMIT = Prompt(
     prompt=(
         "You stopped without tool calls while budget remains. Continue improving and "
         "measuring the inference server with evaluate, and submit versions you want "
-        "graded. The most recent submission is the final answer."
+        "graded. Every submission is graded."
     ),
 )
 
@@ -148,8 +184,9 @@ def workspace_prompt(agents: int) -> str:
 
 
 def leased_gpu_prompt(agents: int, session: Session) -> str:
-    """Render the leased-GPU instructions, without team wording for a single agent."""
+    """Render the GPU and submission instructions for the access mode and scoring rule, without team wording for a single agent."""
     options, dev = session.options, session.options["dev_eval"]
+    access = options["gpu_access"]
     text = SOLO_TEXT if agents == 1 else TEAM_TEXT
     notes = "You can use message_board for your own notes." if agents == 1 else ""
     context = [
@@ -158,9 +195,12 @@ def leased_gpu_prompt(agents: int, session: Session) -> str:
         text["machine"].format(gpus=options["workspace_gpus"]),
         budget_text(session.budget, agents),
     ]
+    shared = text[access].format(lease_minutes=options["lease_seconds"] / 60)
     return LEASED_GPUS.prompt.format(
         context=" ".join(part for part in context if part),
-        shared=text["shared"].format(lease_minutes=options["lease_seconds"] / 60),
+        gpus=GPU_TEXT[access].format(shared=shared),
+        evaluate_target=EVALUATE_TARGET[access],
+        scoring=SCORING_TEXT[options["scoring"]],
         submitters=text["submitters"],
         recipients=text["recipients"],
         requests=dev["requests"],

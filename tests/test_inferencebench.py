@@ -284,7 +284,15 @@ def test_task_configuration_and_validation() -> None:
         task.dataset[0].metadata["base_model"] == "mistralai/Mistral-7B-Instruct-v0.3"
     )
     with pytest.raises(ValueError, match="team sizes"):
-        inferencebench(agents=33)
+        inferencebench(agents=65)
+    assert inferencebench(agents=64, token_limit_per_agent=10).metadata["agents"] == 64
+    with pytest.raises(ValueError, match="scoring"):
+        inferencebench(token_limit_per_agent=10, scoring="first_submit")
+    flags = {**ARGS["evaluation"], "record_wall_clock_timestamp": "yes"}
+    with pytest.raises(ValueError, match="evaluation"):
+        inferencebench(token_limit_per_agent=10, evaluation=flags)
+    with pytest.raises(ValueError, match="evaluation"):
+        inferencebench(token_limit_per_agent=10, evaluation={})
     with pytest.raises(ValueError, match="time limit or a per-agent token limit"):
         inferencebench()
     workload = copy.deepcopy(ARGS["workload"])
@@ -315,6 +323,16 @@ def test_task_configuration_and_validation() -> None:
         inferencebench(
             token_limit_per_agent=10, gpu_management="controller", orchestration=bad
         )
+    for change, message in [
+        ({"gpu_access": "shared"}, "gpu_access"),
+        ({"gpu_access": "unmanaged", "enforce": "kill"}, "needs gpu_access"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            inferencebench(
+                token_limit_per_agent=10,
+                gpu_management="controller",
+                orchestration={**leased, **change},
+            )
     with pytest.raises(ValueError, match="needs orchestration enabled"):
         inferencebench(agents=4, token_budget={"mode": "split", "tokens": 1000})
     with pytest.raises(ValueError, match="without token_limit_per_agent"):
@@ -837,6 +855,11 @@ def test_inferencebench_docker_tools(
 class LeasedPod(FixtureSandbox):
     """Answer the pod.py, inventory and snapshot commands of the leased-GPU mode."""
 
+    # final measurements per installed archive; tests patch it, and empty keeps METRICS
+    graded: dict[bytes, dict[str, Any]] = {}
+    # GPU processes every probe reports; tests patch it
+    processes: list[dict[str, Any]] = []
+
     def __init__(self, role: str, gpus: int = 1) -> None:
         """Name the pod's role and GPU count so tests can check which inputs reached it."""
         super().__init__()
@@ -845,6 +868,7 @@ class LeasedPod(FixtureSandbox):
         self.envs: list[dict[str, str]] = []
         self.packs = 0
         self.kills: list[str] = []
+        self.installed = b""
 
     async def exec(self, cmd: list[str], **kwargs: Any) -> ExecResult[str]:
         """Simulate pod operations and record the environment of participant commands."""
@@ -871,14 +895,22 @@ class LeasedPod(FixtureSandbox):
                     }
                     for index in range(self.gpus)
                 ],
-                "processes": [],
+                "processes": self.processes,
             }
             return ExecResult(True, 0, json.dumps(sample) + "\n", "")
         if "pod.py kill" in text:
             self.kills.append(text)
             return ExecResult(True, 0, '{"killed": []}\n', "")
         if "pod.py unpack" in text:
+            archive = self.files.get("/tmp/inferencebench/submission.tar.gz", b"")
+            self.installed = archive if isinstance(archive, bytes) else archive.encode()
             return ExecResult(True, 0, '{"files": 1}\n', "")
+        if "final" in cmd and self.installed in self.graded:
+            self.files["/tmp/inferencebench/final.json"] = json.dumps(
+                self.graded[self.installed]
+            )
+            self.files["/tmp/inferencebench/final-server.log"] = "authored final"
+            return ExecResult(True, 0, "", "")
         if "pod.py workspace" in text:
             self.files["/opt/inferencebench-dev/baseline.json"] = json.dumps(
                 {"profiles": {"fixture": {"success_count": 5, "ttft": {"p50": 2.0}}}}
@@ -968,6 +1000,7 @@ def leased_task(
     agents: int = 2,
     gpus: int = 1,
     tokens: int = 600,
+    **options: Any,
 ) -> tuple[Any, list[LeasedPod]]:
     """Build a leased-GPU task whose grading and workspace pods are authored fixtures."""
     from collaboration_index.inferencebench.backend import environment
@@ -990,12 +1023,14 @@ def leased_task(
     monkeypatch.setattr(environment, "BASELINE_CACHE", tmp_path / "baselines")
     orchestration = copy.deepcopy(ARGS["orchestration"])
     orchestration.update(enabled=True, monitor_seconds=0.05, workspace_gpus=gpus)
+    orchestration.update(options.pop("orchestration", {}))
     task = inferencebench(
         agents=agents,
         token_budget={"mode": "shared", "tokens": tokens},
         artifact_dir=str(tmp_path),
         gpu_management="controller",
         orchestration=orchestration,
+        **options,
     )
     return task, pods
 
@@ -1114,3 +1149,126 @@ def test_leased_gpus_without_submission_scores_baseline(
     score = sample.scores["inference_team_speedup"]
     assert score.value["speedup"] == 1.0 and score.metadata["submitted"] is False
     assert all(p.restarts == 0 and p.terminated for p in pods)
+
+
+def unmanaged_model() -> Any:
+    """Script one agent that uses every GPU without a lease, measures a chosen port and submits twice."""
+
+    async def reply(
+        messages: list[Any], tools: Any, choice: Any, config: Any
+    ) -> ModelOutput:
+        """Follow one fixed tool sequence and check that no tool call failed."""
+        names = {t.name for t in tools}
+        assert {"bash", "python", "evaluate", "submit", "submissions"} <= names
+        assert "gpu" not in names
+        done = [m for m in messages if isinstance(m, ChatMessageTool)]
+        assert not [m.error for m in done if m.error]
+        plan = [
+            ("bash", {"command": "fixture-gpu-work"}),
+            ("evaluate", {"quick": True, "port": 8001}),
+            ("submit", {}),
+            ("bash", {"command": "fixture-edit"}),
+            ("submit", {}),
+            ("submissions", {}),
+        ]
+        if len(done) < len(plan):
+            output = ModelOutput.for_tool_call("mockllm/model", *plan[len(done)])
+        else:
+            output = ModelOutput.from_content("mockllm/model", "Fixture idles.")
+        output.usage = ModelUsage(input_tokens=20, output_tokens=10, total_tokens=30)
+        return output
+
+    return get_model("mockllm/model", custom_outputs=reply)
+
+
+@pytest.mark.parametrize(
+    ("scoring", "expected", "speedup"),
+    [("best_submit", 1, 4.0), ("last_submit", 2, 2.0)],
+)
+def test_unmanaged_gpus_scoring_rules_and_submission_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    scoring: str,
+    expected: int,
+    speedup: float,
+) -> None:
+    """Show every GPU without leases, record each submission and re-grade the one the scoring rule selects."""
+    fast = {
+        "profiles": {"fixture": {"success_count": 10, "ttft": {"p50": 0.5}}},
+        "quality_check": {"pass": True},
+    }
+    # the first snapshot is twice as fast as the second
+    monkeypatch.setattr(
+        LeasedPod,
+        "graded",
+        {b"authored submission 1": fast, b"authored submission 2": METRICS},
+    )
+    # a process without a lease would be flagged in scheduler mode
+    monkeypatch.setattr(
+        LeasedPod,
+        "processes",
+        [{"pid": 4242, "token": None, "command": "python serve.py", "gpus": [0]}],
+    )
+    keep_all = scoring == "best_submit"
+    task, pods = leased_task(
+        tmp_path,
+        monkeypatch,
+        agents=1,
+        gpus=2,
+        orchestration={"gpu_access": "unmanaged"},
+        scoring=scoring,
+        evaluation={**ARGS["evaluation"], "save_submitted_artifacts": keep_all},
+    )
+    [log] = inspect_eval(
+        task,
+        model=unmanaged_model(),
+        model_roles={"integrity": passing_judge()},
+        log_dir=str(LOGS),
+        display="none",
+    )
+    assert log.status == "success", log.error.traceback if log.error else None
+    workspace = next(p for p in pods if p.role == "workspace")
+    assert workspace.envs and all(
+        env["CUDA_VISIBLE_DEVICES"] == "0,1"
+        and env["INFERENCEBENCH_PORTS"] == "8000,8001"
+        and "INFERENCEBENCH_GPU_LEASE" not in env
+        for env in workspace.envs
+    )
+    sample = read_eval_log(log.location).samples[0]
+    score = sample.scores["inference_team_speedup"]
+    assert score.value["speedup"] == speedup
+    assert score.metadata["scoring"] == scoring
+    assert score.metadata["final_submission"] == expected
+    [check] = sample.store["InferenceHistory:checks"]
+    # the log store omits None fields
+    assert check["port"] == 8001 and check.get("slot") is None
+    assert check["proxy_speedup"] == 2.0
+    measured = sample.store["InferenceHistory:orchestration"]
+    assert measured["leases"]["grants"] == 0
+    assert measured["gpu"]["samples"] > 0
+    assert measured["gpu"]["unleased_gpu_process_observations"] == 0
+    assert not any(e["kind"] == "unleased_gpu_use" for e in measured["events"])
+    assert not any("--pid=" in command for command in workspace.kills)
+    artifacts = Path(sample.store["artifacts"])
+    ledger = [
+        json.loads(line)
+        for line in (artifacts / "submissions.jsonl").read_text().splitlines()
+    ]
+    assert [row["result"]["speedup"] for row in ledger] == [4.0, 2.0]
+    assert [row["selected"] for row in ledger] == [expected == 1, expected == 2]
+    for row in ledger:
+        measures = row["measures"]
+        assert "submitted_at" in measures and measures["seconds_since_release"] >= 0
+        assert measures["cumulative_agent_tokens"] > 0
+        assert measures["cumulative_gpu_busy_seconds"] >= 0
+        assert measures["cumulative_gpu_allocated_seconds"] >= 0
+        assert row["detail"]["validation"]["outcome"] == "valid"
+    tokens = [row["measures"]["cumulative_agent_tokens"] for row in ledger]
+    assert tokens[1] > tokens[0]
+    final = json.loads((artifacts / "final-submission.json").read_text())
+    assert final["submission"] == expected and Path(final["archive"]).is_file()
+    archives = list((artifacts / "submissions").glob("*.tar.gz"))
+    assert len(archives) == (2 if keep_all else 1)
+    assert [row["archive"] is not None for row in ledger] == (
+        [True, True] if keep_all else [False, True]
+    )

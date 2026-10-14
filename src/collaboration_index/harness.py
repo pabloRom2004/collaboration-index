@@ -215,6 +215,10 @@ def team_agents(
             clock = {"released": 0.0}
             # every peer's native meter; a shared pool ends peers when their sum reaches it
             meters: dict[str, Any] = {}
+            if history.benchmark == "inferencebench":
+                from collaboration_index.inferencebench.tools import bind_meters
+
+                bind_meters(meters)
 
             def pool_used() -> int:
                 """Return the team's current total usage against a shared token pool."""

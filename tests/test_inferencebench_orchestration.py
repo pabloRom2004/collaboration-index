@@ -40,10 +40,16 @@ class Clock:
         return self.now
 
 
-def test_leased_gpu_prompt_has_team_wording_only_for_teams() -> None:
-    """Fill every placeholder and keep team sentences out of the solo prompt."""
+@pytest.mark.parametrize("access", ["scheduler", "unmanaged"])
+@pytest.mark.parametrize("scoring", ["best_submit", "last_submit"])
+def test_leased_gpu_prompt_has_team_wording_only_for_teams(
+    access: str, scoring: str
+) -> None:
+    """Fill every placeholder, describe the access mode and scoring rule, and keep team sentences out of the solo prompt."""
     options = {
         "workspace_gpus": 2,
+        "gpu_access": access,
+        "scoring": scoring,
         "lease_seconds": 1800,
         "max_pending_submissions": 3,
         "dev_eval": {
@@ -60,12 +66,20 @@ def test_leased_gpu_prompt_has_team_wording_only_for_teams() -> None:
         assert word not in solo_text, word
     assert "pool of 1,000 tokens" in team_text
     assert "{" not in solo_text + team_text
+    leases = "the gpu tool gives you exclusive GPUs"
+    assert (leases in team_text) == (access == "scheduler")
+    assert ("nothing reserves a GPU" in team_text) == (access == "unmanaged")
+    best = "highest speedup sets the score"
+    assert (best in team_text) == (scoring == "best_submit")
+    assert ("most recent valid submission" in team_text) == (scoring == "last_submit")
 
 
 def test_budget_plan_modes_and_validation() -> None:
     """Split the team total into equal caps or keep one pool, and reject impossible budgets."""
     split = budget_plan("split", 1000, 3)
     assert split["per_agent_cap"] == 333 and split["planned_team_total"] == 999
+    assert split["unallocated_tokens"] == 1
+    assert budget_plan("split", 4_000_000, 64)["unallocated_tokens"] == 0
     shared = budget_plan("shared", 1000, 3)
     assert shared["per_agent_cap"] is None and shared["team_pool"] == 1000
     assert shared["planned_team_total"] == 1000
@@ -434,9 +448,68 @@ async def test_submissions_are_graded_in_order_and_duplicates_reuse_grades() -> 
     assert queue.unseen("a") == []
     summary = queue.summary(released=0)
     assert summary["count"] == 3 and summary["distinct"] == 2
-    assert summary["best_in_run_speedup"] == 2.0 and summary["final_submission"] == 3
+    assert summary["best_in_run_speedup"] == 2.0 and summary["latest_submission"] == 3
+    # best_submit: the duplicate #3 shares #1's 1.0, so #2 sets the score
+    assert summary["scoring"] == "best_submit" and summary["final_submission"] == 2
     assert summary["first_valid_seconds"] == 0
     assert all("archive" not in item for item in summary["items"])
+
+
+@pytest.mark.parametrize(
+    ("scoring", "expected"), [("best_submit", 2), ("last_submit", 4)]
+)
+async def test_scoring_rules_select_only_valid_submissions(
+    scoring: str, expected: int
+) -> None:
+    """Select the earliest best or the last valid submission and never an invalid or failed one."""
+    queue = SubmissionQueue(max_pending=10, scoring=scoring)
+    results: dict[int, dict[str, Any] | Exception] = {
+        1: {"outcome": "valid", "speedup": 1.5},
+        2: {"outcome": "valid", "speedup": 3.0},
+        3: {"outcome": "quality_failed", "speedup": 1.0},
+        4: {"outcome": "valid", "speedup": 3.0},
+        5: {"outcome": "invalid_submission", "speedup": 1.0},
+        6: RuntimeError("authored grading failure"),
+    }
+
+    async def grade(item: Submission) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Return the authored result for each submission number."""
+        result = results[item.number]
+        if isinstance(result, Exception):
+            raise result
+        return result, {}
+
+    assert queue.select() is None
+    for number in results:
+        await queue.submit("a", f"d{number}", 1, f"{number}.tar.gz", {"n": number})
+    worker = asyncio.ensure_future(queue.work(grade))
+    await queue.drain()
+    worker.cancel()
+    selected = queue.select()
+    assert selected is not None and selected.number == expected
+    assert selected.measures == {"n": expected}
+    summary = queue.summary(released=0)
+    assert summary["final_submission"] == expected
+    assert summary["final_in_run_result"]["speedup"] == 3.0
+    assert summary["latest_submission"] == 6 and summary["valid"] == 3
+    with pytest.raises(ValueError, match="scoring"):
+        SubmissionQueue(max_pending=1, scoring="first_submit")
+
+
+async def test_no_valid_submission_selects_nothing() -> None:
+    """Leave the score at the fallback when every submission is invalid."""
+    queue = SubmissionQueue(max_pending=2, scoring="last_submit")
+
+    async def grade(item: Submission) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Fail the quality gate for every submission."""
+        return {"outcome": "quality_failed", "speedup": 1.0}, {}
+
+    await queue.submit("a", "d1", 1, "1.tar.gz")
+    worker = asyncio.ensure_future(queue.work(grade))
+    await queue.drain()
+    worker.cancel()
+    assert queue.select() is None
+    assert queue.summary(released=0)["final_submission"] is None
 
 
 async def test_failed_grading_is_kept_and_the_same_content_is_regraded() -> None:

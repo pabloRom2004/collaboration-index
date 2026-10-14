@@ -38,13 +38,18 @@ task:
       max_results: 10
       timeout: 5
     # team budget {mode: split | shared, tokens: N}; needs orchestration enabled and
-    # token_limit_per_agent null. split gives each agent N / agents tokens; shared is one pool.
+    # token_limit_per_agent null. split gives each agent N // agents tokens and leaves the
+    # remainder (fewer than agents tokens) unallocated; shared is one pool.
     token_budget: null
     # leased-GPU mode; false keeps one GPU, one command lock and grading of the live workspace
     orchestration:
       enabled: false
-      # H100s on the agents' workspace pod, 1 to 8; grading uses a separate one-H100 pod
+      # GPUs on the agents' workspace pod, 1 to 8; grading uses a separate one-GPU pod of
+      # the same type (gpu_config sets the type; the bundled provider asks for H100)
       workspace_gpus: 1
+      # scheduler: exclusive GPU leases through the gpu tool; unmanaged: every command
+      # sees every GPU and nothing reserves one (the lease settings below are then unused)
+      gpu_access: scheduler
       # a lease older than this can lose its last GPU while another agent waits
       lease_seconds: 1800
       # audit records GPU use outside a lease; kill also stops those processes
@@ -65,6 +70,23 @@ task:
         quick_quality_samples: 16
         quality_seed: 1729
         server_wait_seconds: 600
+    # leased-GPU mode: best_submit scores the best valid submission, last_submit the last
+    # valid one; either is measured again with the integrity judge, and no valid one scores 1.0
+    scoring: best_submit
+    # leased-GPU mode: what is kept for each submission
+    evaluation:
+      # write submissions.jsonl and keep every submission in the store, not only the scored one
+      log_all_submissions: true
+      # keep every snapshot archive; false deletes all but the scored one after final scoring
+      save_submitted_artifacts: true
+      # add the UTC submit time and seconds since the team started
+      record_wall_clock_timestamp: true
+      # add the team's total agent tokens at submit time
+      record_cumulative_agent_tokens: true
+      # add busy and allocated workspace GPU-seconds at submit time
+      record_cumulative_gpu_seconds: true
+      # add the trusted reason behind each outcome (never shown to agents)
+      record_validation_errors: true
     scorer:
       name: collaboration_index.inferencebench.backend.scorers.inference_speedup
       args:

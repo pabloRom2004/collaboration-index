@@ -143,6 +143,41 @@ def test_row_marks_status_and_flattens_measurements() -> None:
     assert solo["budget_mode"] == "solo"
 
 
+def test_series_gives_duplicates_their_original_grade() -> None:
+    """List each submission's measures and grade, following a duplicate to its original."""
+    items = [
+        {
+            "number": 1,
+            "same_as": None,
+            "measures": {"seconds_since_release": 10.0, "cumulative_agent_tokens": 5},
+            "result": {"outcome": "valid", "speedup": 1.8},
+        },
+        {
+            "number": 2,
+            "same_as": 1,
+            "measures": {"seconds_since_release": 20.0},
+            "result": None,
+        },
+        {"number": 3, "same_as": None, "measures": {}, "result": None},
+    ]
+    assert script.series(items) == [
+        {
+            "number": 1,
+            "seconds_since_release": 10.0,
+            "cumulative_agent_tokens": 5,
+            "outcome": "valid",
+            "speedup": 1.8,
+        },
+        {
+            "number": 2,
+            "seconds_since_release": 20.0,
+            "outcome": "valid",
+            "speedup": 1.8,
+        },
+        {"number": 3, "outcome": None, "speedup": None},
+    ]
+
+
 def test_collect_reads_every_sample_with_its_run_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
