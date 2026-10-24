@@ -267,6 +267,7 @@ def mirrorcode_frozen_visible_diagnostic() -> Task:
         )
     )
     return Task(
+        model="mockllm/model",
         dataset=[
             Sample(
                 id=cohort,
