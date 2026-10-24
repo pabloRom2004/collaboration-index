@@ -73,7 +73,9 @@ async def download_input(cohort: str, kind: str) -> bytes:
 def frozen_visible_replay() -> Solver:
     """Execute the pinned upstream batch once per frozen source without calling generate."""
 
-    async def solve(state: TaskState, generate: Generate) -> TaskState:
+    serial = asyncio.Lock()
+
+    async def replay(state: TaskState, generate: Generate) -> TaskState:
         """Verify trusted guards, replay original cases and preserve diagnostic evidence."""
         import mc.scorer as upstream
         from inspect_ai.model import get_model
@@ -234,6 +236,11 @@ def frozen_visible_replay() -> Solver:
             save_evidence()
         state.metadata["diagnostic"] = evidence
         return state
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        """Replay the two independent samples serially without runner keyword overrides."""
+        async with serial:
+            return await replay(state, generate)
 
     return solve
 
