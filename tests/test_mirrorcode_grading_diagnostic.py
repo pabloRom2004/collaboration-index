@@ -41,14 +41,14 @@ def test_mock_end_to_end_replay_without_model_calls(
 ) -> None:
     """Run the solver and scorer through Inspect with scripted sandbox results and no model."""
     import mc.scorer as upstream
+    from mc import TestCase, TestCaseLabel
 
     data = archive_bytes()
     rows = [
         {
-            "test_case": {
-                "is_visible": i < 761,
-                "labels": [] if i < 761 else ["hidden"],
-            },
+            "test_case": TestCase(
+                args=[], stdin="", labels=[] if i < 761 else [TestCaseLabel.HIDDEN]
+            ).as_jsonable_dict(agent=False),
             "expected": {"returncode": 0, "stdout": "ok", "stderr": ""},
         }
         for i in range(822)

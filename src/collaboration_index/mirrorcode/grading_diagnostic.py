@@ -48,6 +48,16 @@ def validate_source(data: bytes, digest: str) -> None:
                 raise ValueError("Frozen source archive has an unsafe member")
 
 
+def visible_rows(case_bytes: bytes) -> list[dict[str, Any]]:
+    """Decode the original saved sidecar's labels and require the exact case roster."""
+    rows = [json.loads(line) for line in case_bytes.decode().splitlines()]
+    visible = [row for row in rows if row["test_case"]["labels"] == []]
+    hidden = [row for row in rows if row["test_case"]["labels"] == ["hidden"]]
+    if len(rows) != 822 or len(visible) != 761 or len(hidden) != 61:
+        raise ValueError("Original 822/761/61 case split changed")
+    return visible
+
+
 async def download_input(cohort: str, kind: str) -> bytes:
     """Fetch hash-bound private artifacts from runner secrets without logging signed URLs."""
     url = os.environ[f"DIAG_{cohort.upper()}_{kind.upper()}_URL"]
@@ -168,10 +178,7 @@ def frozen_visible_replay() -> Solver:
             download_input(cohort, "source"), download_input(cohort, "cases")
         )
         validate_source(archive, BINDINGS[cohort]["source"])
-        all_rows = [json.loads(line) for line in case_bytes.decode().splitlines()]
-        visible = [row for row in all_rows if row["test_case"]["is_visible"]]
-        if len(all_rows) != 822 or len(visible) != 761:
-            raise ValueError("Original 822/761/61 case split changed")
+        visible = visible_rows(case_bytes)
         cases = [TestCase.from_jsonable_dict(row["test_case"]) for row in visible]
         script = (
             upstream.PROJECT_ROOT / "mc" / "_data" / "batch_score_test_cases.py"
