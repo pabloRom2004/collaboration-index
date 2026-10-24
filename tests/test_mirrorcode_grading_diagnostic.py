@@ -111,7 +111,7 @@ def test_mock_end_to_end_replay_without_model_calls(
     configured = diagnostic.mirrorcode_frozen_visible_diagnostic()
     configured.sandbox = None
     log = inspect_eval(
-        configured, model="mockllm/model", log_dir=str(tmp_path), display="none"
+        configured, log_dir=str(tmp_path), display="none"
     )[0]
     full = read_eval_log(log.location)
     assert full.samples and len(full.samples) == 1
