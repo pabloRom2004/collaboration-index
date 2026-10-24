@@ -187,10 +187,28 @@ class ReservedCompactionAuto(CompactionAuto):
     async def compact(
         self, model: Model, messages: list[ChatMessage], tools: list[ToolInfo]
     ) -> tuple[list[ChatMessage], ChatMessageUser | None]:
-        """Scope the fitted summary model to this peer's locked native compaction call."""
+        """Fit native summaries against the same conservative envelope as ordinary requests."""
         original = self._summary.model
         self._summary.model = SummaryEnvelopeModel(model, self.envelope)
         try:
-            return await super().compact(model, messages, tools)
+            inputs, summary = await super().compact(model, messages, tools)
+            count = await estimate_envelope(model, inputs, tools)
+            # Match native compaction's three further attempts and no-progress stop,
+            # including the serialization margin its plain message count omits.
+            for _ in range(3):
+                if count <= self.envelope.trigger_tokens:
+                    return inputs, summary
+                previous = count
+                inputs, summary = await super().compact(model, list(inputs), tools)
+                count = await estimate_envelope(model, inputs, tools)
+                if count >= previous:
+                    break
+            if count > self.envelope.trigger_tokens:
+                raise ContextEnvelopeExceeded(
+                    f"Compaction remains above the reserved-input trigger: estimated "
+                    f"{count} input tokens exceed {self.envelope.trigger_tokens} limit "
+                    f"({self.envelope.input_tokens} input capacity)"
+                )
+            return inputs, summary
         finally:
             self._summary.model = original
