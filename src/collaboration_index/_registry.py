@@ -13,6 +13,9 @@ from collaboration_index.exploitbench import exploitbench
 from collaboration_index.hle import hle_collaboration
 from collaboration_index.inferencebench import inferencebench
 from collaboration_index.mirrorcode import mirrorcode
+from collaboration_index.mirrorcode.grading_diagnostic import (
+    mirrorcode_frozen_visible_diagnostic,
+)
 from collaboration_index.spelling import spelling
 
 __all__ = [
@@ -27,5 +30,6 @@ __all__ = [
     "hle_collaboration",
     "inferencebench",
     "mirrorcode",
+    "mirrorcode_frozen_visible_diagnostic",
     "spelling",
 ]
