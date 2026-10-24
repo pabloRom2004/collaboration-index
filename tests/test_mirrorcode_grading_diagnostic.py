@@ -91,6 +91,10 @@ def test_mock_end_to_end_replay_without_model_calls(
 
     async def batch(service, script, cases, target, language, timeout, tar_bytes):
         """Check the unchanged upstream call contract and supply bounded execution results."""
+        from inspect_ai.model import get_model
+
+        with pytest.raises(RuntimeError, match="Inference disabled"):
+            await get_model().generate("Blocked local fixture probe")
         assert service == "default" and len(cases) == 761 and timeout == 300
         assert tar_bytes == data
         assert hashlib.sha256(script.encode()).hexdigest() == diagnostic.BATCH_SHA256
@@ -111,7 +115,7 @@ def test_mock_end_to_end_replay_without_model_calls(
     configured = diagnostic.mirrorcode_frozen_visible_diagnostic()
     configured.sandbox = None
     log = inspect_eval(
-        configured, log_dir=str(tmp_path), display="none"
+        configured, model="mockllm/model", log_dir=str(tmp_path), display="none"
     )[0]
     full = read_eval_log(log.location)
     assert full.samples and len(full.samples) == 1

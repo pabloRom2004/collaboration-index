@@ -76,6 +76,15 @@ def frozen_visible_replay() -> Solver:
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         """Verify trusted guards, replay original cases and preserve diagnostic evidence."""
         import mc.scorer as upstream
+        from inspect_ai.model import get_model
+
+        async def inference_disabled(*args: Any, **kwargs: Any) -> Any:
+            """Deny every generation before an event or provider request can be created."""
+            raise RuntimeError("Inference disabled for frozen grading-only evaluation")
+
+        evaluated_model = get_model()
+        object.__setattr__(evaluated_model, "generate", inference_disabled)
+        object.__setattr__(evaluated_model.api, "generate", inference_disabled)
         from mc import AgentImplementationLanguage, TargetProgram, TestCase
 
         from collaboration_index.mirrorcode.cleanup import install_cleanup_repair
@@ -85,6 +94,8 @@ def frozen_visible_replay() -> Solver:
             "cohort": cohort,
             "started_at": datetime.now(UTC).isoformat(),
             "model_calls": 0,
+            "generation_disabled_at_model_and_provider": True,
+            "evaluated_model_provenance": "openrouter/moonshotai/kimi-k3.1-pro",
             "source_changed": False,
             "original_result_replaced": False,
             "image": IMAGE,
@@ -267,7 +278,6 @@ def mirrorcode_frozen_visible_diagnostic() -> Task:
         )
     )
     return Task(
-        model="mockllm/model",
         dataset=[
             Sample(
                 id=cohort,
