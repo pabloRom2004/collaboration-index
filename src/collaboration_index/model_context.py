@@ -2,6 +2,7 @@
 
 import json
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -176,22 +177,72 @@ class SummaryEnvelopeModel(Model):
         )
 
 
+def _restore_system_prefix(
+    messages: list[ChatMessage], prefix: Sequence[ChatMessage]
+) -> tuple[list[ChatMessage], int]:
+    """Restore exact trusted prefix identities after native system-message merging."""
+    systems = [message for message in messages if message.role == "system"]
+    if (
+        not prefix
+        or len(systems) != 1
+        or any(not isinstance(message.content, str) for message in prefix)
+    ):
+        return messages, 0
+    merged = systems[0]
+    if not isinstance(merged.content, str) or not (merged.metadata or {}).get(
+        "combined_from"
+    ):
+        return messages, 0
+    block = "\n".join(message.text for message in prefix)
+    unit = block + "\n"
+    copies = (len(merged.content) + 1) // len(unit)
+    if copies < 1 or merged.content + "\n" != unit * copies:
+        return messages, 0
+    restored: list[ChatMessage] = []
+    for message in messages:
+        if message is merged:
+            restored.extend(item.model_copy(deep=True) for item in prefix)
+        else:
+            restored.append(message)
+    return restored, copies - 1
+
+
 class ReservedCompactionAuto(CompactionAuto):
     """Preserve native compaction behavior while fitting its summary requests correctly."""
 
-    def __init__(self, envelope: ContextEnvelope) -> None:
+    def __init__(
+        self, envelope: ContextEnvelope, *, prefix: list[ChatMessage] | None = None
+    ) -> None:
         """Use the configured fraction of usable input as the native compaction trigger."""
         super().__init__(threshold=envelope.trigger_tokens)
         self.envelope = envelope
+        self._system_prefix = [
+            message.model_copy(deep=True)
+            for message in prefix or []
+            if message.role == "system"
+        ]
 
     async def compact(
         self, model: Model, messages: list[ChatMessage], tools: list[ToolInfo]
     ) -> tuple[list[ChatMessage], ChatMessageUser | None]:
         """Fit native summaries against the same conservative envelope as ordinary requests."""
+        if model.api.collapse_system_messages():
+            messages, removed = _restore_system_prefix(messages, self._system_prefix)
+            if removed:
+                transcript().info(
+                    {"native_system_prefix_duplicate_copies_removed": removed}
+                )
+                if (
+                    await estimate_envelope(model, messages, tools)
+                    <= self.envelope.trigger_tokens
+                ):
+                    return messages, None
         original = self._summary.model
         self._summary.model = SummaryEnvelopeModel(model, self.envelope)
         try:
             inputs, summary = await super().compact(model, messages, tools)
+            if model.api.collapse_system_messages():
+                inputs, _ = _restore_system_prefix(inputs, self._system_prefix)
             count = await estimate_envelope(model, inputs, tools)
             # A stochastic rewrite can grow before a later one fits. Use the
             # bounded three further attempts without relaxing the input trigger.
@@ -199,6 +250,8 @@ class ReservedCompactionAuto(CompactionAuto):
                 if count <= self.envelope.trigger_tokens:
                     return inputs, summary
                 inputs, summary = await super().compact(model, list(inputs), tools)
+                if model.api.collapse_system_messages():
+                    inputs, _ = _restore_system_prefix(inputs, self._system_prefix)
                 count = await estimate_envelope(model, inputs, tools)
             if count > self.envelope.trigger_tokens:
                 raise ContextEnvelopeExceeded(

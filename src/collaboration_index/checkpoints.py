@@ -239,7 +239,9 @@ class TeamCheckpoints:
         """Keep a skipped peer's native compaction in every later checkpoint without model work."""
         if actor not in self.finished_compactions:
             self.finished_compactions[actor] = compaction(
-                ReservedCompactionAuto(self.envelope)
+                ReservedCompactionAuto(
+                    self.envelope, prefix=self.snapshot.prefixes[actor]
+                )
                 if self.envelope is not None
                 else CompactionAuto(threshold=threshold),
                 prefix=self.snapshot.prefixes[actor],
@@ -278,7 +280,7 @@ class TeamCheckpoints:
                         )
                     )
                 compact = compaction(
-                    ReservedCompactionAuto(self.envelope)
+                    ReservedCompactionAuto(self.envelope, prefix=prefix)
                     if self.envelope is not None
                     else CompactionAuto(threshold=threshold),
                     prefix=prefix,
