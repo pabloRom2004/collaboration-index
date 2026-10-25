@@ -193,16 +193,13 @@ class ReservedCompactionAuto(CompactionAuto):
         try:
             inputs, summary = await super().compact(model, messages, tools)
             count = await estimate_envelope(model, inputs, tools)
-            # Match native compaction's three further attempts and no-progress stop,
-            # including the serialization margin its plain message count omits.
+            # A stochastic rewrite can grow before a later one fits. Use the
+            # bounded three further attempts without relaxing the input trigger.
             for _ in range(3):
                 if count <= self.envelope.trigger_tokens:
                     return inputs, summary
-                previous = count
                 inputs, summary = await super().compact(model, list(inputs), tools)
                 count = await estimate_envelope(model, inputs, tools)
-                if count >= previous:
-                    break
             if count > self.envelope.trigger_tokens:
                 raise ContextEnvelopeExceeded(
                     f"Compaction remains above the reserved-input trigger: estimated "

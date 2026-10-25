@@ -8,9 +8,11 @@ reasoning and tool schemas, including its existing estimation margin.
 Inspect's native summary iteration uses a smaller message-token estimate. A
 summary can pass that native check while remaining above the adapter's trigger.
 The reserved strategy therefore checks each summary using the same conservative
-estimate as ordinary requests. It follows native compaction's bound of three
-further summaries and stops if the estimate fails to decrease. An insufficient
-result still raises before ordinary inference; the trigger is never relaxed.
+estimate as ordinary requests. It allows at most three further summaries. A
+single rewrite can grow before a later rewrite fits, so it uses the remaining
+bounded passes instead of declaring failure on the first increase. An
+insufficient result still raises before ordinary inference; the trigger is never
+relaxed. The native summary prompt remains unchanged.
 
 Every summary uses the same model API, provider and full output configuration.
 Native token accounting includes all summary calls and can stop the process at

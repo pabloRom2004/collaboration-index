@@ -58,16 +58,17 @@ async def summary_text(model, envelope, target):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", [None, "no_progress", "bounded"])
+@pytest.mark.parametrize("failure", [None, "growth_then_fit", "no_progress", "bounded"])
 @pytest.mark.parametrize("with_tools", [False, True])
 async def test_conservative_summary_iteration(
     reserved_model, monkeypatch, failure, with_tools
 ):
-    """Fit before dispatch, stop on nonprogress, and bound steadily oversized native summaries."""
+    """Allow stochastic growth before fitting while bounding persistently oversized rewrites."""
     envelope = ContextEnvelope(1048576, 943718, 0.75)
     targets = {
         None: [79457, 1000],
-        "no_progress": [79457, 79457],
+        "growth_then_fit": [78700, 78776, 1000],
+        "no_progress": [79457, 79457, 79457, 79457],
         "bounded": [84000, 83000, 82000, 81000],
     }[failure]
     texts = [await summary_text(reserved_model, envelope, n) for n in targets]
@@ -98,7 +99,7 @@ async def test_conservative_summary_iteration(
         model=reserved_model,
         tools=tools,
     )
-    if failure:
+    if failure in ("no_progress", "bounded"):
         with pytest.raises(ContextEnvelopeExceeded, match="Compaction remains"):
             await native.compact_input(history, force=True)
     else:
