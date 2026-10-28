@@ -7,6 +7,7 @@ tool; with ``gpu_access: unmanaged`` every command sees every GPU.
 """
 
 import asyncio
+import contextlib
 import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -458,6 +459,10 @@ def submit_tool(session: Session, actor: str) -> Tool:
                 actor, info["digest"], info["bytes"], str(local), measures
             )
         except QueueFull as error:
+            # a refused snapshot is never graded, so drop its archive unless a submission shares it
+            if all(item.archive != str(local) for item in session.queue.items):
+                with contextlib.suppress(OSError):
+                    local.unlink(missing_ok=True)
             raise ToolError(
                 f"{error}; wait for a result before submitting again."
             ) from error

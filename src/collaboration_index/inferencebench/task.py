@@ -19,7 +19,11 @@ from collaboration_index.inferencebench.backend.metrics import (
     unscored_attempts,
 )
 from collaboration_index.inferencebench.orchestration import SCORING_RULES
-from collaboration_index.inferencebench.resource import allocate
+from collaboration_index.inferencebench.resource import (
+    WORKSPACE_KEY,
+    allocate,
+    terminate,
+)
 from collaboration_index.inferencebench.session import (
     Session,
     cleanup,
@@ -226,6 +230,12 @@ def inference_team_speedup(spec: dict[str, Any]) -> Scorer:
         await session.stop("monitor")
         await session.queue.drain()
         await session.stop()
+        # final scoring uses only the grading pod, so stop paying for the idle workspace
+        try:
+            await terminate(state, WORKSPACE_KEY, "workspace_gpu_lifecycle")
+        except Exception as error:
+            # the pod stays registered, so cleanup retries the delete after scoring
+            session.event("workspace_terminate_error", error=type(error).__name__)
         selected = session.queue.select()
         common = {
             "scoring": session.queue.scoring,
