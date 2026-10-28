@@ -5,7 +5,7 @@ pod:
   computeType: GPU
   gpuTypeIds: [NVIDIA H100 80GB HBM3]
   gpuCount: 1
-  allowedCudaVersions: ["12.8", "12.9", "13.0"]
+  # No allowedCudaVersions: RunPod's enum stops at 13.0, so the filter excludes hosts with newer drivers.
   minVCPUPerGPU: 16
   minRAMPerGPU: 180
   containerDiskInGb: 100
