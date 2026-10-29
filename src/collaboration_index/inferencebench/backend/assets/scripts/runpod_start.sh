@@ -84,6 +84,8 @@ export -p > /etc/inferencebench-env.sh
 python3 -c 'import uuid; print(uuid.uuid4())' > /run/inferencebench-boot-id
 # Every command opens its own connection; the default MaxStartups of 10 is below a 16-agent burst.
 # Restart sshd if an agent kills it, so the container and its open work survive.
+# This shell is docker-init's child; a handler (unlike an ignore) is not inherited by sshd's sessions.
+trap : TERM HUP INT
 while true; do
     /usr/sbin/sshd -D -e -o PasswordAuthentication=no -o UsePAM=no -o MaxStartups=64 \
         -o PermitRootLogin=prohibit-password -o AuthorizedKeysFile=/root/.ssh/authorized_keys || true
