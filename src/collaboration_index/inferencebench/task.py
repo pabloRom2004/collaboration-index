@@ -243,6 +243,9 @@ def inference_team_speedup(spec: dict[str, Any]) -> Scorer:
             "submissions": len(session.queue.items),
         }
         if selected is None:
+            if state.store_as(TeamHistory).end_reason == "workspace_unreachable":
+                # a lost pod is an infrastructure failure, not a 1.0 team result
+                raise RuntimeError("The workspace pod became unreachable before any valid submission")
             result: Score | None = Score(
                 value={"speedup": 1.0},
                 explanation="The team made no valid submission; the upstream baseline fallback applies.",

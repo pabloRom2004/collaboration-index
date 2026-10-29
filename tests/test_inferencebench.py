@@ -1151,6 +1151,73 @@ def test_leased_gpus_without_submission_scores_baseline(
     assert all(p.restarts == 0 and p.terminated for p in pods)
 
 
+def test_leased_gpus_end_when_workspace_is_unreachable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End the team when the workspace pod refuses probes, and error the sample instead of scoring 1.0."""
+    from inspect_ai.util import SandboxUnavailableError, store_as
+
+    from collaboration_index.inferencebench import session
+    from collaboration_index.state import TeamHistory
+
+    async def exec(self: LeasedPod, cmd: list[str], **kwargs: Any) -> ExecResult[str]:
+        """Refuse every workspace probe once the team is released."""
+        if (
+            self.role == "workspace"
+            and "pod.py probe" in " ".join(cmd)
+            and store_as(TeamHistory).released is not None
+        ):
+            raise SandboxUnavailableError("fixture refuses SSH")
+        return await original(self, cmd, **kwargs)
+
+    async def reply(*args: Any) -> ModelOutput:
+        """Keep working slowly, so only the unreachable guard can end the team."""
+        await asyncio.sleep(0.2)
+        output = ModelOutput.for_tool_call("mockllm/model", "submissions", {})
+        output.usage = ModelUsage(input_tokens=2, output_tokens=1, total_tokens=3)
+        return output
+
+    original = LeasedPod.exec
+    monkeypatch.setattr(LeasedPod, "exec", exec)
+    monkeypatch.setattr(session, "UNREACHABLE_SECONDS", 0)
+    task, pods = leased_task(tmp_path, monkeypatch, tokens=10_000)
+    [log] = inspect_eval(
+        task,
+        model=get_model("mockllm/model", custom_outputs=reply),
+        model_roles={"integrity": get_model("mockllm/judge", custom_outputs=[])},
+        log_dir=str(LOGS),
+        display="none",
+    )
+    assert log.status == "error"
+    sample = read_eval_log(log.location).samples[0]
+    assert sample.store["TeamHistory:end_reason"] == "workspace_unreachable"
+    assert "unreachable" in sample.error.message
+    assert all(p.terminated for p in pods)
+
+
+def test_runpod_startup_command_hides_installer_from_pid1() -> None:
+    """Keep process names that agents pkill out of the argv that PID 1 holds for the pod's life."""
+    import re
+    import subprocess
+
+    from collaboration_index.inferencebench.backend.runpod_sandbox import RunPodSandbox
+
+    env = RunPodSandbox.__new__(RunPodSandbox)
+    env.config = {"bootstrap": True}
+    command = env._startup_command()
+    # only an encoded payload reaches PID 1's argv
+    assert re.fullmatch(r'exec bash -c "\$\(echo [A-Za-z0-9+/=]+ \| base64 -d \| gunzip\)"', command)
+    assert command == env._startup_command()
+    script = subprocess.run(
+        ["bash", "-c", command.replace("exec bash -c", "printf %s", 1)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "uv pip install" in script and "MaxStartups=64" in script
+    assert script.endswith("exec bash /opt/runpod_start.sh")
+
+
 def unmanaged_model() -> Any:
     """Script one agent that uses every GPU without a lease, measures a chosen port and submits twice."""
 

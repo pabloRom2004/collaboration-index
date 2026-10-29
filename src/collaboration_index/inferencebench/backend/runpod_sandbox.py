@@ -1,5 +1,7 @@
 # Modified from the pinned Apache-2.0 source: scoped imports and writable resource receipts.
 import asyncio
+import base64
+import gzip
 import json
 import os
 import shlex
@@ -217,7 +219,10 @@ class RunPodSandbox(SandboxEnvironment):
             (ASSETS / "scripts" / "runpod_start.sh").read_text()
         )
         script += " > /opt/runpod_start.sh\nexec bash /opt/runpod_start.sh"
-        return script
+        # PID 1 (docker-init) keeps this argv for the pod's life. Encoding it stops an
+        # agent's `pkill -f vllm` or `pkill -f "pip install"` from matching and killing the pod.
+        encoded = base64.b64encode(gzip.compress(script.encode(), mtime=0)).decode()
+        return f'exec bash -c "$(echo {encoded} | base64 -d | gunzip)"'
 
     @staticmethod
     def _configuration(path) -> dict:

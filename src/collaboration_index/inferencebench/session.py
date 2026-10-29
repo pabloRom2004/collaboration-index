@@ -21,7 +21,12 @@ import anyio
 import yaml
 from inspect_ai.solver import Generate, Solver, TaskState
 from inspect_ai.tool import ToolError
-from inspect_ai.util import SandboxEnvironment, store, store_as
+from inspect_ai.util import (
+    SandboxEnvironment,
+    SandboxUnavailableError,
+    store,
+    store_as,
+)
 
 from collaboration_index.board.client import BoardHistory
 from collaboration_index.inferencebench import pod, resource
@@ -48,6 +53,8 @@ BASE_PORT = 8000
 # the final evaluation serves a submission on the grading pod's first GPU
 GRADING_GPU = 0
 PROBE_TIMEOUT = 60
+# end the team once the workspace pod refuses connections this long after release
+UNREACHABLE_SECONDS = 300
 SHORT_TIMEOUT = 120
 ARCHIVE_TIMEOUT = 3600
 EVALUATION_TIMEOUT = 12 * 3600
@@ -227,6 +234,7 @@ class Session:
         self.told_revoked: set[str] = set()
         self.told_reclaimed: dict[str, int] = {}
         self.flagged: list[int] = []
+        self.reachable = time.monotonic()
         self.tasks: dict[str, asyncio.Task[None]] = {}
 
     def start(self) -> None:
@@ -452,8 +460,20 @@ class Session:
         except Exception as error:
             self.usage.errors += 1
             self.event("probe_error", error=type(error).__name__)
+            history = store_as(TeamHistory)
+            unreachable = time.monotonic() - self.reachable
+            if (
+                isinstance(error, SandboxUnavailableError)
+                and history.released is not None
+                and unreachable > UNREACHABLE_SECONDS
+                and history.end_reason is None
+            ):
+                # every peer's commands fail too, so stop spending tokens on them
+                history.end_reason = "workspace_unreachable"
+                self.event("workspace_unreachable", seconds=round(unreachable))
             return previous
         now = time.monotonic()
+        self.reachable = now
         holders = {slot: lease.token for slot, lease in self.scheduler.holders.items()}
         # without leases every GPU process is allowed, so there is nothing to audit
         violations = pod.audit(sample, holders) if self.managed else []
