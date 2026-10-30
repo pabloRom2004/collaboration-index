@@ -51,6 +51,11 @@ from collaboration_index.prompts import (
 )
 from collaboration_index.state import Peer, TeamHistory, now
 
+# From the second nudge in a row, wait before sending it: each nudge re-reads the
+# whole history, and one Haiku 5.5 run refused over 1,200 of them.
+IDLE_WAIT_SECONDS = 30
+IDLE_WAIT_CAP_SECONDS = 300
+
 
 def team_workspace(state: TaskState) -> Any:
     """Resolve the benchmark's shared computer, including explicitly managed external GPUs."""
@@ -322,8 +327,11 @@ def team_agents(
                         content=[ContentText(text=part) for part in parts if part]
                     )
 
+                idle = 0
+
                 async def on_continue(current: AgentState) -> bool | AgentState:
                     """Count the turn, then stop at the team's end or refresh clock and unread counts."""
+                    nonlocal idle
                     record.turns += 1
                     record.tokens = prior + int(limit.usage)
                     output = current.output
@@ -336,6 +344,7 @@ def team_agents(
                     if history.end_reason is not None or pool_exhausted():
                         return False
                     nudge = ""
+                    idle = 0 if output.message.tool_calls else idle
                     if (
                         budget_driven
                         and not output.message.tool_calls
@@ -344,6 +353,18 @@ def team_agents(
                             or prior + limit.usage < token_limit_per_agent
                         )
                     ):
+                        idle += 1
+                        # a sleeping peer would hold a checkpoint barrier for the whole team
+                        if idle > 1 and owner is None:
+                            wait = min(
+                                IDLE_WAIT_SECONDS * 2 ** min(idle - 2, 10),
+                                IDLE_WAIT_CAP_SECONDS,
+                            )
+                            until = time.monotonic() + wait
+                            while time.monotonic() < until:
+                                await asyncio.sleep(min(5, until - time.monotonic()))
+                                if history.end_reason is not None or pool_exhausted():
+                                    return False
                         record.nudges += 1
                         if history.benchmark == "inferencebench":
                             from collaboration_index.inferencebench.prompts import (

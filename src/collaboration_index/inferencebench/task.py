@@ -32,6 +32,7 @@ from collaboration_index.inferencebench.session import (
 )
 from collaboration_index.inferencebench.state import InferenceHistory
 from collaboration_index.inferencebench.tools import evaluate, workspace_tools
+from collaboration_index.inferencebench import team_workspace as team_mode
 from collaboration_index.state import TeamHistory
 from collaboration_index.task import defaults
 
@@ -174,6 +175,7 @@ def prepare_inference_team(
     external: bool,
     orchestration: dict[str, Any] | None = None,
     budget: dict[str, Any] | None = None,
+    team_workspace: dict[str, Any] | None = None,
 ) -> Solver:
     """Require an explicit integrity judge and prepare the GPUs before releasing any peers."""
     from collaboration_index.inferencebench.backend.environment import (
@@ -207,6 +209,11 @@ def prepare_inference_team(
                 evaluate(tool_timeout),
                 web_search(**web_search_args),
             ]
+            if team_workspace is not None:
+                await team_mode.setup(
+                    [peer.id for peer in state.store_as(TeamHistory).peers],
+                    {**team_workspace, "tool_timeout": tool_timeout},
+                )
         except BaseException:
             if external:
                 await cleanup(state)
@@ -276,11 +283,17 @@ def inference_team_speedup(spec: dict[str, Any]) -> Scorer:
         from collaboration_index.board.client import BoardHistory
 
         session = current()
-        result = (
-            await upstream(state, target)
-            if session is None
-            else await final_submission(state, target, session)
-        )
+        team_state = team_mode.active()
+        if session is not None:
+            result = await final_submission(state, target, session)
+        elif team_state is not None and not team_state.submissions:
+            result = Score(
+                value={"speedup": 1.0},
+                explanation="The team made no submission; the upstream baseline fallback applies.",
+                metadata={"submitted": False},
+            )
+        else:
+            result = await upstream(state, target)
         if result is None:
             raise RuntimeError("The selected InferenceBench scorer returned no grade")
         history = state.store_as(TeamHistory)
@@ -319,6 +332,13 @@ def inference_team_speedup(spec: dict[str, Any]) -> Scorer:
                 busy_gpu_hours=gpu["busy_gpu_hours"],
                 oom_events=measured["oom_events"],
             )
+        if team_state is not None:
+            team.update(
+                submissions=len(team_state.submissions),
+                final_submission=(team_state.submissions or [{}])[-1].get("number"),
+                submission_log=team_state.submissions,
+                tracked_submissions=team_state.tracked,
+            )
         # assign the store field once; mutating a coerced read can be lost
         history.result = team
         result.metadata = {**(result.metadata or {}), "team": team}
@@ -348,6 +368,7 @@ def inferencebench(
     scorer: dict[str, Any] = ARGS["scorer"],
     token_budget: dict[str, Any] | None = ARGS["token_budget"],
     orchestration: dict[str, Any] = ARGS["orchestration"],
+    team_workspace: dict[str, Any] = ARGS["team_workspace"],
     scoring: str = ARGS["scoring"],
     evaluation: dict[str, bool] = ARGS["evaluation"],
 ) -> Task:
@@ -359,6 +380,7 @@ def inferencebench(
             f"InferenceBench team sizes must be between 1 and {MAX_AGENTS}"
         )
     validate_orchestration(orchestration, workload)
+    team_mode.validate(team_workspace)
     validate_scoring(scoring, evaluation)
     leased = orchestration["enabled"]
     if leased and gpu_management != "controller":
@@ -389,6 +411,14 @@ def inferencebench(
     if grader_context_window is not None and grader_context_window < 1:
         raise ValueError("grader_context_window must be a positive token count")
     validate_workload(workload)
+    teamed = team_workspace["enabled"]
+    if teamed and (leased or gpu_management != "controller" or gpu_config):
+        raise ValueError(
+            "team_workspace needs orchestration disabled, gpu_management: controller "
+            "and no gpu_config (it writes its own pod config)"
+        )
+    if teamed:
+        gpu_config = team_mode.pod_config(team_workspace, artifact_dir)
     options = copy.deepcopy(workload)
     options.update(
         gpu_provider="runpod",
@@ -423,6 +453,7 @@ def inferencebench(
             if leased
             else None,
             plan,
+            dict(team_workspace) if teamed else None,
         ),
         cleanup=cleanup,
         solver=team_agents(
@@ -457,6 +488,7 @@ def inferencebench(
             "gpu_management": gpu_management,
             "team_size_disclosed": True,
             "orchestration": orchestration,
+            "team_workspace": team_workspace,
             "scoring": scoring,
             "evaluation": evaluation,
         },

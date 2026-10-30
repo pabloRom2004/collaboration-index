@@ -337,14 +337,14 @@ class _Hashing:
         return data
 
 
-def pack(source: str, output: str, max_bytes: int) -> dict[str, Any]:
+def pack(source: str, output: str, max_bytes: int, skip: Path | None = None) -> dict[str, Any]:
     """Archive a directory in sorted order and return a content digest independent of mtimes."""
     root = Path(source)
     Path(output).parent.mkdir(parents=True, exist_ok=True)
     digest, total, files = hashlib.sha256(), 0, 0
     with tarfile.open(output, "w:gz", compresslevel=1) as archive:
         for directory, names, filenames in os.walk(root):
-            names.sort()
+            names[:] = sorted(n for n in names if Path(directory, n) != skip)
             for name in [*names, *sorted(filenames)]:
                 path = Path(directory, name)
                 relative = path.relative_to(root).as_posix()
@@ -395,6 +395,41 @@ def unpack(archive: str, destination: str) -> dict[str, Any]:
         source.extractall(target, members=members, filter="tar")
     return {"files": len(members)}
 
+
+
+VENV, LOCK = ".venv", ".venv.lock"
+TORCH_INDEXES = ["cu126", "cu128", "cu129", "cu130"]
+
+
+def snapshot(source: str, output: str, max_bytes: int) -> dict[str, Any]:
+    """Archive a workspace's code and its .venv package list, not the environment itself."""
+    root = Path(source)
+    if (root / VENV / "bin" / "python").exists():
+        frozen = subprocess.run(
+            ["uv", "pip", "freeze", "--python", str(root / VENV / "bin" / "python")],
+            capture_output=True, text=True, check=True,
+        )
+        (root / LOCK).write_text(frozen.stdout)
+    return pack(source, output, max_bytes, skip=root / VENV)
+
+
+def restore(archive: str, destination: str) -> dict[str, Any]:
+    """Unpack a workspace snapshot and rebuild its .venv from the package list."""
+    result = unpack(archive, destination)
+    root = Path(destination)
+    if (root / LOCK).exists():
+        subprocess.run(
+            ["uv", "venv", "--seed", "--system-site-packages", "--python", "/usr/bin/python3", str(root / VENV)],
+            check=True,
+        )
+        # a frozen CUDA build of torch (for example 2.8.0+cu128) exists only on the PyTorch index
+        indexes = [f"--extra-index-url=https://download.pytorch.org/whl/{cuda}" for cuda in TORCH_INDEXES]
+        subprocess.run(
+            ["uv", "pip", "install", "--python", str(root / VENV / "bin" / "python"),
+             *indexes, "--index-strategy", "unsafe-best-match", "-r", str(root / LOCK)],
+            check=True,
+        )
+    return result
 
 def evaluator_wrapper(env: dict[str, str], quick_quality: int) -> str:
     """Write the development evaluate.py, which targets the caller's port and has a smaller quick set."""
@@ -557,6 +592,13 @@ def main(argv: list[str] | None = None) -> None:
     restore = commands.add_parser("unpack")
     restore.add_argument("archive")
     restore.add_argument("destination")
+    code = commands.add_parser("snapshot")
+    code.add_argument("source")
+    code.add_argument("output")
+    code.add_argument("--max-bytes", type=int, required=True)
+    rebuild = commands.add_parser("restore")
+    rebuild.add_argument("archive")
+    rebuild.add_argument("destination")
     workspace = commands.add_parser("workspace")
     workspace.add_argument("options")
     args = parser.parse_args(argv)
@@ -574,6 +616,14 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(TOO_LARGE)
     elif args.operation == "unpack":
         result = unpack(args.archive, args.destination)
+    elif args.operation == "snapshot":
+        try:
+            result = snapshot(args.source, args.output, args.max_bytes)
+        except SubmissionTooLarge as error:
+            print(error, file=sys.stderr)
+            sys.exit(TOO_LARGE)
+    elif args.operation == "restore":
+        result = restore(args.archive, args.destination)
     else:
         result = prepare_workspace(json.loads(Path(args.options).read_text()))
     print(json.dumps(result))

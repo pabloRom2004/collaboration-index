@@ -1195,6 +1195,36 @@ def test_leased_gpus_end_when_workspace_is_unreachable(
     assert all(p.terminated for p in pods)
 
 
+def test_idle_peers_wait_longer_between_nudges(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Space out nudges to a peer that keeps answering without a tool call, so it spends fewer turns."""
+    from collaboration_index import harness
+
+    async def reply(*args: Any) -> ModelOutput:
+        """Decline to work, as Haiku 5.5 did after its first hour."""
+        await asyncio.sleep(0.05)
+        output = ModelOutput.from_content("mockllm/model", "I am done.")
+        output.usage = ModelUsage(input_tokens=2, output_tokens=1, total_tokens=3)
+        return output
+
+    monkeypatch.setattr(harness, "IDLE_WAIT_SECONDS", 0.5)
+    monkeypatch.setattr(harness, "IDLE_WAIT_CAP_SECONDS", 1)
+    task, pods = leased_task(tmp_path, monkeypatch, tokens=100_000, team_time_limit=3)
+    [log] = inspect_eval(
+        task,
+        model=get_model("mockllm/model", custom_outputs=reply),
+        model_roles={"integrity": passing_judge()},
+        log_dir=str(LOGS),
+        display="none",
+    )
+    sample = read_eval_log(log.location).samples[0]
+    peers = sample.store["TeamHistory:peers"]
+    # without waits each peer takes about 60 nudges in 3 s; with them, about 5
+    assert all(1 < p["nudges"] <= 8 for p in peers), [p["nudges"] for p in peers]
+    assert all(p.terminated for p in pods)
+
+
 def test_runpod_startup_command_hides_installer_from_pid1() -> None:
     """Keep process names that agents pkill out of the argv that PID 1 holds for the pod's life."""
     import re
@@ -1339,3 +1369,177 @@ def test_unmanaged_gpus_scoring_rules_and_submission_records(
     assert [row["archive"] is not None for row in ledger] == (
         [True, True] if keep_all else [False, True]
     )
+
+
+def test_snapshot_keeps_code_and_package_list_and_restore_rebuilds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Leave .venv out of a snapshot, keep its package list, then rebuild it from that list."""
+    import subprocess
+    import tarfile
+
+    from collaboration_index.inferencebench import pod
+
+    root = tmp_path / "agent"
+    (root / ".venv" / "bin").mkdir(parents=True)
+    (root / ".venv" / "bin" / "python").write_bytes(b"x" * 5000)
+    (root / "start_server.sh").write_text("#!/bin/bash\n")
+    calls: list[list[str]] = []
+
+    def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        """Freeze to a fixed list and record rebuild commands."""
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, "vllm==0.31.0\n", "")
+
+    monkeypatch.setattr(pod.subprocess, "run", run)
+    archive = tmp_path / "snap.tar.gz"
+    pod.snapshot(str(root), str(archive), max_bytes=1000)
+    with tarfile.open(archive) as handle:
+        assert set(handle.getnames()) == {"start_server.sh", pod.LOCK}
+
+    target = tmp_path / "restored"
+    calls.clear()
+    pod.restore(str(archive), str(target))
+    assert calls[0][:2] == ["uv", "venv"] and calls[0][-1] == str(target / ".venv")
+    assert calls[1][:3] == ["uv", "pip", "install"] and calls[1][-1] == str(target / pod.LOCK)
+    assert (target / pod.LOCK).read_text() == "vllm==0.31.0\n"
+
+
+class TeamPod(FixtureSandbox):
+    """Answer the team-workspace setup, command, snapshot and restore operations."""
+
+    async def upload(self, local: str, remote: str) -> None:
+        """Remember which host archive a restore will read."""
+        self.uploaded = local
+        await super().upload(local, remote)
+
+    def __init__(self) -> None:
+        """Record what each agent ran and which snapshots were restored."""
+        super().__init__()
+        self.commands: list[str] = []
+        self.restored: list[str] = []
+        self.snapshots = 0
+        self.uploaded = ""
+        self.setup = ""
+
+    async def exec(self, cmd: list[str], **kwargs: Any) -> ExecResult[str]:
+        """Simulate the pod side of team mode and defer everything else to the base fixture."""
+        from collaboration_index.inferencebench import team_workspace
+
+        if cmd[:2] == ["bash", "-c"] and "uv venv" in cmd[2]:
+            self.setup = cmd[2]
+            return ExecResult(True, 0, "", "")
+        if cmd == ["bash", "-c", team_workspace.RUNNER]:
+            self.commands.append(kwargs["input"])
+            return ExecResult(True, 0, "ran\n", "")
+        if cmd[0].endswith("/evaluate.py"):
+            self.files[cmd[cmd.index("--json-output-file") + 1]] = json.dumps(METRICS)
+            return ExecResult(True, 0, "", "")
+        if "snapshot" in cmd:
+            self.snapshots += 1
+            self.files[cmd[cmd.index("snapshot") + 2]] = b"code snapshot"
+            info = {"digest": f"{self.snapshots:064x}", "bytes": 10, "files": 3}
+            return ExecResult(True, 0, json.dumps(info) + "\n", "")
+        if "restore" in cmd:
+            self.restored.append(self.uploaded)
+            return ExecResult(True, 0, "{}\n", "")
+        if cmd[0] in {"chmod", "rm"}:
+            return ExecResult(True, 0, "", "")
+        return await super().exec(cmd, **kwargs)
+
+
+def team_model() -> Any:
+    """Have two agents work in their own workspaces, measure on a chosen port and submit in turn."""
+    first = asyncio.Event()
+
+    async def reply(messages: list[Any], tools: Any, choice: Any, config: Any) -> ModelOutput:
+        """Script each agent and check the team-workspace prompt and tools."""
+        opening = next(m for m in messages if (m.metadata or {}).get("team_actor"))
+        actor = opening.metadata["team_actor"]
+        assert any("Your workspace" in m.text for m in messages[:3])
+        names = {t.name for t in tools}
+        assert {"bash", "python", "evaluate", "submit"} <= names and "gpu" not in names
+        step = len([m for m in messages if isinstance(m, ChatMessageTool)])
+        plan = [
+            ("message_board", {"action": "register", "name": "Fixture " + actor[-1]}),
+            ("bash", {"command": f"echo work-{actor}"}),
+            ("evaluate", {"port": 8001}),
+            ("submit", {}),
+        ]
+        if step < len(plan):
+            if step == 3 and actor == "agent_1":
+                await asyncio.wait_for(first.wait(), 20)
+            function, arguments = plan[step]
+            output = ModelOutput.for_tool_call("mockllm/model", function, arguments)
+        else:
+            if actor == "agent_0":
+                first.set()
+            output = ModelOutput.from_content("mockllm/model", "Done for now.")
+        output.usage = ModelUsage(input_tokens=40, output_tokens=10, total_tokens=50)
+        return output
+
+    return get_model("mockllm/model", custom_outputs=reply)
+
+
+def test_team_workspace_grades_the_newest_submission(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Give agents private workspaces on shared GPUs, record each submission and grade the newest one."""
+    import yaml
+
+    from collaboration_index.inferencebench.backend import environment
+    from collaboration_index.inferencebench.backend.runpod_sandbox import RunPodSandbox
+
+    pods: list[TeamPod] = []
+
+    async def allocate(cls: Any, *args: Any) -> dict[str, TeamPod]:
+        """Create the one team pod."""
+        pods.append(TeamPod())
+        return {"default": pods[-1]}
+
+    monkeypatch.setattr(RunPodSandbox, "sample_init", classmethod(allocate))
+    monkeypatch.setattr(environment, "BASELINE_CACHE", tmp_path / "baselines")
+    options = {**ARGS["team_workspace"], "enabled": True, "gpus": 4, "volume_gb": 400}
+    task = inferencebench(
+        agents=2,
+        token_limit_per_agent=400,
+        artifact_dir=str(tmp_path),
+        gpu_management="controller",
+        team_workspace=options,
+    )
+    config = yaml.safe_load(Path(task.dataset[0].metadata["gpu_config"]).read_text())
+    assert config["pod"]["gpuCount"] == 4 and config["pod"]["volumeInGb"] == 400
+    [log] = inspect_eval(
+        task,
+        model=team_model(),
+        model_roles={"integrity": passing_judge()},
+        log_dir=str(LOGS),
+        display="none",
+    )
+    assert log.status == "success", log.error.traceback if log.error else None
+    sample = read_eval_log(log.location).samples[0]
+    [pod] = pods
+    handles = sample.store["TeamWorkspace:handles"]
+    assert set(handles) == {"agent_0", "agent_1"} and len(set(handles.values())) == 2
+    for actor, handle in handles.items():
+        assert f"/workspace/agents/{handle}/.venv" in pod.setup
+        assert any(
+            c.startswith(f". /workspace/agents/{handle}/.agentrc") and f"work-{actor}" in c
+            for c in pod.commands
+        )
+    submissions = sample.store["TeamWorkspace:submissions"]
+    assert [(s["number"], s["actor"]) for s in submissions] == [(1, "agent_0"), (2, "agent_1")]
+    assert submissions[1]["by"] == "Fixture 1"
+    # the earlier submission is measured for the record, then the newest one is graded
+    assert pod.restored == [submissions[0]["archive"], submissions[1]["archive"]]
+    [tracked] = sample.store["TeamWorkspace:tracked"]
+    assert tracked["status"] == "graded" and tracked["speedup"] == 2
+    launcher = pod.files["/home/agent/task/start_server.sh"]
+    assert f". /workspace/agents/{handles['agent_1']}/.agentrc" in launcher
+    assert "CUDA_VISIBLE_DEVICES=0 PORT=8000" in launcher
+    assert sample.scores["inference_team_speedup"].value["speedup"] == 2
+    team = sample.scores["inference_team_speedup"].metadata["team"]
+    assert team["submissions"] == 2 and team["final_submission"] == 2
+    assert sample.store["TeamWorkspace:seen"]["agent_1"] == 2
+    checks = sample.store["InferenceHistory:checks"]
+    assert {c["port"] for c in checks} == {8001}

@@ -87,6 +87,20 @@ task:
       record_cumulative_gpu_seconds: true
       # add the trusted reason behind each outcome (never shown to agents)
       record_validation_errors: true
+    # shared-machine team mode (orchestration disabled, gpu_management: controller): one pod
+    # whose GPUs every agent sees, with nothing scheduling them; a private workspace and
+    # Python environment per agent; submit stores code plus package lists; the team's most
+    # recent submission is graded on GPU 0 after the deadline
+    team_workspace:
+      enabled: false
+      # GPUs on the pod; the final grade uses one of them
+      gpus: 1
+      # persistent volume for agents' environments and the shared package cache
+      volume_gb: 100
+      # largest workspace snapshot once environments and caches are left out
+      max_snapshot_bytes: 100000000
+      # minutes after the deadline for measuring earlier submissions (progress record only)
+      track_minutes: 60
     scorer:
       name: collaboration_index.inferencebench.backend.scorers.inference_speedup
       args:

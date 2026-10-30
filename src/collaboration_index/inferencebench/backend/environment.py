@@ -350,6 +350,10 @@ async def restart_for_scoring(state, include_transcript: bool):
             evidence = folder / "agent-transcript.json"
             write_agent_transcript(evidence, state)
             await env.upload(str(evidence), f"{REMOTE}/agent-transcript.json")
+        from collaboration_index.inferencebench.team_workspace import prepare_final
+
+        # team mode: measure earlier submissions, then install the team's on GPU 0
+        await prepare_final(env, state)
         # After restart, background servers can no longer change the saved workspace.
         if os.environ.get("HAWK_JOB_ID"):
             await copy_submission(env, folder)

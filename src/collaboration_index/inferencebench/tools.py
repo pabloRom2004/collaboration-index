@@ -517,7 +517,12 @@ def submissions_tool(session: Session, actor: str) -> Tool:
 
 def peer_tools(tools: list[Tool], lock: asyncio.Lock, actor: str) -> list[Tool]:
     """Bind the shared workspace tools to one peer: one command lock, or GPU leases."""
+    from collaboration_index.inferencebench import team_workspace
+
     session = current()
+    team = team_workspace.active()
+    if team is not None:
+        return team_workspace.bind(tools, actor, team.options["tool_timeout"])
     if session is None:
         return [
             serialized_tool(item, lock, actor)
@@ -554,9 +559,11 @@ def bind_meters(meters: dict[str, Any]) -> None:
 
 def decision_notes(actor: str) -> str:
     """Summarize new submission results and lease notices for a peer's next decision."""
+    from collaboration_index.inferencebench import team_workspace
+
     session = current()
     if session is None:
-        return ""
+        return team_workspace.notes(actor) if team_workspace.active() else ""
     session.announce_revocations()
     lines = session.notices.pop(actor, [])
     for view in session.queue.unseen(actor):

@@ -118,6 +118,16 @@ async def checked(
     return result.stdout
 
 
+def board_names() -> dict[str, str]:
+    """Map each peer to the board name it registered."""
+    chosen = {}
+    for call in store_as(BoardHistory).calls:
+        name = (call.result or {}).get("name") if call.completed else None
+        if call.action == "register" and call.agent_id and name:
+            chosen[call.agent_id] = name
+    return chosen
+
+
 def last_json(output: str) -> Any:
     """Parse the JSON result line that pod.py prints last."""
     return json.loads(output.strip().splitlines()[-1])
@@ -288,12 +298,7 @@ class Session:
 
     def names(self) -> dict[str, str]:
         """Map each peer to the board name it registered, for GPU status shown to teammates."""
-        chosen = {}
-        for call in store_as(BoardHistory).calls:
-            name = (call.result or {}).get("name") if call.completed else None
-            if call.action == "register" and call.agent_id and name:
-                chosen[call.agent_id] = name
-        return chosen
+        return board_names()
 
     def event(self, kind: str, actor: str | None = None, **details: Any) -> None:
         """Record one trusted coordination event with a wall-clock time."""

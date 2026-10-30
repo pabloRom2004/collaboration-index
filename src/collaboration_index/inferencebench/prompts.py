@@ -139,6 +139,49 @@ TEAM_TEXT = {
     "recipients": "all agents receive",
 }
 
+TEAM_WORKSPACE = Prompt(
+    title="inferencebench_team_workspace",
+    role="subject",
+    origin="Collaboration Index adaptation of InferenceBench with private workspaces on shared GPUs",
+    prompt="""{team_context} {board}
+
+Machine: one development machine with {gpus} H100 GPU(s). {sharing} By convention
+GPU number k serves on port 8000+k; set CUDA_VISIBLE_DEVICES and PORT for each
+server you start.
+
+Your workspace: your bash and python commands start in your own directory
+($AGENT_WORKDIR), a copy of the starter files from /home/agent/task, with its
+Python environment ($AGENT_WORKDIR/.venv) active, so pip and uv pip install
+into it. Build your server there.{others}
+
+Development feedback: evaluate measures the server on a port you choose (default
+8000) with the development requests and as many quality questions as the final
+evaluation; quick mode uses fewer and is only a smoke test.
+
+Submission: submit saves your workspace's code and the package list of each
+Python environment in it, not the environments themselves; a workspace over
+{megabytes} MB without them is refused, so keep model weights and caches outside
+it or have start_server.sh create them. {replaces} After the deadline the
+submission is restored at the same path, its environments are rebuilt from the
+package lists, and ./start_server.sh runs fresh with PORT=8000 on GPU 0 for the
+held-out requests and the quality gate, as the Final Evaluation section above
+describes. Only the submission is graded: changes to /home/agent/task or other
+folders are not, and the snapshot holds nothing outside your workspace. Without a
+submission the score is the 1.0 baseline.""",
+)
+
+CONTINUE_TEAM = Prompt(
+    title="inferencebench_continue_team",
+    role="subject",
+    origin="InferenceBench continuation for the team submission rule",
+    prompt=(
+        "You stopped without tool calls while time remains. {status} Only the newest "
+        "submission is graded, so a later, worse submission lowers the score; a better "
+        "one raises it. Continue improving and measuring with evaluate, and submit when "
+        "a version beats the current submission."
+    ),
+)
+
 CONTINUE_SUBMIT = Prompt(
     title="inferencebench_continue_submit",
     role="subject",
@@ -177,7 +220,12 @@ def budget_text(plan: dict[str, Any] | None, agents: int) -> str:
 
 def workspace_prompt(agents: int) -> str:
     """Describe the shared workspace and the team size to every peer."""
+    from collaboration_index.inferencebench import team_workspace
+
     session = current()
+    team = team_workspace.active()
+    if team is not None:
+        return team_workspace_prompt(agents, team.options)
     if session is None:
         return WORKSPACE.prompt.format(team_context=team_context(agents))
     return leased_gpu_prompt(agents, session)
@@ -211,6 +259,44 @@ def leased_gpu_prompt(agents: int, session: Session) -> str:
     )
 
 
+def team_workspace_prompt(agents: int, options: dict[str, Any]) -> str:
+    """Describe the shared GPUs, the agent's own workspace and the team submission rule."""
+    solo = agents == 1
+    return TEAM_WORKSPACE.prompt.format(
+        team_context=team_context(agents),
+        board=(
+            "You can use message_board for your own notes."
+            if solo
+            else "Use message_board to choose a unique name, discover teammates and "
+            "coordinate. Your model histories are separate; teammates cannot see your "
+            "reasoning or replies. No agent has an assigned role."
+        ),
+        gpus=options["gpus"],
+        sharing=(
+            "Nothing reserves a GPU; your bash and python commands see every GPU."
+            if solo
+            else "All agents share every GPU and nothing reserves one: your bash and "
+            "python commands see every GPU and run at the same time as teammates' "
+            "commands, so agree on the message board who uses which GPU and port."
+        ),
+        others="" if solo else (
+            " Teammates' workspaces are in /workspace/agents/ and you can read them; "
+            "/workspace/shared is a common folder for notes and files."
+        ),
+        megabytes=options["max_snapshot_bytes"] // 1_000_000,
+        replaces=(
+            "Each submission replaces your earlier one."
+            if solo
+            else "The newest submission from any agent replaces earlier ones and becomes "
+            "the team's submission, and every agent is told."
+        ),
+    )
+
+
 def continue_prompt() -> str:
     """Select the continuation reminder for the current submission policy."""
+    from collaboration_index.inferencebench import team_workspace
+
+    if team_workspace.active() is not None:
+        return CONTINUE_TEAM.prompt.format(status=team_workspace.status())
     return (CONTINUE if current() is None else CONTINUE_SUBMIT).prompt
