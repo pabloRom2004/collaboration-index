@@ -3,14 +3,14 @@
 Every agent sees all GPUs of one pod, and nothing schedules them. Each agent gets its own
 directory and Python environment (.venv) on the pod's local container disk. ``submit`` stores
 the caller's code plus its .venv package list, and the newest submission from any agent is
-the team's answer. After the deadline the pod restarts, earlier submissions are measured for
-the progress record (not the score), and the team's submission is restored with a rebuilt
-.venv and graded on GPU 0.
+the team's answer. After the deadline the pod restarts, the team's submission is restored
+with a rebuilt .venv and graded on GPU 0, and then every earlier submission is measured the
+same way for the progress record (not the score).
 """
 
+import base64
 import json
 import shlex
-import time
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -58,7 +58,9 @@ RUNNER = (
     'f=$(mktemp /tmp/agent-command-XXXXXX.sh); trap \'rm -f "$f"\' EXIT; cat > "$f"; '
     'bash --login "$f" </dev/null'
 )
-FIELDS = {"enabled", "gpus", "disk_gb", "max_snapshot_bytes", "track_minutes"}
+FIELDS = {"enabled", "gpus", "disk_gb", "max_snapshot_bytes"}
+# the final measurement's bound in scorers.py; the evaluator stops sooner when no server starts
+MEASURE_TIMEOUT = 43200
 
 
 class TeamWorkspace(StoreModel):
@@ -79,8 +81,8 @@ def validate(options: dict[str, Any]) -> None:
         raise ValueError("team_workspace must contain exactly the documented fields")
     if not 1 <= options["gpus"] <= 8:
         raise ValueError("team_workspace gpus must be from 1 to 8")
-    if options["disk_gb"] < 1 or options["max_snapshot_bytes"] < 1 or options["track_minutes"] < 0:
-        raise ValueError("team_workspace sizes must be positive and track_minutes nonnegative")
+    if options["disk_gb"] < 1 or options["max_snapshot_bytes"] < 1:
+        raise ValueError("team_workspace sizes must be positive")
 
 
 def pod_config(options: dict[str, Any], folder: str) -> str:
@@ -238,6 +240,8 @@ def submit_tool(actor: str) -> Tool:
             "by": board_names().get(actor, "an agent"),
             "time": now(),
             "archive": str(local),
+            # the log keeps every submission, so any of them can be graded again later
+            "code": base64.b64encode(local.read_bytes()).decode(),
             **info,
         })
         state.submissions = submissions
@@ -308,13 +312,13 @@ async def clear_gpus(env: SandboxEnvironment) -> None:
     await checked(env, ["bash", "-c", wait], SHORT_TIMEOUT + 60)
 
 
-async def install(env: SandboxEnvironment, record: dict[str, Any], timeout: int) -> str | None:
+async def install(env: SandboxEnvironment, record: dict[str, Any]) -> str | None:
     """Restore one submission at its workspace path and point the task launcher at it; return any error."""
     path = directory(store_as(TeamWorkspace).handles[record["actor"]])
     error = None
     try:
         await env.upload(record["archive"], f"{REMOTE}/restore.tar.gz")
-        await checked(env, [PYTHON, POD, "restore", f"{REMOTE}/restore.tar.gz", path], timeout, CACHE)
+        await checked(env, [PYTHON, POD, "restore", f"{REMOTE}/restore.tar.gz", path], ARCHIVE_TIMEOUT, CACHE)
     except Exception as failure:  # an unrestorable submission is invalid, not an evaluator crash
         error = f"{type(failure).__name__}: {str(failure)[-1500:]}"
     await env.write_file(f"{TASK_DIR}/start_server.sh", launcher(path, error))
@@ -322,40 +326,47 @@ async def install(env: SandboxEnvironment, record: dict[str, Any], timeout: int)
     return error
 
 
-async def measure(env: SandboxEnvironment, timeout: int) -> dict[str, Any]:
+async def measure(env: SandboxEnvironment) -> dict[str, Any]:
     """Run the upstream final measurement on the installed launcher and return its metrics."""
     await checked(env, ["rm", "-rf", f"{REMOTE}/final.json", f"{REMOTE}/final"], SHORT_TIMEOUT)
     try:
-        await checked(env, [PYTHON, f"{REMOTE}/runtime.py", "final", f"{REMOTE}/options.json"], timeout)
+        await checked(env, [PYTHON, f"{REMOTE}/runtime.py", "final", f"{REMOTE}/options.json"], MEASURE_TIMEOUT)
         return json.loads(await env.read_file(f"{REMOTE}/final.json"))
     finally:
         await clear_gpus(env)
 
 
-async def prepare_final(env: SandboxEnvironment, state: Any) -> None:
-    """After the restart, measure earlier submissions for the record, then install the team's one."""
+async def install_final(env: SandboxEnvironment) -> None:
+    """After the restart, install the team's submission for the scorer."""
     team = active()
     if team is None or not team.submissions:
         return
+    await clear_gpus(env)
+    final = team.submissions[-1]
+    error = await install(env, final)
+    if error:
+        team.tracked = [{"number": final["number"], "status": f"final restore failed: {error[:300]}"}]
+
+
+async def track_earlier(env: SandboxEnvironment, state: Any) -> None:
+    """After the final grade, measure every earlier submission for the progress record."""
+    team = active()
+    if team is None or len(team.submissions) < 2:
+        return
     baseline = json.loads((Path(store().get("artifacts")) / "baseline.json").read_text())
     scenario = state.metadata["scenario"]
-    final = team.submissions[-1]
-    deadline = time.monotonic() + 60 * team.options["track_minutes"]
-    tracked, graded = [], {final["digest"]}
+    tracked, graded = list(team.tracked), {team.submissions[-1]["digest"]}
     await clear_gpus(env)
     for record in team.submissions[:-1]:
         row: dict[str, Any] = {"number": record["number"], "by": record["by"], "time": record["time"]}
         if record["digest"] in graded:
             row["status"] = "same code as another graded submission"
-        elif time.monotonic() > deadline:
-            row["status"] = "not graded: track_minutes ran out"
         else:
             try:
-                remaining = max(60, int(deadline - time.monotonic()))
-                restore_error = await install(env, record, remaining)
+                restore_error = await install(env, record)
                 if restore_error:
                     raise RuntimeError(restore_error)
-                metrics = await measure(env, max(60, int(deadline - time.monotonic())))
+                metrics = await measure(env)
                 quality = (metrics.get("quality_check") or {}).get("datasets", {}).get("mmlu_pro", {})
                 row.update(
                     status="graded",
@@ -364,12 +375,7 @@ async def prepare_final(env: SandboxEnvironment, state: Any) -> None:
                     quality_ratio=quality.get("ratio"),
                 )
                 graded.add(record["digest"])
-            except Exception as error:  # a broken earlier submission must not block the score
+            except Exception as error:  # a broken earlier submission must not stop the others
                 row["status"] = f"error: {type(error).__name__}: {str(error)[:300]}"
         tracked.append(row)
         team.tracked = tracked
-    error = await install(env, final, ARCHIVE_TIMEOUT)
-    if error:
-        team.tracked = [*tracked, {"number": final["number"], "status": f"final restore failed: {error[:300]}"}]
-    # the scorer's own run must not read a tracked measurement
-    await checked(env, ["rm", "-rf", f"{REMOTE}/final.json", f"{REMOTE}/final"], SHORT_TIMEOUT)

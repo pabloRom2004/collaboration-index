@@ -1,6 +1,7 @@
 """Verify the shared InferenceBench adapter through scripted native peer attempts."""
 
 import asyncio
+import base64
 import copy
 import json
 from pathlib import Path
@@ -1530,16 +1531,21 @@ def test_team_workspace_grades_the_newest_submission(
     submissions = sample.store["TeamWorkspace:submissions"]
     assert [(s["number"], s["actor"]) for s in submissions] == [(1, "agent_0"), (2, "agent_1")]
     assert submissions[1]["by"] == "Fixture 1"
-    # the earlier submission is measured for the record, then the newest one is graded
-    assert pod.restored == [submissions[0]["archive"], submissions[1]["archive"]]
+    # the log keeps every archive, so any submission can be graded again later
+    for record in submissions:
+        assert base64.b64decode(record["code"]) == Path(record["archive"]).read_bytes()
+    # the newest submission is graded first, then the earlier one is measured for the record
+    assert pod.restored == [submissions[1]["archive"], submissions[0]["archive"]]
     [tracked] = sample.store["TeamWorkspace:tracked"]
     assert tracked["status"] == "graded" and tracked["speedup"] == 2
+    # tracking ran after the final grade, so the last launcher written is the earlier submission's
     launcher = pod.files["/home/agent/task/start_server.sh"]
-    assert f". /team/agents/{handles['agent_1']}/.agentrc" in launcher
+    assert f". /team/agents/{handles['agent_0']}/.agentrc" in launcher
     assert "CUDA_VISIBLE_DEVICES=0 PORT=8000" in launcher
     assert sample.scores["inference_team_speedup"].value["speedup"] == 2
     team = sample.scores["inference_team_speedup"].metadata["team"]
     assert team["submissions"] == 2 and team["final_submission"] == 2
+    assert all("code" not in s for s in team["submission_log"])
     assert sample.store["TeamWorkspace:seen"]["agent_1"] == 2
     checks = sample.store["InferenceHistory:checks"]
     assert {c["port"] for c in checks} == {8001}

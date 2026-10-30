@@ -336,7 +336,8 @@ def inference_team_speedup(spec: dict[str, Any]) -> Scorer:
             team.update(
                 submissions=len(team_state.submissions),
                 final_submission=(team_state.submissions or [{}])[-1].get("number"),
-                submission_log=team_state.submissions,
+                # the code archives stay only in the TeamWorkspace store
+                submission_log=[{k: v for k, v in s.items() if k != "code"} for s in team_state.submissions],
                 tracked_submissions=team_state.tracked,
             )
         # assign the store field once; mutating a coerced read can be lost

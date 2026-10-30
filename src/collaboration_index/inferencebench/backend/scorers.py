@@ -332,6 +332,13 @@ def inference_speedup(
             )
         finally:
             with anyio.CancelScope(shield=True):
+                from collaboration_index.inferencebench.team_workspace import track_earlier
+
+                # team mode: the score is settled, so a lost pod only shortens the progress record
+                try:
+                    await track_earlier(env, state)
+                except Exception as error:  # noqa: BLE001
+                    store().set("team_tracking_error", repr(error))
                 await env.terminate()
 
     return score
