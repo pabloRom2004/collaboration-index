@@ -32,6 +32,9 @@ task:
       quality_baseline_max_attempts: 2
       server_wait_seconds: 900
       request_timeout_seconds: 300
+      # chat-template arguments sent with every evaluation request and applied by the
+      # baseline server, for example {enable_thinking: false} for Qwen3 models
+      chat_template_kwargs: {}
     tool_timeout: 7200
     web_search_args:
       backend: duckduckgo
@@ -90,13 +93,17 @@ task:
     # shared-machine team mode (orchestration disabled, gpu_management: controller): one pod
     # whose GPUs every agent sees, with nothing scheduling them; a private workspace and
     # Python environment per agent; submit stores code plus package lists; the team's most
-    # recent submission is graded on GPU 0 after the deadline
+    # recent submission is graded on GPUs 0 to grade_gpus - 1 after the deadline
     team_workspace:
       enabled: false
-      # GPUs on the pod; the final grade uses one of them
+      # GPUs on the pod
       gpus: 1
+      # GPUs 0 to grade_gpus - 1 serve the final grade
+      grade_gpus: 1
       # local container disk for agents' workspaces, environments and package caches
       disk_gb: 200
+      # persistent volume for the restart snapshot of the container, model cache included
+      volume_gb: 100
       # largest workspace snapshot once environments and caches are left out
       max_snapshot_bytes: 100000000
     scorer:

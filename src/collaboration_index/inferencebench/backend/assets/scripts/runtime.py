@@ -44,6 +44,8 @@ def environment(options):
         "INFERENCE_BENCH_QUALITY_BASELINE_REGISTRY": str(ARTIFACTS / "quality.json"),
         "INFERENCE_BENCH_SERVER_WAIT_S": str(options["server_wait_seconds"]),
         "INFERENCE_BENCH_REQUEST_TIMEOUT_S": str(options["request_timeout_seconds"]),
+        # read by the two patched upstream files below
+        "INFERENCE_BENCH_CHAT_TEMPLATE_KWARGS": json.dumps(options["chat_template_kwargs"]),
     }
 
 
@@ -132,8 +134,39 @@ def prepare_requests(options, config, name):
     return requests, repairs
 
 
+CHAT_PATCHES = {
+    # every evaluator request (speed, quality, development) carries the chat-template arguments
+    "src/eval/inference/runner.py": (
+        '                    payload["ignore_eos"] = True\n',
+        '                    payload["ignore_eos"] = True\n'
+        '                if json.loads(os.environ.get("INFERENCE_BENCH_CHAT_TEMPLATE_KWARGS") or "{}"):\n'
+        '                    payload["chat_template_kwargs"] = json.loads(os.environ["INFERENCE_BENCH_CHAT_TEMPLATE_KWARGS"])\n',
+    ),
+    # the Transformers baseline ignores request fields, so it applies them itself; Transformers 5
+    # returns a dict here by default, which the server's except clause turns into a plain-text prompt
+    "src/eval/inference/servers/transformers_openai_server.py": (
+        "                add_generation_prompt=True,\n",
+        "                add_generation_prompt=True,\n"
+        "                return_dict=False,\n"
+        '                **json.loads(os.environ.get("INFERENCE_BENCH_CHAT_TEMPLATE_KWARGS") or "{}"),\n',
+    ),
+}
+
+
+def patch_chat_template_kwargs():
+    """Apply the configured chat-template arguments (for example enable_thinking: false) everywhere."""
+    for name, (old, new) in CHAT_PATCHES.items():
+        path = ROOT / name
+        text = path.read_text()
+        if new not in text:
+            if text.count(old) != 1:
+                raise RuntimeError(f"Cannot patch chat-template arguments into {name}")
+            path.write_text(text.replace(old, new))
+
+
 def prepare(options):
     """Cache datasets, measure the Transformers speed and quality baselines, and install the original empty launcher before timing starts."""
+    patch_chat_template_kwargs()
     from huggingface_hub import snapshot_download
     from inference import (
         baseline_eval,

@@ -9,8 +9,10 @@ apt-get update && apt-get install -y \
 rm -rf /var/lib/apt/lists/*
 pip install uv
 uv pip install --system torch==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+# Transformers 4.x cannot load Qwen3.5/3.6 MoE checkpoints; 5.22.1 maps them to a model class
+# through AutoModelForCausalLM, which the upstream baseline server uses.
 uv pip install --system \
-    aiohttp requests accelerate 'datasets<4' sentencepiece protobuf numpy tokenizers 'transformers<5'
+    aiohttp requests accelerate 'datasets<4' sentencepiece protobuf numpy tokenizers 'transformers==5.22.1'
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
 

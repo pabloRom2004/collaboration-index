@@ -398,6 +398,10 @@ def unpack(archive: str, destination: str) -> dict[str, Any]:
 
 
 VENV, LOCK = ".venv", ".venv.lock"
+# team mode's local disk; launch checks restore snapshots here
+CHECK_ROOT = "/team"
+# login shells and the grader read the model variables from here
+PROFILE = "/etc/profile.d/inferencebench.sh"
 TORCH_INDEXES = ["cu126", "cu128", "cu129", "cu130"]
 
 
@@ -430,6 +434,106 @@ def restore(archive: str, destination: str) -> dict[str, Any]:
             check=True,
         )
     return result
+
+def free_gpus(count: int) -> list[str]:
+    """Return the first count GPUs that hold under 2 GB, or fewer when not enough are free."""
+    rows = subprocess.run(
+        ["nvidia-smi", "--query-gpu=index,memory.used", "--format=csv,noheader,nounits"],
+        capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    return [index for index, used in (row.split(", ") for row in rows) if int(used) < 2000][:count]
+
+
+def stop_group(pid: int) -> None:
+    """Stop a process group, including children that outlive its leader, and wait until it is gone."""
+    for sig, grace in ((signal.SIGTERM, 30), (signal.SIGKILL, 10)):
+        try:
+            os.killpg(pid, sig)
+        except ProcessLookupError:
+            return
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            try:
+                os.killpg(pid, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.5)
+
+
+def check(archive: str, rc: str, gpus: int, wait: int, kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Restore a snapshot in a temporary folder, start its server on free GPUs and send one request."""
+    import fcntl
+    import socket
+    import tempfile
+    import urllib.request
+
+    root = Path(tempfile.mkdtemp(prefix="check-", dir=CHECK_ROOT))
+    log = root.parent / f"{root.name}.log"
+    server = None
+
+    def failed(reason: str) -> dict[str, Any]:
+        tail = log.read_text(errors="replace")[-2000:] if log.exists() else ""
+        return {"status": "failed", "reason": reason, "server_log_tail": tail}
+
+    try:
+        try:
+            restore(archive, str(root))
+        except Exception as error:  # noqa: BLE001 - an unrestorable snapshot fails the check
+            return {"status": "failed", "reason": f"restore failed: {error}"}
+        (root / ".agentrc").write_text(rc.replace("@WORKSPACE@", str(root)))
+        # one check at a time chooses GPUs and holds them, so two checks never share "free" GPUs
+        with open(Path(CHECK_ROOT) / "check.lock", "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            devices = free_gpus(gpus)
+            if len(devices) < gpus:
+                return {"status": "not_checked", "reason": f"fewer than {gpus} free GPUs right now"}
+            with socket.socket() as probe:  # a port no agent server is using
+                probe.bind(("127.0.0.1", 0))
+                port = probe.getsockname()[1]
+            with log.open("w") as handle:
+                # the model variables come from the profile that login shells and the grader read
+                server = subprocess.Popen(
+                    ["bash", "-c", f"[ -f {PROFILE} ] && . {PROFILE}; . {root}/.agentrc; exec bash ./start_server.sh"],
+                    env={**os.environ, "CUDA_VISIBLE_DEVICES": ",".join(devices), "PORT": str(port)},
+                    stdout=handle, stderr=subprocess.STDOUT, start_new_session=True,
+                )
+            base = f"http://127.0.0.1:{port}"
+            # local requests must not go through an http_proxy from the environment
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            deadline = time.monotonic() + wait
+            model = None
+            while model is None:
+                if server.poll() is not None:
+                    return failed(f"start_server.sh exited with code {server.returncode}")
+                if time.monotonic() > deadline:
+                    return failed(f"the server was not ready on PORT within {wait} seconds")
+                try:
+                    with opener.open(f"{base}/v1/models", timeout=5) as response:
+                        model = json.load(response)["data"][0]["id"]
+                except Exception:  # noqa: BLE001 - not ready yet
+                    time.sleep(5)
+            body = {"model": model, "messages": [{"role": "user", "content": "Reply with the word OK."}],
+                    "max_tokens": 16, "temperature": 0}
+            if kwargs:
+                body["chat_template_kwargs"] = kwargs
+            request = urllib.request.Request(
+                f"{base}/v1/chat/completions", json.dumps(body).encode(), {"Content-Type": "application/json"}
+            )
+            try:
+                with opener.open(request, timeout=120) as response:
+                    text = json.load(response)["choices"][0]["message"].get("content") or ""
+            except Exception as error:  # noqa: BLE001
+                return failed(f"the chat request failed: {error}")
+            if not text.strip():
+                return failed("the chat request returned no text")
+            return {"status": "passed", "gpus": ",".join(devices), "reply": text[:200]}
+    finally:
+        if server is not None:
+            stop_group(server.pid)
+            server.wait()
+        shutil.rmtree(root, ignore_errors=True)
+        log.unlink(missing_ok=True)
+
 
 def evaluator_wrapper(env: dict[str, str], quick_quality: int) -> str:
     """Write the development evaluate.py, which targets the caller's port and has a smaller quick set."""
@@ -599,6 +703,9 @@ def main(argv: list[str] | None = None) -> None:
     rebuild = commands.add_parser("restore")
     rebuild.add_argument("archive")
     rebuild.add_argument("destination")
+    launch = commands.add_parser("check")
+    launch.add_argument("archive")
+    launch.add_argument("options")
     workspace = commands.add_parser("workspace")
     workspace.add_argument("options")
     args = parser.parse_args(argv)
@@ -624,6 +731,12 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(TOO_LARGE)
     elif args.operation == "restore":
         result = restore(args.archive, args.destination)
+    elif args.operation == "check":
+        # a timeout or a closed connection becomes an exit that still stops the server
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, lambda signum, frame: sys.exit(128 + signum))
+        options = json.loads(Path(args.options).read_text())
+        result = check(args.archive, options["rc"], options["gpus"], options["wait"], options["kwargs"])
     else:
         result = prepare_workspace(json.loads(Path(args.options).read_text()))
     print(json.dumps(result))

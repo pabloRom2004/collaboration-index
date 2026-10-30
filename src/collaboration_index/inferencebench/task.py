@@ -96,6 +96,8 @@ def validate_workload(workload: dict[str, Any]) -> None:
         raise ValueError("strict_prompt must be a boolean")
     if workload["config_defaults"] not in {"default", "original"}:
         raise ValueError("config_defaults must be default or original")
+    if type(workload["chat_template_kwargs"]) is not dict:
+        raise ValueError("chat_template_kwargs must be a mapping")
 
 
 def validate_orchestration(options: dict[str, Any], workload: dict[str, Any]) -> None:
@@ -212,7 +214,12 @@ def prepare_inference_team(
             if team_workspace is not None:
                 await team_mode.setup(
                     [peer.id for peer in state.store_as(TeamHistory).peers],
-                    {**team_workspace, "tool_timeout": tool_timeout},
+                    {
+                        **team_workspace,
+                        "tool_timeout": tool_timeout,
+                        "chat_template_kwargs": state.metadata["chat_template_kwargs"],
+                        "server_wait_seconds": state.metadata["server_wait_seconds"],
+                    },
                 )
         except BaseException:
             if external:

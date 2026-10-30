@@ -1,5 +1,6 @@
 """Collaboration instructions added to the pinned InferenceBench task prompt."""
 
+import json
 from typing import Any
 
 from collaboration_index.inferencebench.session import Session, current
@@ -163,11 +164,14 @@ Python environment in it, not the environments themselves; a workspace over
 {megabytes} MB without them is refused, so keep model weights and caches outside
 it or have start_server.sh create them. {replaces} After the deadline the
 submission is restored at the same path, its environments are rebuilt from the
-package lists, and ./start_server.sh runs fresh with PORT=8000 on GPU 0 for the
+package lists, and ./start_server.sh runs fresh with PORT=8000 on {grading} for the
 held-out requests and the quality gate, as the Final Evaluation section above
 describes. Only the submission is graded: changes to /home/agent/task or other
 folders are not, and the snapshot holds nothing outside your workspace. Without a
-submission the score is the 1.0 baseline.""",
+submission the score is the 1.0 baseline. Before submit returns, a launch check
+restores the snapshot in a temporary folder, runs its ./start_server.sh on free
+GPUs and sends one request, and reports pass or fail; a submission that fails the
+check still becomes the team's submission.{chat}""",
 )
 
 CONTINUE_TEAM = Prompt(
@@ -261,6 +265,8 @@ def leased_gpu_prompt(agents: int, session: Session) -> str:
 
 def team_workspace_prompt(agents: int, options: dict[str, Any]) -> str:
     """Describe the shared GPUs, the agent's own workspace and the team submission rule."""
+    from collaboration_index.inferencebench import team_workspace
+
     solo = agents == 1
     return TEAM_WORKSPACE.prompt.format(
         team_context=team_context(agents),
@@ -272,6 +278,10 @@ def team_workspace_prompt(agents: int, options: dict[str, Any]) -> str:
             "reasoning or replies. No agent has an assigned role."
         ),
         gpus=options["gpus"],
+        grading=(
+            "GPU 0" if options["grade_gpus"] == 1
+            else f"GPUs 0-{options['grade_gpus'] - 1} (CUDA_VISIBLE_DEVICES={team_workspace.grade_devices(options)})"
+        ),
         sharing=(
             "Nothing reserves a GPU; your bash and python commands see every GPU."
             if solo
@@ -284,6 +294,12 @@ def team_workspace_prompt(agents: int, options: dict[str, Any]) -> str:
             "/team/shared is a common folder for notes and files."
         ),
         megabytes=options["max_snapshot_bytes"] // 1_000_000,
+        chat=(
+            f" Every evaluation request carries chat_template_kwargs="
+            f"{json.dumps(options['chat_template_kwargs'])}; your server must apply it to "
+            "the model's chat template."
+            if options.get("chat_template_kwargs") else ""
+        ),
         replaces=(
             "Each submission replaces your earlier one."
             if solo

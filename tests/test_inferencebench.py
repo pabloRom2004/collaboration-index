@@ -4,6 +4,8 @@ import asyncio
 import base64
 import copy
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -1406,6 +1408,63 @@ def test_snapshot_keeps_code_and_package_list_and_restore_rebuilds(
     assert (target / pod.LOCK).read_text() == "vllm==0.31.0\n"
 
 
+def test_launch_check_starts_the_snapshot_server_and_sends_one_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pass a snapshot whose server answers, fail one whose server exits, and clean up both."""
+    import tarfile
+
+    from collaboration_index.inferencebench import pod
+
+    server = (
+        "import json, os, sys\n"
+        "from http.server import BaseHTTPRequestHandler, HTTPServer\n"
+        "class H(BaseHTTPRequestHandler):\n"
+        "    def reply(self, body):\n"
+        "        data = json.dumps(body).encode()\n"
+        "        self.send_response(200); self.send_header('Content-Length', str(len(data)))\n"
+        "        self.end_headers(); self.wfile.write(data)\n"
+        "    def do_GET(self):\n"
+        "        self.reply({'data': [{'id': 'm'}]})\n"
+        "    def do_POST(self):\n"
+        "        body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))\n"
+        "        assert body['chat_template_kwargs'] == {'enable_thinking': False}\n"
+        "        assert os.environ['CUDA_VISIBLE_DEVICES'] == '2'\n"
+        "        self.reply({'choices': [{'message': {'content': 'OK'}}]})\n"
+        "HTTPServer(('127.0.0.1', int(os.environ['PORT'])), H).serve_forever()\n"
+    )
+
+    def archive(name: str, launcher: str) -> str:
+        """Pack a snapshot that holds only start_server.sh and server.py."""
+        source = tmp_path / name
+        source.mkdir()
+        (source / "server.py").write_text(server)
+        (source / "start_server.sh").write_text(launcher)
+        path = tmp_path / f"{name}.tar.gz"
+        with tarfile.open(path, "w:gz") as handle:
+            for item in source.iterdir():
+                handle.add(item, arcname=item.name)
+        return str(path)
+
+    monkeypatch.setattr(pod, "CHECK_ROOT", str(tmp_path))
+    monkeypatch.setattr(pod, "free_gpus", lambda count: ["2"][:count])
+    rc = "cd @WORKSPACE@\n"
+    kwargs = {"enable_thinking": False}
+    good = pod.check(archive("good", f"exec {sys.executable} server.py\n"), rc, 1, 30, kwargs)
+    assert good["status"] == "passed" and good["reply"] == "OK" and good["gpus"] == "2", good
+    bad = pod.check(archive("bad", "echo broken >&2; exit 4\n"), rc, 1, 30, kwargs)
+    assert bad["status"] == "failed" and "code 4" in bad["reason"] and "broken" in bad["server_log_tail"], bad
+    # a launcher that leaves a background child and exits: the check fails and stops the child
+    child = tmp_path / "child.pid"
+    leak = pod.check(archive("leak", f"sleep 300 & echo $! > {child}; exit 0\n"), rc, 1, 30, kwargs)
+    assert leak["status"] == "failed" and "code 0" in leak["reason"], leak
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(child.read_text()), 0)
+    busy = pod.check(archive("busy", "exit 0\n"), rc, 2, 30, kwargs)
+    assert busy["status"] == "not_checked"
+    assert not [p for p in tmp_path.iterdir() if p.name.startswith("check-")]
+
+
 class TeamPod(FixtureSandbox):
     """Answer the team-workspace setup, command, snapshot and restore operations."""
 
@@ -1420,6 +1479,7 @@ class TeamPod(FixtureSandbox):
         self.commands: list[str] = []
         self.restored: list[str] = []
         self.snapshots = 0
+        self.checks = 0
         self.uploaded = ""
         self.setup = ""
 
@@ -1441,6 +1501,9 @@ class TeamPod(FixtureSandbox):
             self.files[cmd[cmd.index("snapshot") + 2]] = b"code snapshot"
             info = {"digest": f"{self.snapshots:064x}", "bytes": 10, "files": 3}
             return ExecResult(True, 0, json.dumps(info) + "\n", "")
+        if "check" in cmd:
+            self.checks += 1
+            return ExecResult(True, 0, json.dumps({"status": "passed", "gpus": "0"}) + "\n", "")
         if "restore" in cmd:
             self.restored.append(self.uploaded)
             return ExecResult(True, 0, "{}\n", "")
@@ -1531,6 +1594,8 @@ def test_team_workspace_grades_the_newest_submission(
     submissions = sample.store["TeamWorkspace:submissions"]
     assert [(s["number"], s["actor"]) for s in submissions] == [(1, "agent_0"), (2, "agent_1")]
     assert submissions[1]["by"] == "Fixture 1"
+    # every submit ran one launch check and recorded its result
+    assert pod.checks == 2 and all(s["check"]["status"] == "passed" for s in submissions)
     # the log keeps every archive, so any submission can be graded again later
     for record in submissions:
         assert base64.b64decode(record["code"]) == Path(record["archive"]).read_bytes()

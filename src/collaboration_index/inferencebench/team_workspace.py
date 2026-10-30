@@ -4,7 +4,7 @@ Every agent sees all GPUs of one pod, and nothing schedules them. Each agent get
 directory and Python environment (.venv) on the pod's local container disk. ``submit`` stores
 the caller's code plus its .venv package list, and the newest submission from any agent is
 the team's answer. After the deadline the pod restarts, the team's submission is restored
-with a rebuilt .venv and graded on GPU 0, and then every earlier submission is measured the
+with a rebuilt .venv and graded on the first grade_gpus GPUs, and then every earlier submission is measured the
 same way for the progress record (not the score).
 """
 
@@ -58,7 +58,7 @@ RUNNER = (
     'f=$(mktemp /tmp/agent-command-XXXXXX.sh); trap \'rm -f "$f"\' EXIT; cat > "$f"; '
     'bash --login "$f" </dev/null'
 )
-FIELDS = {"enabled", "gpus", "disk_gb", "max_snapshot_bytes"}
+FIELDS = {"enabled", "gpus", "grade_gpus", "disk_gb", "volume_gb", "max_snapshot_bytes"}
 # the final measurement's bound in scorers.py; the evaluator stops sooner when no server starts
 MEASURE_TIMEOUT = 43200
 
@@ -79,19 +79,25 @@ def validate(options: dict[str, Any]) -> None:
     """Reject malformed team-workspace settings before allocating a paid GPU."""
     if set(options) != FIELDS:
         raise ValueError("team_workspace must contain exactly the documented fields")
+    if any(type(options[key]) is not int for key in FIELDS - {"enabled"}):
+        raise ValueError("team_workspace sizes and GPU counts must be integers")
     if not 1 <= options["gpus"] <= 8:
         raise ValueError("team_workspace gpus must be from 1 to 8")
-    if options["disk_gb"] < 1 or options["max_snapshot_bytes"] < 1:
+    if not 1 <= options["grade_gpus"] <= options["gpus"]:
+        raise ValueError("team_workspace grade_gpus must be from 1 to gpus")
+    if min(options["disk_gb"], options["volume_gb"], options["max_snapshot_bytes"]) < 1:
         raise ValueError("team_workspace sizes must be positive")
 
 
 def pod_config(options: dict[str, Any], folder: str) -> str:
-    """Write the bundled RunPod config with this mode's GPU count and container disk size."""
+    """Write the bundled RunPod config with this mode's GPU count, container disk and volume sizes."""
     from collaboration_index.inferencebench.backend.run_config import load_config
 
     config = load_config("runpod.yaml")
     config["pod"]["gpuCount"] = options["gpus"]
     config["pod"]["containerDiskInGb"] = options["disk_gb"]
+    # the restart snapshot of the container (with the model cache) is written to this volume
+    config["pod"]["volumeInGb"] = options["volume_gb"]
     path = Path(folder).expanduser().resolve() / f"runpod-team-{options['gpus']}gpu-{uuid4().hex[:8]}.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(config, sort_keys=False))
@@ -202,7 +208,9 @@ def submit_tool(actor: str) -> Tool:
         environment itself. The newest submission from any agent replaces
         earlier ones; all agents are told. After the deadline it is restored at
         the same path, its .venv is rebuilt, and ./start_server.sh runs fresh
-        with PORT=8000 on GPU 0.
+        with PORT=8000 on the grading GPUs. Before it returns, a launch check
+        restores the snapshot in a temporary folder, starts its server on free
+        GPUs and sends one request; the result says whether that passed.
         """
         state = store_as(TeamWorkspace)
         handle = state.handles[actor]
@@ -226,6 +234,7 @@ def submit_tool(actor: str) -> Tool:
         if not result.success:
             raise ToolError("The snapshot failed.\n" + result.stderr[-1500:])
         info = last_json(result.stdout)
+        taken = now()
         # a small offline copy, so the analysis does not depend on the pod
         folder = Path(store().get("artifacts")) / "team-submissions"
         folder.mkdir(parents=True, exist_ok=True)
@@ -238,20 +247,52 @@ def submit_tool(actor: str) -> Tool:
             "number": number,
             "actor": actor,
             "by": board_names().get(actor, "an agent"),
-            "time": now(),
+            "time": taken,
+            "check": {"status": "pending"},
             "archive": str(local),
             # the log keeps every submission, so any of them can be graded again later
             "code": base64.b64encode(local.read_bytes()).decode(),
             **info,
         })
         state.submissions = submissions
+        # recorded first, so a failed, slow or cancelled check cannot lose or reorder it
+        try:
+            launch = await launch_check(remote, state.options)
+        except Exception as error:  # noqa: BLE001 - the check only informs the agent
+            launch = {"status": "error", "reason": f"{type(error).__name__}: {str(error)[-1500:]}"}
+        state.submissions = [
+            {**s, "check": {key: launch.get(key) for key in ("status", "reason", "gpus")}}
+            if s["number"] == number else s
+            for s in state.submissions
+        ]
         return json.dumps({
             "submission": number,
             "status": "This is now the team's submission; it is graded after the deadline.",
             "saved_files": info["files"],
+            "launch_check": launch,
         })
 
     return ToolDef(submit, name="submit").as_tool()
+
+
+async def launch_check(archive: str, options: dict[str, Any]) -> dict[str, Any]:
+    """Start a snapshot's server once on free GPUs and report whether it answered."""
+    settings = f"{REMOTE}/check-{uuid4().hex[:12]}.json"
+    await workspace().write_file(settings, json.dumps({
+        "rc": agent_rc("@WORKSPACE@"),
+        "gpus": options["grade_gpus"],
+        "wait": options["server_wait_seconds"],
+        "kwargs": options["chat_template_kwargs"],
+    }))
+    result = await workspace().exec(
+        [PYTHON, POD, "check", archive, settings],
+        env=CACHE,
+        timeout=ARCHIVE_TIMEOUT + options["server_wait_seconds"],
+        timeout_retry=False,
+    )
+    if not result.success:
+        return {"status": "error", "reason": (result.stderr or result.stdout)[-1500:]}
+    return last_json(result.stdout)
 
 
 def bind(tools: list[Tool], actor: str, timeout: int) -> list[Tool]:
@@ -284,29 +325,37 @@ def notes(actor: str) -> str:
     if not fresh:
         return ""
     state.seen = {**state.seen, actor: len(state.submissions)}
-    return "\n".join([*(f"Submission #{s['number']} by {s['by']}." for s in fresh), status()])
+    lines = [f"Submission #{s['number']} by {s['by']} (launch check: {s['check']['status']})." for s in fresh]
+    return "\n".join([*lines, status()])
 
 
-def launcher(path: str, error: str | None = None) -> str:
-    """Run a restored workspace's start_server.sh with its .venv, on GPU 0 and port 8000."""
+def grade_devices(options: dict[str, Any]) -> str:
+    """Return the CUDA_VISIBLE_DEVICES value of the final grade."""
+    return ",".join(str(index) for index in range(options["grade_gpus"]))
+
+
+def launcher(path: str, devices: str, error: str | None = None) -> str:
+    """Run a restored workspace's start_server.sh with its .venv, on the grading GPUs and port 8000."""
     if error is not None:
         return f"#!/bin/bash\necho {shlex.quote('The submission could not be restored: ' + error)} >&2\nexit 1\n"
     return (
         "#!/bin/bash\n"
         f"# The submitted workspace is {path}; this file only launches it.\n"
         f". {path}/.agentrc\n"
-        f"export CUDA_VISIBLE_DEVICES=0 PORT={BASE_PORT}\n"
+        f"export CUDA_VISIBLE_DEVICES={devices} PORT={BASE_PORT}\n"
         'exec bash ./start_server.sh "$@"\n'
     )
 
 
 async def clear_gpus(env: SandboxEnvironment) -> None:
-    """Stop every GPU process and the port-8000 server, then wait until GPU 0's memory is free."""
-    gpus = [f"--gpu={index}" for index in range(store_as(TeamWorkspace).options["gpus"])]
+    """Stop every GPU process and the port-8000 server, then wait until the grading GPUs are free."""
+    options = store_as(TeamWorkspace).options
+    gpus = [f"--gpu={index}" for index in range(options["gpus"])]
     await checked(env, [PYTHON, POD, "kill", *gpus, f"--port={BASE_PORT}"], SHORT_TIMEOUT)
     wait = (
         "for i in $(seq 60); do "
-        "[ \"$(nvidia-smi -i 0 --query-gpu=memory.used --format=csv,noheader,nounits)\" -lt 2000 ] && exit 0; "
+        f"used=$(nvidia-smi -i {grade_devices(options)} --query-gpu=memory.used --format=csv,noheader,nounits) "
+        "&& [ -n \"$used\" ] && echo \"$used\" | awk '$1 >= 2000 {busy=1} END {exit busy}' && exit 0; "
         "sleep 2; done; exit 1"
     )
     await checked(env, ["bash", "-c", wait], SHORT_TIMEOUT + 60)
@@ -321,7 +370,8 @@ async def install(env: SandboxEnvironment, record: dict[str, Any]) -> str | None
         await checked(env, [PYTHON, POD, "restore", f"{REMOTE}/restore.tar.gz", path], ARCHIVE_TIMEOUT, CACHE)
     except Exception as failure:  # an unrestorable submission is invalid, not an evaluator crash
         error = f"{type(failure).__name__}: {str(failure)[-1500:]}"
-    await env.write_file(f"{TASK_DIR}/start_server.sh", launcher(path, error))
+    devices = grade_devices(store_as(TeamWorkspace).options)
+    await env.write_file(f"{TASK_DIR}/start_server.sh", launcher(path, devices, error))
     await checked(env, ["chmod", "755", f"{TASK_DIR}/start_server.sh"], SHORT_TIMEOUT)
     return error
 
