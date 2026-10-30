@@ -9,19 +9,18 @@ apt-get update && apt-get install -y \
 rm -rf /var/lib/apt/lists/*
 pip install uv
 uv pip install --system torch==2.8.0 --index-url https://download.pytorch.org/whl/cu128
-# Transformers 4.x cannot load Qwen3.5/3.6 MoE checkpoints; 5.22.1 maps them to a model class
-# through AutoModelForCausalLM, which the upstream baseline server uses.
+# Transformers 4.x cannot load Qwen3.5/3.6 MoE checkpoints; 5.20.2, the last release for the image's
+# Python 3.10, maps them to a model class through AutoModelForCausalLM, which the baseline server uses.
 uv pip install --system \
-    aiohttp requests accelerate 'datasets<4' sentencepiece protobuf numpy tokenizers 'transformers==5.22.1'
+    aiohttp requests accelerate 'datasets<4' sentencepiece protobuf numpy tokenizers 'transformers==5.20.2'
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
 
-# Pin the evaluator source and cache the target model.
+# Pin the evaluator source; prepare downloads the configured base model.
 git clone https://github.com/aisa-group/InferenceBench.git /opt/inferencebench
 (cd /opt/inferencebench && git checkout 24cdf88f6a4e14ed85d665aa132cecccb3ee95ef)
 mkdir -p /home/agent/task /opt/inference_eval
 cp -r /opt/inferencebench/src/eval/inference/bin /opt/inference_eval/bin
-python3 -c "from huggingface_hub import snapshot_download; snapshot_download('mistralai/Mistral-7B-Instruct-v0.3', ignore_patterns=['*.pt', '*.bin', 'original/*'])"
 
 # Isolate evaluator dependencies from agent-installed serving engines.
 uv venv /opt/evaluator
