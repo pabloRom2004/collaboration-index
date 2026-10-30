@@ -1393,13 +1393,13 @@ def test_snapshot_keeps_code_and_package_list_and_restore_rebuilds(
 
     monkeypatch.setattr(pod.subprocess, "run", run)
     archive = tmp_path / "snap.tar.gz"
-    pod.snapshot(str(root), str(archive), max_bytes=1000)
+    pod.main(["snapshot", str(root), str(archive), "--max-bytes", "1000"])
     with tarfile.open(archive) as handle:
         assert set(handle.getnames()) == {"start_server.sh", pod.LOCK}
 
     target = tmp_path / "restored"
     calls.clear()
-    pod.restore(str(archive), str(target))
+    pod.main(["restore", str(archive), str(target)])
     assert calls[0][:2] == ["uv", "venv"] and calls[0][-1] == str(target / ".venv")
     assert calls[1][:3] == ["uv", "pip", "install"] and calls[1][-1] == str(target / pod.LOCK)
     assert (target / pod.LOCK).read_text() == "vllm==0.31.0\n"
