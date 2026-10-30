@@ -95,8 +95,8 @@ task:
       enabled: false
       # GPUs on the pod; the final grade uses one of them
       gpus: 1
-      # persistent volume for agents' environments and the shared package cache
-      volume_gb: 100
+      # local container disk for agents' workspaces, environments and package caches
+      disk_gb: 200
       # largest workspace snapshot once environments and caches are left out
       max_snapshot_bytes: 100000000
       # minutes after the deadline for measuring earlier submissions (progress record only)

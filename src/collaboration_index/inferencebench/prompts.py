@@ -280,8 +280,8 @@ def team_workspace_prompt(agents: int, options: dict[str, Any]) -> str:
             "commands, so agree on the message board who uses which GPU and port."
         ),
         others="" if solo else (
-            " Teammates' workspaces are in /workspace/agents/ and you can read them; "
-            "/workspace/shared is a common folder for notes and files."
+            " Teammates' workspaces are in /team/agents/ and you can read them; "
+            "/team/shared is a common folder for notes and files."
         ),
         megabytes=options["max_snapshot_bytes"] // 1_000_000,
         replaces=(

@@ -1,0 +1,242 @@
+COMMANDS FOR COLLABORATION INDEX ON HAWK
+
+Purpose: run the InferenceBench collaboration task on the Generality Labs Hawk
+service from the MPI-IS login node. Hawk runs the Inspect controller. The task
+creates its own RunPod H100 pods. No HTCondor job and no cluster GPU is used.
+
+Requirements:
+- hawk CLI 2.2.0 (`uv tool install "hawk[cli]==2.2.0"`) with the local proxy
+  patch `_hawk_proxy_patch.pth` in its site-packages (aiohttp must use
+  $https_proxy on this cluster).
+- `hawk login` done once. The browser callback goes to localhost:18922 on the
+  login node; deliver it with `curl --noproxy '*' "<callback URL>"`.
+- ~/.config/collaboration-index/hawk.secrets (mode 600) with
+  OPENROUTER_API_KEY and RUNPOD_API_KEY.
+- Eval-set configs live under run-artifacts/<run>/ (gitignored). Pin the
+  task package to a full commit SHA that is pushed to GitHub.
+
+Submit one eval set:
+
+  hawk eval-set run run-artifacts/<run>/<config>.yaml \
+    --secrets-file ~/.config/collaboration-index/hawk.secrets
+
+Watch the job and guard its RunPod pods (deletes inferencebench-* pods older
+than the cap, or alive 15 minutes after the job stops):
+
+  hawk watch <job-id> --no-follow
+  set -a; . ~/.config/collaboration-index/hawk.secrets; set +a
+  python3 -I run-artifacts/hawk-smoke-20261028/watchdog.py <job-id> --max-pod-hours 3
+
+List RunPod pods directly:
+
+  curl -sS -H "Authorization: Bearer $RUNPOD_API_KEY" https://rest.runpod.io/v1/pods
+
+Download logs after the run:
+
+  hawk download <job-id>
+
+
+RUN LOG
+
+2026-10-28  Prepared run-artifacts/hawk-smoke-20261028/ib-smoke-shared.yaml
+            (commit 88c00d8, 2 Haiku 5.5 peers x 100K tokens, 1800 s team
+            deadline, 100 quality samples, judge openrouter/openai/gpt-6-sol
+            because gpt-6.1-sol is unavailable on the OpenRouter key).
+2026-10-28  Submitted as ib-collab-smoke-shared-xw9n404cxnntnrdg (14:11 UTC).
+            No pod was created: RunPod answered every create with HTTP 500
+            "Your account balance is too low to rent a pod" (personal account,
+            $0 balance), which the task retries as capacity. Stopped with
+            `hawk stop` at 14:55 UTC before any pod or model call; status
+            complete. RunPod and OpenRouter cost: $0. Resubmit after funding
+            the RunPod account or switching to a team-billed key.
+2026-10-28  Swapped in a new RunPod key (account user_3GVK22..., Generality
+            Labs team, $106.91 balance, $80 spend limit). Resubmitted the same
+            config as ib-collab-smoke-shared-c4er4gaopifq9ihg; watchdog started
+            right after submit (log: run-artifacts/hawk-smoke-20261028/
+            watchdog-ib-collab-smoke-shared-c4er4gaopifq9ihg.log, 3 h pod cap).
+2026-10-28  c4er4 never got a pod: RunPod answered "no instances currently
+            available" because allowedCudaVersions ["12.8","12.9","13.0"]
+            excluded the free H100 hosts (the same spec without the filter
+            created a pod at once; that probe pod was deleted, ~1 cent).
+            Stopped c4er4 (complete, $0). Pushed 3043428 (filter removed) to
+            inferencebench-multiagent, re-pinned the config, resubmitted as
+            ib-collab-smoke-shared-fpwcf02uv07iq8v8 with a new watchdog.
+2026-10-28  fpwcf finished (status success, 18:04-18:40 UTC). Pod 6q345ffm4akli5
+            (H100 SXM, $3.99/h) started, bootstrapped, measured the baseline,
+            ran 2 Haiku peers, restarted for scoring, scored, and was deleted by
+            the task's own cleanup. Cost: RunPod $2.20, OpenRouter $0.009.
+            Result: speedup 1.0 (quality gate failed). Both peers hit the 100K
+            token cap after ~10 turns (cache reads count toward the cap); their
+            pip-installed vLLM failed every request in the Mistral tokenizer
+            decode, so MMLU-Pro scored 0/100 vs baseline 0.35. Baseline TTFT
+            p50 0.31 s. Log: run-artifacts/hawk-smoke-20261028/fpwcf/*.eval
+            (zstd zip; read with the hawk tool's python, which has zstandard).
+2026-10-28  Submitted pilot ib-pilot-2m.yaml (2 peers x 2M tokens, 3600 s
+            team deadline, commit 3043428) as ib-collab-pilot-2m-8xq0n7yutrdolf5l;
+            watchdog with a 3 h pod cap.
+2026-10-28  Pilot 8xq0n finished (status success, pod 19:45-21:01 local, ~76
+            min x $3.99/h = ~$5.05; OpenRouter ~$0.04 for this run). Both peers
+            hit the 2M token cap (4.1M total, 87% cache reads) after ~46 min of
+            team time and 21 board messages; final config = canonical bf16
+            start_server.sh. Final TTFT p50 0.229 s vs baseline 0.322 s, but
+            MMLU-Pro 0.32 vs 0.35 (ratio 0.914 < tau 0.95), so the quality gate
+            failed and speedup = 1.0. The peers saw the same server score 0.31,
+            0.32 and 0.35 across runs: at n=100 the gate is noise-dominated.
+            Log: run-artifacts/hawk-smoke-20261028/pilot-8xq0n/*.eval.
+            RunPod balance read $199.66 after the run (funds were added).
+
+2026-10-28  Team-size pilot (Haiku 5.5, no token cap, 7200 s team deadline,
+            500 quality questions, seed pair [21,1337], commit 3043428):
+            run-artifacts/hawk-haiku-scaling-20261028/ib-haiku-a{1,4,16}.yaml
+            submitted as ib-haiku-a1-dj12awh1qr34ry2h,
+            ib-haiku-a4-5nrjfx5ssnm5roar, ib-haiku-a16-6mgo9jzc1ndqfg45.
+            One watchdog covers all three jobs (watchdog.py now takes several
+            job IDs; pods count as stragglers only after every job ends):
+              python3 -I watchdog.py JOB1 JOB2 JOB3 --max-pod-hours 4 [--adopt]
+            (pass the IDs as separate words; zsh does not split an unquoted
+            $J). The first watchdog got one joined ID and read job=None, so
+            it was replaced at 22:31 by one with --adopt (log watchdog-main.log).
+            The watchdog DELETE path now catches every error.
+
+2026-10-29  Prepared (NOT run) the first leased-GPU Hawk config:
+            run-artifacts/hawk-leased-20261029/ib-leased-smoke.yaml
+            (2 Haiku peers x 2M tokens, 3600 s, workspace_gpus 1, commit
+            3043428). It passes the Hawk schema and a by-hand check of the
+            task's validators. Hawk-specific choices from a static audit:
+            - each submission tars /home/agent/task, downloads it to the runner
+              disk and re-uploads it to the grading pod (session.py:478-513), so
+              max_submission_bytes is 2 GB (default 40 GB) and
+              max_pending_submissions is 1;
+            - orchestration/evaluation/scorer/workload must be complete blocks
+              (task.py:97-100), copied from run_configs/default.yaml;
+            - a job owns 2 pods (workspace + grading), both inferencebench-*,
+              so the watchdog covers them; expect ~2x the shared-mode cost.
+            Submit + guard (IDs as separate words):
+              hawk eval-set run run-artifacts/hawk-leased-20261029/ib-leased-smoke.yaml \
+                --secrets-file ~/.config/collaboration-index/hawk.secrets
+              python3 -I run-artifacts/hawk-haiku-scaling-20261028/watchdog.py JOB --max-pod-hours 4
+2026-10-29  Pushed 79cebe4: leased mode deletes the workspace pod before final
+            scoring and drops archives of submits refused by a full queue.
+            ib-leased-smoke.yaml is re-pinned to it (still not run).
+2026-10-29  Team-size results (scenario A, seed pair [21,1337], 500 quality Qs,
+            all quality and integrity checks passed; exploratory, n=1 each):
+              1 agent:  speedup 1.22 (TTFT p50 0.258 s vs baseline 0.314 s), 375M tokens
+              4 agents: speedup 1.37 (0.215 s vs 0.295 s), 35 board msgs, 121M tokens
+              16 agents: speedup 1.37 (0.215 s vs 0.294 s), 156 board msgs, 358M tokens
+            Cost for the three: RunPod $31.29 (balance 199.66 -> 168.37),
+            OpenRouter $38.93. Logs: run-artifacts/hawk-haiku-scaling-20261028/a{1,4,16}/.
+            Comparison with /fast/jyeon/ptb_results (upstream single-agent runs):
+            same scenario config (scenarios.json A = longbench_v2, input_len
+            8192, 128 requests, concurrency 1), but upstream's PyTorch baseline
+            TTFT p50 is 0.838 s on 128 requests vs our 0.29-0.31 s on 10, while
+            upstream agents' final TTFT is 0.17-0.29 s. Cause of the baseline gap
+            not yet identified.
+2026-10-29  Prepared (NOT run) run-artifacts/hawk-leased-20261029/ib-leased-a4-r128.yaml:
+            leased mode, 4 Haiku 5.5 peers, 7200 s, no token cap, commit 79cebe4,
+            matched to upstream ptb_results runs: request_limit null (all 128
+            held-out requests, seed 1337), system_prompt original (2 h budget,
+            timer.sh), strict_prompt false. Passes the Hawk schema. Upstream
+            requests.jsonl sha256 is fea125c4...; our 10-request held-out file
+            was fd8a862e..., and upstream's first 10 lines hash to 03818081...,
+            so the request sets differ. Compare the 128-request hash after the run.
+2026-10-29  Leased team-size sweep, matched to upstream (128 held-out requests,
+            original 2 h prompt, strict off, 500 quality Qs, seed pair [21,1337],
+            commit 79cebe4): ib-leased-a{1,4,16}-r128.yaml submitted as
+            ib-leased-a1-r128-nfwiznzcc0madczx, ib-leased-a4-r128-gabwm8xwm7yqicth,
+            ib-leased-a16-r128-zbex5t8jh7j52btd. One watchdog, 4 h pod cap, log
+            run-artifacts/hawk-leased-20261029/watchdog-sweep.log. RunPod spend
+            limit is $80/h; six H100 pods use about $24/h.
+2026-10-29  a4 (gabwm8...) and a16 (zbex5t...) failed after 900 s of setup: one pod
+            in each never answered SSH within startup_timeout_seconds 900
+            (runpod_sandbox._wait_ready; probably a slow CUDA image pull), and the
+            scorer then failed on the missing baseline.json. The task deleted their
+            pods (~$4). Resubmitted unchanged as ib-leased-a4-r128-5jspgu30i8ro62fv
+            and ib-leased-a16-r128-majqr2noxc07zoye. The watchdog was replaced by one
+            covering a1 + the new jobs with --adopt (log watchdog-sweep2.log).
+            If the failure repeats, raise startup_timeout_seconds in runpod.yaml.
+2026-10-29  Leased sweep results so far (exploratory, n=1 each):
+            a1 (nfwiz...): speedup 1.21 (final TTFT p50 0.267 s vs baseline 0.322 s on
+              128 requests), quality 0.312 vs 0.310 (n=500), integrity clean. 2
+              submissions (1.25 valid; 1.0 quality_failed). Haiku stopped acting at
+              ~48 min and refused 1238 "continue" nudges (~190K-token prompts each),
+              so the run used 242M tokens for 59 tool calls.
+            Baseline: 128 requests give TTFT p50 0.322 s, p90 0.351 s, decode 48.5
+              tok/s vs upstream 0.838 s and 25.8 tok/s. The request count does not
+              explain the gap. Our held-out sha256 3be4f64f... != upstream fea125c4...
+            a16 (majqr...): void. The workspace pod 76x68oaq3d8v5p refused SSH 8 s
+              after the agents started and stayed down; 4642/4695 bash calls failed,
+              0 submissions, speedup 1.0, 1.34B tokens. OpenRouter usage on
+              2026-10-29 reached $94.15 by 07:05 (mostly a16).
+            Logs: run-artifacts/hawk-leased-20261029/{a1,a16}/.
+2026-10-29  a4 (5jspg...): speedup 1.44 (final TTFT p50 0.225 s vs baseline 0.325 s,
+              128 requests), quality 0.302 vs 0.310 (ratio 0.974, n=500), integrity
+              clean. 2 valid submissions (1.41, then 1.52 in-run). 344M tokens;
+              1871 of 2127 Haiku calls had no tool call (idle continuation loop).
+            Sweep closed 07:42: watchdog exited, no inferencebench pods remain
+            (4 old EXITED pods only, $0.005/h). OpenRouter daily usage for
+            2026-10-29: $96.89. RunPod balance reads $197.83 because funds were
+            added mid-run; pod-hours estimate ~$65-70 including the ~$4 failed pair.
+
+## 2026-10-29: 16-agent failure cause and guardrails (commit a1cff1f)
+- Cause: an agent ran pkill -f "pip install". PID 1 was docker-init -- bash -c <setup script>, and the
+  script text contains "pip install", so the container died. SSH then refused connections for 2 hours.
+- Fixes: encoded startup command; sshd restart loop with MaxStartups=64; the team ends after 300 s of
+  refused probes, and the sample errors when the team made no valid submission.
+- Tests: CPU-only Condor job (run-artifacts/condor-tests/pytest.sub), command: condor_submit_bid 15 pytest.sub.
+  Jobs 17789368 and 17789378: 21 + 35 tests passed.
+- Upstream-baseline comparison (0.8376 s torch TTFT p50): a1 0.267 s gives 3.14x; a4 0.2252 s gives 3.72x.
+2026-10-29  Commit ee704b7: sshd restart loop traps TERM/HUP/INT. Loop check (Condor
+            CPU job 17789755, run-artifacts/condor-tests/loop_check.sh): 3/3 PASS; the
+            job was then held by a false memory-limit hold (peak 1 MB) and removed.
+            16-agent smoke ib-leased-a16-smoke.yaml (a16 config, 300K tokens/agent,
+            15 min, 10 requests, 100 quality Qs) submitted as
+            ib-leased-a16-smoke-utbbzpsl7ahwyqpt; watchdog 1 h pod cap, log
+            run-artifacts/hawk-leased-20261029/watchdog-a16-smoke.log.
+            ib-leased-a16-r128.yaml repinned to ee704b7 (not submitted).
+2026-10-29  a16 smoke (utbbzpsl...) complete, status success. Speedup 1.34 (final TTFT
+            p50 0.233 s vs baseline 0.312 s, 10 requests), quality 0.35 vs 0.34
+            (n=100, pass), integrity clean. 4 submissions, 1 valid (first at 845 s).
+            298 tool calls: 4 SSH-closed errors, all from agents' own `pkill -f vllm`
+            killing their own shell (15:42-15:44 UTC); 141 later calls ran, no
+            further SSH errors, so the pod survived. end_reason deadline. 4.8M tokens.
+            Two pods ~1 h each (~$8). The watchdog stopped with the Claude session at
+            16:40 CET; the task deleted both pods, and a 17:34 CET listing shows none.
+            Logs: run-artifacts/hawk-leased-20261029/a16-smoke/.
+2026-10-29  a16 rerun: ib-leased-a16-r128.yaml (commit ee704b7, otherwise unchanged)
+            submitted as ib-leased-a16-r128-1iifc7j3wz8rrvhn. Watchdog detached with
+            setsid nohup (survives the Claude session), 4 h pod cap, log
+            run-artifacts/hawk-leased-20261029/watchdog-a16-rerun.log. Report the
+            speedup against both our baseline and upstream's 0.8376 s torch TTFT p50.
+2026-10-29  a16 rerun (1iifc7j3...) complete, status success, end_reason deadline, no SSH
+            errors. Final TTFT p50 0.242 s vs baseline 0.324 s (128 requests; 1.34x ours,
+            3.46x vs upstream 0.8376 s), but MMLU-Pro 0.298 vs 0.314 (ratio 0.949 < 0.95,
+            n=500), so speedup = 1.0. 4 submissions, 1 valid (first at 1396 s, in-run
+            1.33). GPU lease wait p50 865 s, occupancy 0.999. 3688 turns, 3167 nudges,
+            746 tool calls. 371M tokens (364M cache reads). Watchdog exited 20:56 CET
+            with no pods left. Logs: run-artifacts/hawk-leased-20261029/a16-rerun/.
+
+## 2026-10-30: report, agent-log analysis and replay videos
+Report sources live in run-artifacts/report-20261029/. Rebuild from the .eval logs:
+  cd run-artifacts/report-20261029
+  /usr/bin/python3 -I collect.py       # per-run metrics -> data.json
+  /usr/bin/python3 -I board_stats.py   # board traffic and tool mix -> board_stats.json
+  /usr/bin/python3 -I extract.py       # compact transcripts -> transcripts/<run>.txt
+  /usr/bin/python3 -I figures.py       # fig1..fig5 (.pdf, .png)
+  pdflatex report.tex (twice)          # report.pdf; includes section_logs.tex
+Replay HTML and 90 s MP4 per run, through Condor (CPU nodes, one job per run):
+  condor_submit_bid 15 videos-all.sub
+  run_videos.sh calls collaboration-replay, then render_video.py (htmlpdf venv Playwright,
+  Chromium from /home/jyeon/.venvs/jeybird-design/browsers, static ffmpeg from the
+  sans-survival-torch venv's imageio_ffmpeg; the system ffmpeg on CPU nodes fails on OpenCL).
+RUN LOG 2026-10-30: video jobs 17794698/17794728 (smokes), 17794743.0-9 (all 10 runs, done;
+  each MP4 92 s). Report: 9 pages, reviewed by evidence and contradiction reviewers.
+
+## 2026-10-30: team-workspace mode (commit 38e1ee5)
+Agents share a 4xH100 pod with no scheduler; each has /team/agents/<handle> and its
+own .venv; submit saves code plus the .venv package list; the newest submission is graded
+on GPU 0 after the deadline, and earlier ones are measured for a progress record.
+Configs: run-artifacts/hawk-team-20261030/ (regenerate with make_configs.py COMMIT).
+Tests: run-artifacts/condor-tests/teamtests.sub (job 17795157: 2 team tests + 74 others passed).
+RUN LOG 2026-10-30: smoke ib-team-a16-smoke.yaml (16 agents, 20 min, 300K tokens/agent,
+  10 requests, 100 quality Qs, 15 min tracking) submitted as ib-team-a16-smoke-r0zp6xsme5hicrr3;
+  watchdog 2 h pod cap, log run-artifacts/hawk-team-20261030/watchdog-smoke.log.

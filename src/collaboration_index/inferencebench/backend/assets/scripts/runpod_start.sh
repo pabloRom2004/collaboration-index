@@ -4,7 +4,9 @@ set -euo pipefail
 # Preserve the installed filesystem independently of RunPod's container disk lifecycle.
 state=/workspace/.inferencebench
 exclude=(--exclude=./workspace --exclude=./proc --exclude=./sys --exclude=./dev
-         --exclude=./run --exclude=./etc/hosts --exclude=./etc/hostname --exclude=./etc/resolv.conf)
+         --exclude=./run --exclude=./etc/hosts --exclude=./etc/hostname --exclude=./etc/resolv.conf
+         # team mode's agent workspaces; their submissions restore from host copies
+         --exclude=./team)
 
 # NVIDIA injects this mount independently of the installed container filesystem.
 # Exclude its directory inventory and metadata as well as its mounted contents.

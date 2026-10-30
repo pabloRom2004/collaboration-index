@@ -1,7 +1,7 @@
 """Shared-machine team mode: private agent workspaces, code-only submissions, one team grade.
 
 Every agent sees all GPUs of one pod, and nothing schedules them. Each agent gets its own
-directory and Python environment (.venv) on the pod's persistent volume. ``submit`` stores
+directory and Python environment (.venv) on the pod's local container disk. ``submit`` stores
 the caller's code plus its .venv package list, and the newest submission from any agent is
 the team's answer. After the deadline the pod restarts, earlier submissions are measured for
 the progress record (not the score), and the team's submission is restored with a rebuilt
@@ -40,12 +40,15 @@ from collaboration_index.inferencebench.session import (
 )
 from collaboration_index.state import now
 
-AGENTS = "/workspace/agents"
-SHARED = "/workspace/shared"
-SUBMISSIONS = "/workspace/submissions"
+# Local disk: /workspace can be a network filesystem that 16 concurrent installs stall.
+# runpod_start.sh leaves ROOT out of the restart snapshot; submissions restore from host copies.
+ROOT = "/team"
+AGENTS = f"{ROOT}/agents"
+SHARED = f"{ROOT}/shared"
+SUBMISSIONS = f"{ROOT}/submissions"
 CACHE = {
-    "UV_CACHE_DIR": "/workspace/.uv-cache",
-    "PIP_CACHE_DIR": "/workspace/.pip-cache",
+    "UV_CACHE_DIR": f"{ROOT}/.uv-cache",
+    "PIP_CACHE_DIR": f"{ROOT}/.pip-cache",
     # copies, so an agent that edits an installed file cannot change other environments
     "UV_LINK_MODE": "copy",
 }
@@ -55,7 +58,7 @@ RUNNER = (
     'f=$(mktemp /tmp/agent-command-XXXXXX.sh); trap \'rm -f "$f"\' EXIT; cat > "$f"; '
     'bash --login "$f" </dev/null'
 )
-FIELDS = {"enabled", "gpus", "volume_gb", "max_snapshot_bytes", "track_minutes"}
+FIELDS = {"enabled", "gpus", "disk_gb", "max_snapshot_bytes", "track_minutes"}
 
 
 class TeamWorkspace(StoreModel):
@@ -76,17 +79,17 @@ def validate(options: dict[str, Any]) -> None:
         raise ValueError("team_workspace must contain exactly the documented fields")
     if not 1 <= options["gpus"] <= 8:
         raise ValueError("team_workspace gpus must be from 1 to 8")
-    if options["volume_gb"] < 1 or options["max_snapshot_bytes"] < 1 or options["track_minutes"] < 0:
+    if options["disk_gb"] < 1 or options["max_snapshot_bytes"] < 1 or options["track_minutes"] < 0:
         raise ValueError("team_workspace sizes must be positive and track_minutes nonnegative")
 
 
 def pod_config(options: dict[str, Any], folder: str) -> str:
-    """Write the bundled RunPod config with this mode's GPU count and volume size."""
+    """Write the bundled RunPod config with this mode's GPU count and container disk size."""
     from collaboration_index.inferencebench.backend.run_config import load_config
 
     config = load_config("runpod.yaml")
     config["pod"]["gpuCount"] = options["gpus"]
-    config["pod"]["volumeInGb"] = options["volume_gb"]
+    config["pod"]["containerDiskInGb"] = options["disk_gb"]
     path = Path(folder).expanduser().resolve() / f"runpod-team-{options['gpus']}gpu-{uuid4().hex[:8]}.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(config, sort_keys=False))

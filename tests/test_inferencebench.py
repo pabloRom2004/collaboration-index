@@ -1499,7 +1499,7 @@ def test_team_workspace_grades_the_newest_submission(
 
     monkeypatch.setattr(RunPodSandbox, "sample_init", classmethod(allocate))
     monkeypatch.setattr(environment, "BASELINE_CACHE", tmp_path / "baselines")
-    options = {**ARGS["team_workspace"], "enabled": True, "gpus": 4, "volume_gb": 400}
+    options = {**ARGS["team_workspace"], "enabled": True, "gpus": 4, "disk_gb": 400}
     task = inferencebench(
         agents=2,
         token_limit_per_agent=400,
@@ -1508,7 +1508,7 @@ def test_team_workspace_grades_the_newest_submission(
         team_workspace=options,
     )
     config = yaml.safe_load(Path(task.dataset[0].metadata["gpu_config"]).read_text())
-    assert config["pod"]["gpuCount"] == 4 and config["pod"]["volumeInGb"] == 400
+    assert config["pod"]["gpuCount"] == 4 and config["pod"]["containerDiskInGb"] == 400
     [log] = inspect_eval(
         task,
         model=team_model(),
@@ -1522,9 +1522,9 @@ def test_team_workspace_grades_the_newest_submission(
     handles = sample.store["TeamWorkspace:handles"]
     assert set(handles) == {"agent_0", "agent_1"} and len(set(handles.values())) == 2
     for actor, handle in handles.items():
-        assert f"/workspace/agents/{handle}/.venv" in pod.setup
+        assert f"/team/agents/{handle}/.venv" in pod.setup
         assert any(
-            c.startswith(f". /workspace/agents/{handle}/.agentrc") and f"work-{actor}" in c
+            c.startswith(f". /team/agents/{handle}/.agentrc") and f"work-{actor}" in c
             for c in pod.commands
         )
     submissions = sample.store["TeamWorkspace:submissions"]
@@ -1535,7 +1535,7 @@ def test_team_workspace_grades_the_newest_submission(
     [tracked] = sample.store["TeamWorkspace:tracked"]
     assert tracked["status"] == "graded" and tracked["speedup"] == 2
     launcher = pod.files["/home/agent/task/start_server.sh"]
-    assert f". /workspace/agents/{handles['agent_1']}/.agentrc" in launcher
+    assert f". /team/agents/{handles['agent_1']}/.agentrc" in launcher
     assert "CUDA_VISIBLE_DEVICES=0 PORT=8000" in launcher
     assert sample.scores["inference_team_speedup"].value["speedup"] == 2
     team = sample.scores["inference_team_speedup"].metadata["team"]
