@@ -197,6 +197,10 @@ def prepare(options):
 
     config = runner.load_scenario_config(TASK)
     repairs = {}
+    # Give the agent a separate development request set; sampling fails fast before the baselines.
+    config["dataset_seed"] = options["dev_seed"]
+    dev_requests, repairs["dev"] = prepare_requests(options, config, "dev")
+    precompute_baseline._write_requests_jsonl(TASK / "requests.jsonl", dev_requests)
     cached = bool(options.get("cached_speed_baseline"))
     if cached and not all((ARTIFACTS / name).is_file() for name in ["baseline.json", "heldout-requests.jsonl"]):
         raise RuntimeError("Shared speed baseline files were not transferred to the sandbox")
@@ -234,10 +238,6 @@ def prepare(options):
         with reference_server(options) as reference_version:
             prepare_quality_baseline(options, spec)
 
-    # Give the agent a separate development request set.
-    config["dataset_seed"] = options["dev_seed"]
-    dev_requests, repairs["dev"] = prepare_requests(options, config, "dev")
-    precompute_baseline._write_requests_jsonl(TASK / "requests.jsonl", dev_requests)
     # Record resolved weights and the exact evaluated inputs without claiming historical data pins.
     provenance = {
         "downloaded_model_revision": Path(snapshot).name,

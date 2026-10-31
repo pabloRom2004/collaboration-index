@@ -268,3 +268,21 @@ RUN LOG 2026-10-30: smoke ib-team-a16-smoke.yaml (16 agents, 20 min, 300K tokens
             every launch check was not_checked (all GPUs busy).
 2026-10-31  Fix: evaluate.py wrappers force the configured model and context length; the prompt says
             the launch check needs grade_gpus free GPUs and that agents can free GPUs and submit again.
+2026-10-31  Qwen smoke 3 ib-qwen-team-a16-smoke-hmykw7o3p5eumml8 (54bef4e), watchdog cap 3 pod-hours.
+2026-10-31  Qwen smoke 3 result: agent evaluate calls now use Qwen (4/4, 4/4, 10/10 requests; quality
+            0.78-0.81); final 2.47x, quality and integrity passed; 5 earlier submissions graded
+            (2.40-3.12x); launch checks still not_checked (all 6 submits in the last minutes).
+2026-10-31  Final runs (54bef4e), watchdog caps 10/14/24 pod-hours:
+            ib-qwen-team-a1-r128-o2xzspn83an9c5o2  ib-qwen-team-a4-r128-6kh15lnw4r8xvz8w
+            ib-qwen-team-a16-r128-uws88bdn0g9ccapx
+2026-10-31  Final runs (54bef4e) all failed in setup after ~115 min each (~$90 pod time): the 128
+            development requests (seed 21) hit an upstream range check at request 36 (6544 tokens,
+            minimum 6554); the one-step truncation repair did not restore enough tokens. The smokes
+            used 10 requests and never reached it. Baseline and quality reference had completed.
+2026-10-31  Fix: repeat the truncation top-up up to 8 times; build development requests before the
+            baselines so a sampling failure costs minutes. Condor check: condor-tests/reqcheck.sub.
+2026-10-31  Root cause (Condor diagnostic reqdiag.sub): upstream truncation shortens only the last user
+            message; sample 66ec7ba6821e116aacb1d114 holds 6544 tokens outside it, so seed 21 request 36
+            (target 6674, minimum 6554) cannot be built. The repeated top-up was reverted (no effect).
+            Fix: development seed 248 (upstream's next pair); scored seed 1337 unchanged. Condor
+            reqseeds.sub built 128 requests each for seeds 248, 999, 1337. Dev requests now build first.
