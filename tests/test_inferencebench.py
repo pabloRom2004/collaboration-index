@@ -1408,6 +1408,57 @@ def test_snapshot_keeps_code_and_package_list_and_restore_rebuilds(
     assert (target / pod.LOCK).read_text() == "vllm==0.31.0\n"
 
 
+def test_development_evaluators_override_the_image_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both evaluate.py wrappers send the configured model even when the image's ENV names another."""
+    import importlib.util
+    import subprocess
+
+    from collaboration_index.inferencebench import pod
+
+    spec = importlib.util.spec_from_file_location(
+        "ib_runtime",
+        Path(pod.__file__).parent / "backend/assets/scripts/runtime.py",
+    )
+    runtime = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runtime)
+    context = tmp_path / "root/src/eval/tasks/_shared/task_context"
+    context.mkdir(parents=True)
+    for name in ["start_server.sh", "test_server.sh"]:
+        (context / name).write_text("${INFERENCE_BENCH_BASE_MODEL:-mistralai/Mistral-7B-Instruct-v0.3}\n")
+    (tmp_path / "task").mkdir()
+    for name, value in [("ROOT", tmp_path / "root"), ("TASK", tmp_path / "task"),
+                        ("PROFILE", tmp_path / "profile.sh")]:
+        monkeypatch.setattr(runtime, name, value)
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    options = {
+        "base_model": "Qwen/Qwen3.6-35B-A3B", "max_model_len": 32768, "dev_seed": 1,
+        "quality_seed": 2, "quality_samples": 3, "quality_tau": 0.95, "quality_concurrency": 4,
+        "server_wait_seconds": 900, "chat_template_kwargs": {}, "request_timeout_seconds": 300,
+        "request_limit": 10, "baseline_dtype": "bfloat16",
+    }
+    runtime.install_workspace(options)
+    (tmp_path / "team.py").write_text(pod.evaluator_wrapper(runtime.environment(options), 5))
+    fake = tmp_path / "fake/inference"
+    fake.mkdir(parents=True)
+    (fake / "__init__.py").write_text("")
+    (fake / "runner.py").write_text(
+        "import os\n"
+        "def build_parser():\n"
+        "    import argparse; p = argparse.ArgumentParser(); p.add_argument('--quick', action='store_true'); return p\n"
+        "def run_evaluation(path, args):\n"
+        "    print(os.environ['INFERENCE_BENCH_BASE_MODEL'], os.environ['INFERENCE_BENCH_MAX_MODEL_LEN'])\n"
+    )
+    image = {**os.environ, "PYTHONPATH": str(tmp_path / "fake"),
+             "INFERENCE_BENCH_BASE_MODEL": "mistralai/Mistral-7B-Instruct-v0.3",
+             "INFERENCE_BENCH_MAX_MODEL_LEN": "4096"}
+    for wrapper in [tmp_path / "task/evaluate.py", tmp_path / "team.py"]:
+        result = subprocess.run([sys.executable, str(wrapper)], env=image,
+                                capture_output=True, text=True, check=True)
+        assert result.stdout.split() == ["Qwen/Qwen3.6-35B-A3B", "32768"]
+
+
 def test_launch_check_starts_the_snapshot_server_and_sends_one_request(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

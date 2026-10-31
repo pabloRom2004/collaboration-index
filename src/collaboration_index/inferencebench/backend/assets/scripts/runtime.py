@@ -418,7 +418,10 @@ def install_workspace(options):
     env = environment(options)
     env["INFERENCE_BENCH_REQUESTS_FILE"] = str(TASK / "requests.jsonl")
     wrapper = "#!/opt/evaluator/bin/python\nimport os, sys\nfrom pathlib import Path\n"
-    wrapper += f"for key, value in {env!r}.items(): os.environ.setdefault(key, value)\nsys.path.insert(0, {str(ROOT / 'src/eval')!r})\n"
+    wrapper += f"for key, value in {env!r}.items(): os.environ.setdefault(key, value)\n"
+    # The image's static ENV also names a model, so the configured model and context must win.
+    model = {key: env[key] for key in ["INFERENCE_BENCH_BASE_MODEL", "INFERENCE_BENCH_MAX_MODEL_LEN"]}
+    wrapper += f"os.environ.update({model!r})\nsys.path.insert(0, {str(ROOT / 'src/eval')!r})\n"
     wrapper += "from inference.runner import build_parser, run_evaluation\nrun_evaluation(Path(__file__).parent, build_parser().parse_args())\n"
     (TASK / "evaluate.py").write_text(wrapper)
     (TASK / "evaluate.py").chmod(0o755)

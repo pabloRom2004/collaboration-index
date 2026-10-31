@@ -169,9 +169,11 @@ held-out requests and the quality gate, as the Final Evaluation section above
 describes. Only the submission is graded: changes to /home/agent/task or other
 folders are not, and the snapshot holds nothing outside your workspace. Without a
 submission the score is the 1.0 baseline. Before submit returns, a launch check
-restores the snapshot in a temporary folder, runs its ./start_server.sh on free
-GPUs and sends one request, and reports pass or fail; a submission that fails the
-check still becomes the team's submission.{chat}""",
+restores the snapshot in a temporary folder, runs its ./start_server.sh on
+{check_gpus} and sends one request, and reports pass or fail; a submission that fails
+the check still becomes the team's submission. A GPU is free when it uses under
+2000 MiB; if too few are free, the check reports not_checked, and you can free GPUs
+and call submit again.{chat}""",
 )
 
 CONTINUE_TEAM = Prompt(
@@ -278,6 +280,7 @@ def team_workspace_prompt(agents: int, options: dict[str, Any]) -> str:
             "reasoning or replies. No agent has an assigned role."
         ),
         gpus=options["gpus"],
+        check_gpus="one free GPU" if options["grade_gpus"] == 1 else f"{options['grade_gpus']} free GPUs",
         grading=(
             "GPU 0" if options["grade_gpus"] == 1
             else f"GPUs 0-{options['grade_gpus'] - 1} (CUDA_VISIBLE_DEVICES={team_workspace.grade_devices(options)})"

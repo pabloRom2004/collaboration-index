@@ -240,3 +240,31 @@ Tests: run-artifacts/condor-tests/teamtests.sub (job 17795157: 2 team tests + 74
 RUN LOG 2026-10-30: smoke ib-team-a16-smoke.yaml (16 agents, 20 min, 300K tokens/agent,
   10 requests, 100 quality Qs, 15 min tracking) submitted as ib-team-a16-smoke-r0zp6xsme5hicrr3;
   watchdog 2 h pod cap, log run-artifacts/hawk-team-20261030/watchdog-smoke.log.
+2026-10-30  Smoke 1 ib-team-a16-smoke-r0zp6xsme5hicrr3 (38e1ee5): no submission; /workspace was MooseFS and
+            16 parallel vllm installs stalled every command. Fix 18dbae6 moves team dirs to /team (local disk).
+2026-10-30  Smoke 2 ib-team-a16-smoke-7pua0lhvi4jmob20 (18dbae6), watchdog cap 1.5 pod-hours.
+2026-10-30  Smoke 2 result: 6 submissions, commands responsive, restart ran; every restore failed
+            (pod.py main shadowed restore()). Fixed in 4a0ca7f.
+2026-10-30  Smoke 3 ib-team-a16-smoke-yo0ewti3aadmmwqu (4a0ca7f), watchdog cap 1.5 pod-hours.
+2026-10-30  Smoke 3 result: 9 submissions; 4 earlier ones graded (1.33-1.43); final graded 1.42, quality
+            and integrity checks passed. Pipeline accepted.
+2026-10-30  Final runs (4a0ca7f), watchdog cap 4.5 pod-hours each:
+            ib-team-a1-r128-r5rxdn4e247nbh7e  ib-team-a4-r128-hd8ubzyzdkmfvj5k  ib-team-a16-r128-88ivyywich4eyjqf
+2026-10-30  Final runs at 4a0ca7f deleted during setup (user: grade every submission, no budget).
+2026-10-30  de5be19: no tracking budget; final graded first; earlier ones graded in scorer cleanup; code kept in log.
+2026-10-30  Smoke 4 ib-team-a16-smoke-5jprvgosenjehl3a (de5be19), watchdog cap 2.5 pod-hours.
+2026-10-30  Smoke 4 (Mistral) deleted at user request; switch to Qwen/Qwen3.6-35B-A3B, thinking off.
+2026-10-30  a38ef4c: chat_template_kwargs, transformers 5.22.1, grade_gpus=2, volume_gb, launch check at submit.
+2026-10-30  Qwen smoke 1 ib-qwen-team-a16-smoke-lfdng7xapy433wpa (a38ef4c), watchdog cap 3 pod-hours.
+2026-10-30  Qwen smoke 1 failed before agents started: 57 min waiting for 4xH100 capacity, then pod boot
+            stopped because transformers 5.22.1 needs Python >=3.11 (image has 3.10); SSH readiness timed out
+            after 900 s. About $4 of pod time. Fix: transformers 5.20.2; boot no longer downloads Mistral.
+2026-10-30  Condor check of the Python 3.10 stack with Qwen3.6: run-artifacts/condor-tests/qwencheck.sub, job 17800891.
+2026-10-30  Qwen smoke 2 ib-qwen-team-a16-smoke-ydohlrqvi53u6zb8 (89cf272), watchdog cap 3 pod-hours.
+2026-10-31  Qwen smoke 2 result: setup 26 min; 10-request Transformers baseline ~39 s per request
+            (TTFT p50 0.76 s); MMLU-Pro reference 0.76 with thinking off; final 2.45x, quality passed,
+            integrity clean; both earlier submissions graded (3.37x, 2.68x). Pod 84 min (~$22).
+            Defects: every agent evaluate call used the image's Mistral model id (0/4 requests);
+            every launch check was not_checked (all GPUs busy).
+2026-10-31  Fix: evaluate.py wrappers force the configured model and context length; the prompt says
+            the launch check needs grade_gpus free GPUs and that agents can free GPUs and submit again.

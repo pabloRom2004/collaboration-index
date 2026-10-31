@@ -837,7 +837,11 @@ def test_unpack_replaces_and_refuses_escape(tmp_path: Path) -> None:
 
 def test_evaluator_wrapper_compiles_with_quick_override_first() -> None:
     """Override the quality count for quick runs before environment defaults apply."""
-    text = pod.evaluator_wrapper({"INFERENCE_BENCH_QUALITY_MMLUPRO_N": "100"}, 16)
+    text = pod.evaluator_wrapper({
+        "INFERENCE_BENCH_QUALITY_MMLUPRO_N": "100",
+        "INFERENCE_BENCH_BASE_MODEL": "Qwen/Qwen3.6-35B-A3B",
+        "INFERENCE_BENCH_MAX_MODEL_LEN": "32768",
+    }, 16)
     compile(text, "evaluate.py", "exec")
-    assert text.index("--quick") < text.index("setdefault")
+    assert text.index("--quick") < text.index("setdefault") < text.index("os.environ.update")
     assert "'--server-url'" in text and "PORT" in text

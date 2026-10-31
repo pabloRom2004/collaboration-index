@@ -30,6 +30,8 @@ TOO_LARGE = 3
 LONGBENCH_SAMPLES = 503
 # the development baseline server that runtime.baseline_server starts
 BASELINE_URL = "http://127.0.0.1:8000"
+# the image's static ENV sets these too, so development wrappers override them
+MODEL_ENV = ["INFERENCE_BENCH_BASE_MODEL", "INFERENCE_BENCH_MAX_MODEL_LEN"]
 OOM_PATTERNS = [
     r"CUDA out of memory",
     r"torch\.(?:cuda\.)?OutOfMemoryError",
@@ -486,7 +488,7 @@ def check(archive: str, rc: str, gpus: int, wait: int, kwargs: dict[str, Any]) -
             fcntl.flock(lock, fcntl.LOCK_EX)
             devices = free_gpus(gpus)
             if len(devices) < gpus:
-                return {"status": "not_checked", "reason": f"fewer than {gpus} free GPUs right now"}
+                return {"status": "not_checked", "reason": f"fewer than {gpus} free GPUs (under 2000 MiB used) right now; free GPUs and submit again"}
             with socket.socket() as probe:  # a port no agent server is using
                 probe.bind(("127.0.0.1", 0))
                 port = probe.getsockname()[1]
@@ -544,6 +546,7 @@ def evaluator_wrapper(env: dict[str, str], quick_quality: int) -> str:
         "if '--quick' in sys.argv:\n"
         f"    os.environ['INFERENCE_BENCH_QUALITY_MMLUPRO_N'] = '{quick_quality}'\n"
         f"for key, value in {env!r}.items(): os.environ.setdefault(key, value)\n"
+        f"os.environ.update({ {key: env[key] for key in MODEL_ENV}!r})\n"
         "if os.environ.get('PORT') and not any(a.startswith('--server-url') for a in sys.argv[1:]):\n"
         "    sys.argv[1:1] = ['--server-url', 'http://127.0.0.1:' + os.environ['PORT']]\n"
         "sys.path.insert(0, '/opt/inferencebench/src/eval')\n"
